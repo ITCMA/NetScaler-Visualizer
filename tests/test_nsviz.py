@@ -292,15 +292,15 @@ class LinkingTests(unittest.TestCase):
         from nsviz.linking import collect, fqdns
         p = Project.load([str(DEMO)])
         c = collect(p)
-        self.assertEqual([s["host"] for s in c["sources"]], ["extra.backend.example.test"])
+        self.assertEqual(sorted(s["host"] for s in c["sources"]), ["extra.backend.example.test", "sta.example.com"])  # service target + STA URL
         self.assertTrue(any(t["ip"] == "10.20.0.52" and t["port"] == "8080" for t in c["targets"]))
-        self.assertEqual(fqdns(p), ["extra.backend.example.test"])
+        self.assertEqual(fqdns(p), ["extra.backend.example.test", "sta.example.com"])
 
     def test_map_roundtrip_adds_chain(self):
         from nsviz.linking import collect, apply_map, MAP_FORMAT
         p0 = Project.load([str(DEMO)])
         c = collect(p0)
-        src = c["sources"][0]["key"]
+        src = next(x["key"] for x in c["sources"] if not x.get("url"))
         dst = next(t["key"] for t in c["targets"] if t["ip"] == "10.20.0.52")
         n0 = len(p0.links)
         p = Project.load([str(DEMO)], link_map={"format": MAP_FORMAT, "version": 1, "links": [

@@ -20,7 +20,7 @@ function lkScore(src, tg) {
   if (tg.certs.some(c => { const l = c.toLowerCase(); return l.includes(host) || (first.length >= 3 && !LK_GENERIC.has(first) && l.includes(first)); })) { sc += 25; r.push('cert'); }
   return { score: Math.min(100, sc), reasons: r };
 }
-const lkTargetsFor = src => LK.targets.filter(x => x.group !== src.group).map(x => ({ tg: x, ...lkScore(src, x) })).sort((a, b) => b.score - a.score || a.tg.name.localeCompare(b.tg.name));
+const lkTargetsFor = src => LK.targets.filter(x => src.url || x.group !== src.group).map(x => ({ tg: x, ...lkScore(src, x) })).sort((a, b) => b.score - a.score || a.tg.name.localeCompare(b.tg.name));
 function lkAutoPick() {
   LK.sources.forEach(s => {
     const cur = lkSel[s.node]; if (cur && cur.status !== 'proposed') return;

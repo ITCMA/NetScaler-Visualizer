@@ -60,7 +60,7 @@ def _cert_strings(g, node_id: str) -> list[str]:
 
 def collect(project) -> dict:
     """Sources and targets for the report. Sources: service/service group members whose host is an FQDN (not an IP)."""
-    sources, targets, seen = [], [], set()
+    sources, targets, seen = [], [], set()  # sources: service targets with an FQDN and URL targets that match no local vServer
     for g in project.groups:
         for be in g.graph.backends:
             host = be["host"]
@@ -69,6 +69,13 @@ def collect(project) -> dict:
             seen.add((be["node"], host))
             sources.append({"node": be["node"], "group": g.id, "name": be["name"], "etype": be["etype"], "host": host,
                             "port": be["port"], "proto": be["proto"], "key": node_key(project, be["node"])})
+        for u in g.graph.unresolved:  # session action / STA URL targets: FQDN or an address that is not a local vServer
+            if (u["node"], u["host"]) in seen or u.get("resolved"):
+                continue
+            seen.add((u["node"], u["host"]))
+            nd = g.graph.nodes[u["node"]]
+            sources.append({"node": u["node"], "group": g.id, "name": nd.name, "etype": nd.etype, "host": u["host"], "port": u["port"],
+                            "proto": u["via"], "url": True, "key": node_key(project, u["node"])})
         for fe in g.graph.frontends:
             targets.append({"node": fe["node"], "group": g.id, "name": fe["name"], "ip": fe["ip"], "port": fe["port"],
                             "proto": fe["proto"], "certs": _cert_strings(g, fe["node"]), "key": node_key(project, fe["node"])})

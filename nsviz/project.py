@@ -108,6 +108,7 @@ class Project:
         self._chains()
         for w in (apply_map(self, link_map) if link_map else []):
             self.notes.append({"en": w, "de": w})
+        self._url_chains()
         self._dependency()
         self.findings = finalize(self.findings)
         self._attach()
@@ -286,6 +287,20 @@ class Project:
                             self.findings.append(Finding("CHAIN-002", "medium", render_messages("CHAIN-002", src=be["name"], proto=be["proto"], dst=fe["name"], dev=h.name),
                                                          g.devices[0].name, be["etype"], be["name"], g.devices[0].cfg.name, 0, [], be["node"]))
 
+    def _url_chains(self) -> None:
+        """Session action/STA URLs whose IP and port match a vServer of ANOTHER device (gateway -> StoreFront/LB behind it)."""
+        for g in self.groups:
+            for u in g.graph.unresolved:
+                if not u["ip"]:
+                    continue
+                for h in self.groups:
+                    if h is g:
+                        continue
+                    for fe in h.graph.frontends:
+                        if fe["ip"] == u["ip"] and (not u["port"] or fe["port"] == u["port"]):
+                            self.extra_edges.append(Edge(u["node"], fe["node"], "doublehop", f"{u['via']} → {u['ip']}:{fe['port']}", True))
+                            u["resolved"] = True
+
     # ---- Dependencies: what is reachable from an addressable vServer? --------------------------------
     VS_KINDS = {"csvs", "lbvs", "gwvs", "aaavs", "gslbvs"}
     INFRA_KINDS = {"device", "netip", "vlan", "route", "group", "missing", "domain"}
@@ -322,7 +337,7 @@ class Project:
         for g in self.groups:
             for u in g.graph.unresolved:
                 n = nodes.get(u["node"])
-                if n:
+                if n and not u.get("resolved"):
                     self.findings.append(Finding("DEP-002", "info", render_messages("DEP-002", name=n.name, via=u["via"], host=u["host"], port=u["port"] or "?"),
                                                  g.devices[0].name, n.etype, n.name, g.devices[0].cfg.name, n.lines[0]["line"] if n.lines else 0, [], u["node"]))
 
@@ -399,7 +414,7 @@ class Project:
             "diffs": self.diffs,
             "links": self.links,
             "unlinked": self.unlinked(),
-            "unresolved": [{**u, "group": g.id} for g in self.groups for u in g.graph.unresolved],
+            "unresolved": [{**u, "group": g.id} for g in self.groups for u in g.graph.unresolved if not u.get("resolved")],
             "linking": {**collect(self), "map": self.link_map},
             "chains": self.chains(),
         }
