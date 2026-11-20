@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>NetScaler Visualizer</title>
+<style>
+:root{color-scheme:light dark;--bg:#f4f6fb;--panel:#fff;--fg:#161b2e;--muted:#5b6478;--line:#d9deea;--accent:#4f46e5;--ok:#15803d;--bad:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1220;--panel:#171c30;--fg:#e8ecf8;--muted:#a3adc4;--line:#2b3454;--accent:#8b8cf8;--ok:#4ade80;--bad:#f87171}}
+@media (prefers-contrast:more){:root{--line:CanvasText;--muted:CanvasText}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;gap:12px;align-items:center;padding:14px 22px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0;flex:1}main{max-width:980px;margin:0 auto;padding:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+h2{font-size:15px;margin:0 0 8px}.muted{color:var(--muted)}.small{font-size:12.5px}
+button,select,input[type=text]{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+button{cursor:pointer}button:hover:not(:disabled){border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;padding:9px 20px}
+a{color:inherit;text-decoration:none}:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;cursor:pointer}#drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.row input[type=text]{flex:1;min-width:220px}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{text-align:start;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.err{color:var(--bad);font-weight:600}.okc{color:var(--ok);font-weight:600}
+select{max-width:100%}label.chk{display:flex;gap:8px;align-items:center;margin:6px 0}
+</style>
+</head>
+<body>
+<header><h1>NetScaler Visualizer <span class="muted small">v__VERSION__</span></h1>
+<label for="lang" class="muted small" id="l-lang">Language</label><select id="lang"><option value="en">English</option><option value="de">Deutsch</option></select>
+<button id="quit" data-i="quit">Quit</button></header>
+<main>
+<p class="muted" data-i="privacy">This page runs on your computer only (127.0.0.1). Files are read locally and nothing is sent anywhere.</p>
+
+<section class="card" aria-labelledby="h1"><h2 id="h1" data-i="s_files">1. Config files</h2>
+<div id="drop" tabindex="0" role="button" data-i-aria="drop_aria"><b data-i="drop">Drop ns.conf files here or click to choose</b><br><span class="muted small" data-i="drop_hint">Several files at once are fine (HA pairs, double-hop chains).</span></div>
+<input type="file" id="file" multiple hidden>
+<div class="row"><label for="path" class="muted small" data-i="path_l">or a folder/file path on this computer:</label><input type="text" id="path" autocomplete="off" placeholder="/Users/me/configs"><button id="addpath" data-i="add">Add</button></div>
+<div id="files"></div></section>
+
+<section class="card" aria-labelledby="h2"><h2 id="h2" data-i="s_ha">2. HA pairs (optional)</h2>
+<p class="muted small" data-i="ha_hint">Pairs are detected automatically from the configs. You can pair two files by hand here.</p>
+<div class="row"><select id="ha-a" aria-label="A"></select><span>+</span><select id="ha-b" aria-label="B"></select><button id="ha-add" data-i="pair">Pair</button></div><ul id="ha-list"></ul></section>
+
+<section class="card" aria-labelledby="h3"><h2 id="h3" data-i="s_link">3. Cross-device links (optional)</h2>
+<p class="muted small" data-i="link_hint">A hosts file (IP and FQDN) helps to suggest links between devices. A saved link map restores your earlier decisions.</p>
+<div class="row"><button id="up-hosts" data-i="hosts">Choose hosts file</button><span id="st-hosts" class="muted small"></span><button id="up-map" data-i="map">Choose link map</button><span id="st-map" class="muted small"></span></div>
+<input type="file" id="f-hosts" hidden><input type="file" id="f-map" hidden></section>
+
+<section class="card" aria-labelledby="h4"><h2 id="h4" data-i="s_opt">4. Options</h2>
+<div class="row"><label for="title" data-i="title">Report title</label><input type="text" id="title" value="NetScaler Visualizer"></div>
+<label class="chk"><input type="checkbox" id="redact" checked><span data-i="redact">Mask passwords and keys in the report (recommended)</span></label>
+<p class="err small" id="redact-warn" hidden data-i="redact_warn">Without masking, secrets from the configs end up in the HTML file. Do not share such a report.</p></section>
+
+<section class="card"><button class="primary" id="go" disabled data-i="go">Create report</button> <span id="busy" class="muted" role="status"></span>
+<div id="result" aria-live="polite"></div></section>
+</main>
+<script>
+const TOKEN='__TOKEN__';
+const L={en:{quit:'Quit',privacy:'This page runs on your computer only (127.0.0.1). Files are read locally and nothing is sent anywhere.',s_files:'1. Config files',drop:'Drop ns.conf files here or click to choose',drop_hint:'Several files at once are fine (HA pairs, double-hop chains).',drop_aria:'Choose config files',path_l:'or a folder/file path on this computer:',add:'Add',s_ha:'2. HA pairs (optional)',ha_hint:'Pairs are detected automatically from the configs. You can pair two files by hand here.',pair:'Pair',s_link:'3. Cross-device links (optional)',link_hint:'A hosts file (IP and FQDN) helps to suggest links between devices. A saved link map restores your earlier decisions.',hosts:'Choose hosts file',map:'Choose link map',s_opt:'4. Options',title:'Report title',redact:'Mask passwords and keys in the report (recommended)',redact_warn:'Without masking, secrets from the configs end up in the HTML file. Do not share such a report.',go:'Create report',busy:'Analyzing …',lang:'Language',th_file:'File',th_host:'Host name',th_ver:'Version',th_st:'Statements',th_role:'Role',role_auto:'automatic',role_p:'primary',role_s:'secondary',remove:'Remove',none:'No files yet.',notconf:'does not look like an ns.conf',open:'Open report',download:'Save as HTML file',done:'Report created',summary:'{d} device(s), {g} group(s), {o} objects, {r} relations',findings:'Findings',notes:'Notes',err:'Error',loaded:'loaded',remove_x:'remove',pairs:'Pairs',quitted:'The GUI was closed. You can close this tab.',nopath:'path not found'},
+de:{quit:'Beenden',privacy:'Diese Seite läuft nur auf deinem Rechner (127.0.0.1). Dateien werden lokal gelesen, nichts wird irgendwohin gesendet.',s_files:'1. Config-Dateien',drop:'ns.conf-Dateien hierher ziehen oder klicken',drop_hint:'Mehrere Dateien gleichzeitig sind in Ordnung (HA-Paare, Double-Hop-Ketten).',drop_aria:'Config-Dateien wählen',path_l:'oder Ordner-/Dateipfad auf diesem Rechner:',add:'Hinzufügen',s_ha:'2. HA-Paare (optional)',ha_hint:'Paare werden automatisch aus den Configs erkannt. Hier kannst du zwei Dateien von Hand koppeln.',pair:'Koppeln',s_link:'3. Geräteübergreifende Verknüpfung (optional)',link_hint:'Eine Hosts-Datei (IP und FQDN) hilft bei Vorschlägen für Verknüpfungen zwischen Geräten. Eine gespeicherte Zuordnung stellt frühere Entscheidungen wieder her.',hosts:'Hosts-Datei wählen',map:'Zuordnung wählen',s_opt:'4. Optionen',title:'Titel des Reports',redact:'Passwörter und Schlüssel im Report maskieren (empfohlen)',redact_warn:'Ohne Maskierung landen Geheimnisse aus den Configs in der HTML-Datei. Einen solchen Report nicht weitergeben.',go:'Report erstellen',busy:'Analysiere …',lang:'Sprache',th_file:'Datei',th_host:'Hostname',th_ver:'Version',th_st:'Anweisungen',th_role:'Rolle',role_auto:'automatisch',role_p:'primär',role_s:'sekundär',remove:'Entfernen',none:'Noch keine Dateien.',notconf:'sieht nicht nach einer ns.conf aus',open:'Report öffnen',download:'Als HTML-Datei speichern',done:'Report erstellt',summary:'{d} Gerät(e), {g} Gruppe(n), {o} Objekte, {r} Beziehungen',findings:'Befunde',notes:'Hinweise',err:'Fehler',loaded:'geladen',remove_x:'entfernen',pairs:'Paare',quitted:'Die Oberfläche wurde beendet. Du kannst diesen Tab schließen.',nopath:'Pfad nicht gefunden'}};
+let lang=(navigator.language||'en').toLowerCase().startsWith('de')?'de':'en';
+const $=s=>document.querySelector(s),t=(k,v)=>(L[lang][k]||L.en[k]||k).replace(/\{(\w+)\}/g,(m,x)=>v&&x in v?v[x]:m);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function stat(){document.documentElement.lang=lang;$('#lang').value=lang;document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));document.querySelectorAll('[data-i-aria]').forEach(e=>e.setAttribute('aria-label',t(e.dataset.iAria)));$('#l-lang').textContent=t('lang');}
+const api=(p,o={})=>fetch(p,{...o,headers:{...(o.headers||{}),'X-Token':TOKEN}}).then(r=>r.json().then(j=>{if(!r.ok)throw new Error(j.error||r.status);return j}));
+const post=(p,b)=>api(p,{method:'POST',body:JSON.stringify(b||{})});
+let files=[],roles={},pairs=[],extra=[];
+async function up(f,kind){return api(`/api/upload?kind=${kind}&name=${encodeURIComponent(f.name)}`,{method:'POST',body:f});}
+async function refresh(){const r=await api('/api/files');files=r.files;extra=r.extra;render();}
+function render(){
+ $('#files').innerHTML=files.length?`<table><thead><tr><th>${t('th_file')}</th><th>${t('th_host')}</th><th>${t('th_ver')}</th><th>${t('th_st')}</th><th>${t('th_role')}</th><th></th></tr></thead><tbody>`+files.map(f=>`<tr><td>${esc(f.name)}${f.ok&&!f.ns_conf?`<br><span class="err small">${t('notconf')}</span>`:''}${f.ok?'':`<br><span class="err small">${esc(f.error)}</span>`}</td><td>${esc(f.host)}</td><td>${esc(f.version)}</td><td>${f.statements||''}</td><td><select data-n="${esc(f.name)}" aria-label="${t('th_role')} ${esc(f.name)}"><option value="">${t('role_auto')}</option><option value="primary" ${roles[f.name]==='primary'?'selected':''}>${t('role_p')}</option><option value="secondary" ${roles[f.name]==='secondary'?'selected':''}>${t('role_s')}</option></select></td><td><button data-rm="${esc(f.name)}">${t('remove')}</button></td></tr>`).join('')+'</tbody></table>':`<p class="muted">${t('none')}</p>`;
+ document.querySelectorAll('#files select').forEach(s=>s.onchange=()=>{roles[s.dataset.n]=s.value});
+ document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=async()=>{await post('/api/remove',{name:b.dataset.rm});pairs=pairs.filter(p=>!p.includes(b.dataset.rm));refresh()});
+ const opts=files.map(f=>`<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('');$('#ha-a').innerHTML=opts;$('#ha-b').innerHTML=opts;if(files[1])$('#ha-b').selectedIndex=1;
+ $('#ha-list').innerHTML=pairs.map((p,i)=>`<li>${esc(p[0])} + ${esc(p[1])} <button data-hp="${i}">${t('remove')}</button></li>`).join('');
+ document.querySelectorAll('[data-hp]').forEach(b=>b.onclick=()=>{pairs.splice(+b.dataset.hp,1);render()});
+ $('#st-hosts').textContent=extra.includes('hosts')?'✓ '+t('loaded'):'';$('#st-map').textContent=extra.includes('map')?'✓ '+t('loaded'):'';
+ $('#go').disabled=!files.length;
+}
+async function addFiles(list){for(const f of list){try{await up(f,'conf')}catch(e){alert(e.message)}}refresh()}
+const drop=$('#drop');
+drop.onclick=()=>$('#file').click();drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#file').click()}};
+['dragenter','dragover'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));$('#file').onchange=e=>addFiles(e.target.files);
+$('#addpath').onclick=async()=>{const p=$('#path').value.trim();if(!p)return;try{await post('/api/addpath',{path:p});$('#path').value='';refresh()}catch(e){alert(t('nopath')+': '+e.message)}};
+$('#ha-add').onclick=()=>{const a=$('#ha-a').value,b=$('#ha-b').value;if(a&&b&&a!==b){pairs.push([a,b]);render()}};
+$('#up-hosts').onclick=()=>$('#f-hosts').click();$('#up-map').onclick=()=>$('#f-map').click();
+$('#f-hosts').onchange=async e=>{if(e.target.files[0]){await up(e.target.files[0],'hosts');refresh()}};$('#f-map').onchange=async e=>{if(e.target.files[0]){await up(e.target.files[0],'map');refresh()}};
+$('#redact').onchange=e=>{$('#redact-warn').hidden=e.target.checked};
+$('#go').onclick=async()=>{
+ $('#go').disabled=true;$('#busy').textContent=t('busy');$('#result').innerHTML='';
+ try{const r=await post('/api/analyze',{files:files.map(f=>f.name),ha:pairs,roles:Object.fromEntries(Object.entries(roles).filter(x=>x[1])),redact:$('#redact').checked,title:$('#title').value});
+  const sev=Object.entries(r.findings).map(([k,v])=>`${esc(k)}: ${v}`).join(', ');
+  $('#result').innerHTML=`<h2 class="okc">✓ ${t('done')}</h2><p>${esc(t('summary',{d:r.devices,g:r.groups,o:r.objects,r:r.relations}))}<br>${t('findings')}: ${sev||'0'}</p>${r.notes.length?`<p class="muted small">${t('notes')}: ${r.notes.map(esc).join(' · ')}</p>`:''}<p><a href="/report/${r.id}?t=${TOKEN}" target="_blank" rel="noopener"><button class="primary" type="button">${t('open')}</button></a> <a href="/report/${r.id}/download?t=${TOKEN}"><button type="button">${t('download')}</button></a></p>`;
+ }catch(e){$('#result').innerHTML=`<p class="err">${t('err')}: ${esc(e.message)}</p>`}
+ $('#busy').textContent='';$('#go').disabled=!files.length};
+$('#lang').onchange=e=>{lang=e.target.value;stat();render()};
+$('#quit').onclick=async()=>{try{await post('/api/shutdown')}catch(e){}document.body.innerHTML=`<main><p>${t('quitted')}</p></main>`};
+stat();refresh();
+</script>
+</body>
+</html>

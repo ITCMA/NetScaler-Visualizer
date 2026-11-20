@@ -19,6 +19,8 @@ Läuft lokal, braucht nur Python ≥ 3.10 (keine Pakete) und sendet nichts ins N
 > unabhängig und weder mit diesen verbunden noch von ihnen unterstützt oder empfohlen. Ergebnisse sind automatisierte
 > Hinweise ohne Gewähr. Siehe [docs/LEGAL.de.md](docs/LEGAL.de.md).
 
+**Ohne Kommandozeilen-Parameter:** `python3 -m nsviz gui` öffnet eine lokale Seite (nur 127.0.0.1, nichts verlässt den Rechner), in der du die Configs ablegst, HA-Paare, Hosts-Datei und Optionen setzt und den Report erstellst. Die Kommandozeile unten bleibt für Skripte und CI erhalten.
+
 ```bash
 # einzelnes Gerät, Ordner mit mehreren Configs oder beides
 python3 -m nsviz analyze kunde/adc01.conf kunde/adc02.conf -o report.html --csv befunde.csv --lang de

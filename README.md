@@ -20,6 +20,8 @@ It runs locally, needs only Python ≥ 3.10 (no packages) and sends nothing over
 > independent and is not affiliated with, endorsed or supported by them. Results are automated hints without
 > warranty. See [docs/LEGAL.md](docs/LEGAL.md).
 
+**No command line needed:** `python3 -m nsviz gui` opens a local page (127.0.0.1 only, nothing leaves your computer) where you drop the config files, set HA pairs, hosts file and options, and create the report. The command line below stays available for scripts and CI.
+
 ```bash
 # single device, a folder with several configs, or both
 python3 -m nsviz analyze customer/adc01.conf customer/adc02.conf -o report.html --csv findings.csv

@@ -331,6 +331,47 @@ class LinkingTests(unittest.TestCase):
         srv.close()
 
 
+class GuiTests(unittest.TestCase):
+    def test_gui_roundtrip_and_security(self):
+        import threading, urllib.request, urllib.error
+        from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+        from nsviz import gui
+        st = gui.State()
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
+        port = srv.server_address[1]
+        srv.RequestHandlerClass = gui.make_handler(st, port)
+        st.server = srv
+        th = threading.Thread(target=srv.serve_forever, daemon=True)
+        th.start()
+        base = f"http://127.0.0.1:{port}"
+
+        def call(path, data=None, token=True, method=None):
+            req = urllib.request.Request(base + path, data=data, method=method or ("POST" if data is not None else "GET"))
+            if token:
+                req.add_header("X-Token", st.token)
+            return urllib.request.urlopen(req, timeout=10)
+        try:
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                call("/api/files", token=False)
+            self.assertEqual(cm.exception.code, 403)
+            for f in sorted(DEMO.glob("*.conf")):
+                call("/api/upload?kind=conf&name=" + f.name, f.read_bytes())
+            files = json.load(call("/api/files"))["files"]
+            self.assertEqual(len(files), 3)
+            call("/api/upload?kind=conf&name=../../evil.conf", b"add lb vserver x HTTP 10.0.0.1 80\n")
+            self.assertTrue(all(st.dir in p.parents for p in st.paths.values()))
+            res = json.load(call("/api/analyze", json.dumps({"files": [x["name"] for x in files]}).encode()))
+            self.assertGreater(res["objects"], 10)
+            html = call(f"/report/{res['id']}").read().decode()
+            self.assertIn("NetScaler Visualizer", html)
+            self.assertTrue(html.lstrip().lower().startswith("<!doctype html"))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            import shutil
+            shutil.rmtree(st.dir, ignore_errors=True)
+
+
 class ReportTests(unittest.TestCase):
     def test_report_is_self_contained(self):
         html = report.render(Project.load([str(DEMO)]))

@@ -76,6 +76,9 @@ def main(argv: list[str] | None = None) -> int:
     z.add_argument("-o", "--output", required=True, help="output folder (created; must not be inside a git repository you push)")
     z.add_argument("--keep-literals", action="store_true", help="keep string literals in expressions (only hosts/IPs/names are replaced)")
     z.add_argument("--map-file", metavar="FILE", help="also write the reverse mapping (as sensitive as the input!)")
+    g = sub.add_parser("gui", help="open the local web GUI (127.0.0.1 only) to pick configs and create the report")
+    g.add_argument("--port", type=int, default=0, help="port (default: a free one)")
+    g.add_argument("--no-browser", action="store_true", help="only print the URL")
     d = sub.add_parser("resolve", help="OPTIONAL: resolve the FQDNs found in the configs by DNS and write a hosts file (queries a DNS server!)")
     d.add_argument("paths", nargs="+", help="ns.conf files or folders")
     d.add_argument("-o", "--output", help="write the hosts file here (default: print)")
@@ -87,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--lang", choices=["en", "de"], default="en")
     a.add_argument("--lang", choices=["en", "de"], default="en", help="language of CSV texts and console output")
     args = ap.parse_args(argv)
+
+    if args.cmd == "gui":
+        from .gui import serve
+        return serve(args.port, not args.no_browser)
 
     if args.cmd == "anonymize":
         from .anonymize import anonymize_paths
