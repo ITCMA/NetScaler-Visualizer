@@ -184,6 +184,15 @@ class GroupBindingTests(unittest.TestCase):
         self.assertIn(("authorization policy", "ap1"), g.referenced)
         self.assertNotIn(("authorization policy", "ap2"), g.referenced)
 
+    def test_group_and_action_nodes(self):
+        cfg = Config.parse_text("add aaa group g1\nadd authorization policy ap1 true ALLOW\nbind aaa group g1 -policy ap1 -priority 10\n"
+                                "add rewrite action ra1 replace http.req.url \"x\"\nadd rewrite policy rp1 true ra1\n", name="t")
+        g = Graph(cfg, "g1")
+        kinds = {n.kind for n in g.nodes.values()}
+        self.assertIn("group", kinds)
+        self.assertIn("action", kinds)
+        self.assertTrue(any(e.type == "bind" and e.label == "Action" for e in g.edges))
+
 
 class CatalogTests(unittest.TestCase):
     def test_rule_texts_complete_in_en_and_de(self):

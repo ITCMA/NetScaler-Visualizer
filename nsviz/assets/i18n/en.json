@@ -159,5 +159,7 @@
  "kind_sta": "STA",
  "kind_missing": "Missing reference",
  "th_title": "Title",
- "disclaimer": "NetScaler and Citrix are trademarks of their respective owners. This tool is independent and is not affiliated with, endorsed or supported by them. Results are automated hints, provided without warranty."
+ "disclaimer": "NetScaler and Citrix are trademarks of their respective owners. This tool is independent and is not affiliated with, endorsed or supported by them. Results are automated hints, provided without warranty.",
+ "kind_action": "Action",
+ "kind_group": "AAA group"
 }

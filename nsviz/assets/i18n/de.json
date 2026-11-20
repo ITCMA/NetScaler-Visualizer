@@ -185,5 +185,7 @@
  "prop_server_ip": "Server-IP",
  "prop_version": "Version",
  "th_title": "Titel",
- "disclaimer": "NetScaler und Citrix sind Marken der jeweiligen Rechteinhaber. Dieses Werkzeug ist unabhängig und weder mit diesen verbunden noch von ihnen unterstützt oder empfohlen. Die Ergebnisse sind automatisierte Hinweise ohne Gewähr."
+ "disclaimer": "NetScaler und Citrix sind Marken der jeweiligen Rechteinhaber. Dieses Werkzeug ist unabhängig und weder mit diesen verbunden noch von ihnen unterstützt oder empfohlen. Die Ergebnisse sind automatisierte Hinweise ohne Gewähr.",
+ "kind_action": "Aktion",
+ "kind_group": "AAA-Gruppe"
 }

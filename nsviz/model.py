@@ -25,6 +25,9 @@ KIND_BY_ETYPE = {
     "cs policylabel": "policylabel", "rewrite policylabel": "policylabel",
     "responder policylabel": "policylabel", "cache policylabel": "policylabel",
     "cmp policylabel": "policylabel", "appfw policylabel": "policylabel",
+    "rewrite action": "action", "responder action": "action", "vpn sessionaction": "action",
+    "vpn trafficaction": "action", "appflow action": "action", "audit syslogaction": "action",
+    "aaa group": "group",
 }
 
 KIND_LABELS = {
@@ -34,7 +37,7 @@ KIND_LABELS = {
     "cert": "Certificate", "sslprofile": "SSL profile", "nflabel": "nFactor Policy Label",
     "schema": "Login Schema", "authnprofile": "Authn profile", "appfwprof": "WAF profile",
     "policylabel": "Policy Label", "policy": "Policy", "authpol": "Auth policy",
-    "authact": "Auth action", "domain": "GSLB domain", "sta": "STA", "missing": "Missing reference",
+    "authact": "Auth action", "action": "Action", "group": "AAA group", "domain": "GSLB domain", "sta": "STA", "missing": "Missing reference",
 }
 
 BUILTIN_MONITORS = {
@@ -462,8 +465,17 @@ class Graph:
             pol = b.opt("policyname")
             if src and pol:
                 self._ref(src, self._policy_etypes(), pol, "policy", self._prio(b), (et, owner), b.line)
-        elif et in ("aaa group", "aaa user", "vpn user", "vpn group", "system group", "system user"):
-            # Group/user bindings are not drawn yet (planned); the bound policies count as used.
+        elif et == "aaa group":
+            src = self._ensure(et, owner)
+            pol = b.opt("policy") or b.opt("policyname")
+            if src and pol:
+                self._ref(src, self._policy_etypes(), pol, "policy", self._prio(b), (et, owner), b.line)
+            elif pol:  # group without 'add aaa group': policy still counts as used
+                for t in self._policy_etypes():
+                    if self.cfg.get(t, pol):
+                        self.referenced.add((t, pol))
+        elif et in ("aaa user", "vpn user", "vpn group", "system group", "system user"):
+            # Users are deliberately not drawn (personal data); bound policies count as used.
             pol = b.opt("policy") or b.opt("policyname")
             if pol:
                 for t in self._policy_etypes():
@@ -572,10 +584,11 @@ class Graph:
                 self._ref(src, ["appfw profile"], prof, "policy", "Profil", (et, name), e.line)
         if kind in ("policy",) and et not in ("cs policy", "appfw policy"):
             act = e.opt("action") or (e.args[2] if len(e.args) > 2 else None)
-            if act:
+            src = self.nid(et, name)
+            if act and src in self.nodes:
                 for t in (et.replace("policy", "action"),):
-                    if self.cfg.get(t, act):
-                        self.referenced.add((t, act))
+                    if self._kind(t) == "action" and self.cfg.get(t, act):
+                        self._ref(src, [t], act, "bind", "Action", (et, name), e.line)
         if et == "gslb service":
             self._gslb_service(name, e)
         if et == "gslb servicegroup":
@@ -626,6 +639,9 @@ def _builtin_policy(name: str) -> bool:
     n = name.lower()
     # Assumption: names starting with "_" are system-generated policies that are not part of the exported ns.conf
     # (observed as bound-but-undefined in many real exports); to be confirmed against the product documentation.
+    # All-caps names with a hyphen are factory objects as well (confirmed by the project owner).
+    if name.upper() == name and "-" in name:
+        return True
     return n.startswith(("ns_", "_")) or (name.startswith("SET") and name.endswith("_POL")) or n.startswith("default_")
 
 
