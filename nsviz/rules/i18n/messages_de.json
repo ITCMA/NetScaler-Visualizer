@@ -62,5 +62,5 @@
  "CHAIN-002": "{src} ({proto}) → {dst} auf {dev}: Hop ohne TLS",
  "HA-003.many": "{n} Abweichungen zwischen {a} und {b} (nur auf {a}: {a_only}, nur auf {b}: {b_only}, unterschiedlich: {diff}) - zu viele für Einzelbefunde; die Dateien stammen vermutlich nicht vom selben Sync-Stand oder sind keine echten HA-Partner. Details: Ansicht Projekt.",
  "DEP-001": "{etype} '{name}' ist nicht adressierbar und wird von nichts referenziert",
- "DEP-002": "'{name}': {via} zeigt auf {host}:{port}, kein vServer dieses Geräts passt"
+ "DEP-002": "'{name}': {via} zeigt auf {host}:{port}, kein vServer dieses Geräts passt. Das Ziel ist ein Name: im Tab Verknüpfungen zuordnen (Vorschläge, Hosts-Datei, DNS oder manuell)"
 }

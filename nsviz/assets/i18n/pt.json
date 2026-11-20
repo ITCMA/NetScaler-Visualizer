@@ -230,5 +230,6 @@
  "unl_none": "Tudo está ligado",
  "only_unlinked": "Mostrar só objetos sem ligação",
  "lg_via": "Via políticas/ações ocultas (nomeadas na linha)",
- "lg_unl": "Borda tracejada: sem ligação"
+ "lg_unl": "Borda tracejada: sem ligação",
+ "lg_fqdn": "Halo laranja: destino FQDN (não resolvido)"
 }

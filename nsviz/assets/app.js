@@ -81,7 +81,7 @@ const unlinkedSet = new Set((D.unlinked || []).map(u => u.node));
 const kindsPresent = {}; D.nodes.forEach(n => kindsPresent[n.kind] = (kindsPresent[n.kind] || 0) + 1);
 const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), onlyUnlinked: false, layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
 cytoscape.use(cytoscapeDagre);
-const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id) } }))
+const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id), fq: !!(n.dep && n.dep.fqdn) } }))
   .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
 const cy = cytoscape({ container: $('#cy'), elements, wheelSensitivity: 0.25, minZoom: 0.03, maxZoom: 3, boxSelectionEnabled: false, textureOnViewport: false });
 window.cy = cy;
@@ -149,6 +149,7 @@ function styleGraph() {
     { selector: 'edge[type="link"]', style: { 'line-color': dark ? '#e879f9' : '#a21caf', 'target-arrow-color': dark ? '#e879f9' : '#a21caf', 'width': 3.4, 'line-style': 'solid', 'color': dark ? '#e879f9' : '#a21caf', 'text-border-color': dark ? '#e879f9' : '#a21caf' } },
     { selector: 'edge.virtual', style: { 'line-color': dark ? '#38bdf8' : '#0369a1', 'target-arrow-color': dark ? '#38bdf8' : '#0369a1', 'width': 2.2, 'line-style': 'solid', 'color': dark ? '#7dd3fc' : '#075985', 'text-border-color': dark ? '#38bdf8' : '#0369a1' } },
     { selector: 'node[?unl]', style: { 'border-style': 'dashed' } },
+    { selector: 'node[?fq]', style: { 'underlay-color': '#f59e0b', 'underlay-opacity': 0.4, 'underlay-padding': 5, 'underlay-shape': 'round-rectangle' } },
     { selector: 'edge[type="backup"]', style: { 'line-style': 'dotted' } },
     // Plaintext (not TLS): dashed line + dashed label frame + amber, so it is recognisable without colour
     { selector: 'edge[?plain]', style: { 'line-style': 'dashed', 'line-dash-pattern': [7, 4], 'line-color': amber, 'target-arrow-color': amber, 'width': 2.2, 'color': amber, 'text-border-style': 'dashed', 'text-border-color': amber } },
@@ -425,7 +426,7 @@ function renderLegend() {
   $('#legend').innerHTML = `<details ${legendOpen ? 'open' : ''}><summary>${esc(t('legend'))}</summary>` +
     ln('stroke:#94a3b8;stroke-width:3', t('lg_bind')) + ln('stroke:#3b82f6;stroke-width:3', t('lg_route')) +
     ln(`stroke:${amber};stroke-width:3;stroke-dasharray:7 4`, t('lg_plain')) + ln('stroke:#94a3b8;stroke-width:3;opacity:.5', t('lg_tls')) +
-    ln(`stroke:${resolved() === 'dark' ? '#38bdf8' : '#0369a1'};stroke-width:3`, t('lg_via')) + ln('stroke:#94a3b8;stroke-width:3;stroke-dasharray:2 3', t('lg_unl')) + ln('stroke:#ef4444;stroke-width:3;stroke-dasharray:7 4', t('lg_hop')) + ln('stroke:#a21caf;stroke-width:4', t('lg_link')) + ln('stroke:#f97316;stroke-width:3;stroke-dasharray:7 4', t('lg_loop')) +
+    ln(`stroke:${resolved() === 'dark' ? '#38bdf8' : '#0369a1'};stroke-width:3`, t('lg_via')) + ln('stroke:#94a3b8;stroke-width:3;stroke-dasharray:2 3', t('lg_unl')) + ln('stroke:#f59e0b;stroke-width:6', t('lg_fqdn')) + ln('stroke:#ef4444;stroke-width:3;stroke-dasharray:7 4', t('lg_hop')) + ln('stroke:#a21caf;stroke-width:4', t('lg_link')) + ln('stroke:#f97316;stroke-width:3;stroke-dasharray:7 4', t('lg_loop')) +
     SEV.slice(0, 4).map(s => `<div><span class="sw" style="background:transparent;border:3px solid ${SEVCOL[s]}"></span>${esc(t('lg_find', { s: sevLabel(s) }))}</div>`).join('') +
     `<p class="muted small">${esc(t('lg_note'))}</p><p class="muted small">${esc(t('visible', { a: cy.nodes(':visible').length, b: cy.nodes().length }))}</p></details>`;
   $('#legend details').addEventListener('toggle', e => { legendOpen = e.target.open; store.set('legend', legendOpen ? '1' : '0'); });

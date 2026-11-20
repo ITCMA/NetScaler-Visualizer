@@ -230,5 +230,6 @@
  "unl_none": "Todo está conectado",
  "only_unlinked": "Mostrar solo objetos sin conexión",
  "lg_via": "A través de políticas/acciones ocultas (nombradas en la línea)",
- "lg_unl": "Borde discontinuo: sin conexión"
+ "lg_unl": "Borde discontinuo: sin conexión",
+ "lg_fqdn": "Halo naranja: destino FQDN (sin resolver)"
 }

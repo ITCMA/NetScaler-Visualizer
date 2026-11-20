@@ -378,6 +378,12 @@ class DependencyTests(unittest.TestCase):
     def node(self, name):
         return next(n for n in self.g.nodes.values() if n.name == name)
 
+    def test_fqdn_target_marked(self):
+        n = self.node("sa2")
+        self.assertIn("store.example.test", n.props.get("FQDN target", ""))
+        self.assertTrue(self.p.dep[n.id].get("fqdn"))
+        self.assertNotIn("FQDN target", self.node("sa").props)
+
     def test_addressing_and_reachability(self):
         self.assertTrue(self.node("lb_wild").props["Addressing"].startswith("addressable"))
         self.assertTrue(self.node("lb_hidden").props["Addressing"].startswith("non-addressable"))

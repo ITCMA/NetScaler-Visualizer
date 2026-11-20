@@ -329,6 +329,13 @@ class Project:
                     reached.add(v)
                     q.append(v)
         self.dep = {nid: {"entry": nid in entries, "reach": nid in reached} for nid in nodes}
+        fq: dict[str, list[str]] = {}
+        for s in collect(self)["sources"]:
+            fq.setdefault(s["node"], []).append(s["host"] + (f":{s['port']}" if s["port"] else ""))
+        for nid, hosts in fq.items():
+            if nid in nodes:
+                nodes[nid].props["FQDN target"] = ", ".join(sorted(set(hosts))) + " (name, not resolved - see Links tab)"
+                self.dep[nid]["fqdn"] = True
         for nid, n in nodes.items():
             if n.kind in self.VS_KINDS and nid not in reached:
                 g = gof[nid]

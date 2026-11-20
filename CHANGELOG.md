@@ -5,6 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 ### Added
 - Dependency analysis: every object is marked as connected or not (reachable from an addressable vServer or a global binding); sidebar card "Not connected" with filter; rules DEP-001 (vServer not addressable and not referenced) and DEP-002 (URL target without matching vServer); vServers show whether they are addressable.
 - GUI: the report opens directly in the same window (back to the selection or start over without quitting); GUI in 8 languages.
+- FQDN targets (service targets, session action/STA URLs) are marked: orange halo in the topology, property "FQDN target", legend entry; DEP-002 points to the Links tab (suggestions, hosts file, DNS, manual).
 - Topology: "Reset graph" and "Reset all settings".
 ### Fixed
 - Dependencies: hiding policies/actions no longer cuts the chain. CS and Gateway vServers stay connected to their LB targets through bridge lines that name the hidden policies/actions. Session actions and STA servers whose URL points to a local vServer (IP and port) are linked; FQDN targets are listed separately instead of guessed.

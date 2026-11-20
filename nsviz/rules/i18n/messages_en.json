@@ -62,5 +62,5 @@
  "CHAIN-002": "{src} ({proto}) → {dst} on {dev}: hop without TLS",
  "HA-003.many": "{n} differences between {a} and {b} (only on {a}: {a_only}, only on {b}: {b_only}, different: {diff}) - too many to list individually; the files probably do not share one sync state or are not real HA partners. Details: project view.",
  "DEP-001": "{etype} '{name}' is not addressable and not referenced by anything",
- "DEP-002": "'{name}': {via} points to {host}:{port}, no vServer of this device matches"
+ "DEP-002": "'{name}': {via} points to {host}:{port}, no vServer of this device matches. The target is a name: link it in the Links tab (suggestions, hosts file, DNS or manual)"
 }
