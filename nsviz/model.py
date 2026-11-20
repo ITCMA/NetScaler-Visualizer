@@ -541,9 +541,22 @@ class Graph:
                     self._ref(nid, ["authentication policylabel"], nf, "nfactor", "nextFactor", (et, owner), b.line)
         elif et.endswith("policylabel") and et != "authentication policylabel":
             src = self._ensure(et, owner)
-            pol = b.opt("policyname")
+            pol = b.opt("policyname") or (b.args[0] if b.args and not is_option_like(b.args[0]) else None)
             if src and pol:
-                self._ref(src, self._policy_etypes(), pol, "policy", self._prio(b), (et, owner), b.line)
+                nid = self._ref(src, self._policy_etypes(), pol, "policy", self._prio(b), (et, owner), b.line)
+                tv = b.opt("targetvserver") or b.opt("targetlbvserver")
+                if tv and nid:  # bind cs policylabel <label> <policy> <prio> -targetVserver <vserver>
+                    self._ref(nid, ["lb vserver", "cs vserver"], tv, "route", "Target", (et, owner), b.line)
+                lab = b.opt("labelname")
+                if lab:
+                    self._ref(nid or src, self.LABEL_TYPES, lab, "policy", "Label", (et, owner), b.line)
+        elif et == "dns nameserver":
+            # an LB vServer used as DNS name server is used globally (assumption: the first argument names it)
+            nm = b.args[0] if b.args else owner
+            v, _ = self._vs_node(nm, ["lb vserver"])
+            if v:
+                self.referenced.add(("lb vserver", nm))
+                self._add_edge(self.device_node().id, v, "bind", "DNS name server")
         elif et == "vlan":
             src = self._ensure(et, owner)
             ipv = b.opts.get("ipaddress") or []
@@ -600,7 +613,7 @@ class Graph:
             ctx = (et, name)
             for key, etypes, typ, lab in (("authnvsname", ["authentication vserver"], "auth", "Auth"),
                                           ("authnprofile", ["authentication authnprofile"], "auth", "Authn profile"),
-                                          ("backupvserver", ["lb vserver"], "backup", "Backup"),
+                                          ("backupvserver", ["lb vserver", "cs vserver"], "backup", "Backup"),
                                           ("sslprofile", ["ssl profile"], "ssl", "SSL profile")):
                 v = e.opt(key)
                 if v:
@@ -676,6 +689,23 @@ class Graph:
                 for t in (et.replace("policy", "action"),):
                     if self._kind(t) == "action" and self.cfg.get(t, act):
                         self._ref(src, [t], act, "bind", "Action", (et, name), e.line)
+        if et == "dns nameserver":
+            v, _ = self._vs_node(name, ["lb vserver"])
+            if v:
+                self.referenced.add(("lb vserver", name))
+                self._add_edge(self.device_node().id, v, "bind", "DNS name server")
+        if et == "vpn sessionaction":
+            src = self.nid(et, name)
+            dv = e.opt("dnsvservername")
+            if dv and src in self.nodes:
+                self._ref(src, ["lb vserver"], dv, "route", "DNS vServer", (et, name), e.line)
+        if et == "policy httpcallout":
+            vs = e.opt("vserver")
+            if vs:  # assumption: a defined callout is in use; it is drawn from the device (global) to its vServer
+                v, _ = self._vs_node(vs, ["lb vserver", "cs vserver"])
+                if v:
+                    self.referenced.add((self.nodes[v].etype, vs))
+                    self._add_edge(self.device_node().id, v, "bind", f"HTTP callout {name}")
         if et == "gslb service":
             self._gslb_service(name, e)
         if et == "gslb servicegroup":

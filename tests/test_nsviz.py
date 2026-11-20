@@ -353,6 +353,15 @@ class DependencyTests(unittest.TestCase):
         "add vpn sessionAction sa2 -wihome \"https://store.example.test/Citrix/Store\"",
         "add vpn sessionPolicy sp2 ns_true sa2",
         "bind vpn vserver gw -policy sp2 -priority 110",
+        "add lb vserver lb_dns DNS 0.0.0.0 0",
+        "add dns nameserver lb_dns",
+        "add lb vserver lb_callout HTTP 0.0.0.0 0",
+        "add policy httpCallout co1 -vServer lb_callout",
+        "add lb vserver lb_label_target HTTP 0.0.0.0 0",
+        "add cs policylabel lbl1 http_req",
+        "add cs policy pol2 -rule true -action act1",
+        "bind cs policylabel lbl1 pol2 20 -targetVserver lb_label_target",
+        "bind cs vserver cs1 -policyName pol1 -priority 20 -type REQUEST -labelType policylabel -labelName lbl1",
         "add server unused 10.9.9.9", ""])
 
     def setUp(self):
@@ -375,6 +384,8 @@ class DependencyTests(unittest.TestCase):
         dep = self.p.dep
         self.assertTrue(dep[self.node("lb_hidden").id]["reach"])      # via CS policy -> action
         self.assertFalse(dep[self.node("lb_orphan").id]["reach"])
+        for nm in ("lb_dns", "lb_callout", "lb_label_target"):
+            self.assertTrue(dep[self.node(nm).id]["reach"], nm)
         self.assertTrue(any(f.rule_id == "DEP-001" and f.name == "lb_orphan" for f in self.p.findings))
         self.assertFalse(any(f.rule_id == "DEP-001" and f.name == "lb_hidden" for f in self.p.findings))
 
