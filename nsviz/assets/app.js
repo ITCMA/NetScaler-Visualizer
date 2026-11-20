@@ -77,10 +77,11 @@ const kindStroke = (k, dark) => { const h = HUE[k] || HUE.policy; return dark ? 
 const SEVDARK = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: '#60a5fa' };
 
 const HIDDEN_KINDS = ['policy', 'action', 'policylabel']; // switched on via the object-type list
+const unlinkedSet = new Set((D.unlinked || []).map(u => u.node));
 const kindsPresent = {}; D.nodes.forEach(n => kindsPresent[n.kind] = (kindsPresent[n.kind] || 0) + 1);
-const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
+const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), onlyUnlinked: false, layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
 cytoscape.use(cytoscapeDagre);
-const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length } }))
+const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id) } }))
   .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
 const cy = cytoscape({ container: $('#cy'), elements, wheelSensitivity: 0.25, minZoom: 0.03, maxZoom: 3, boxSelectionEnabled: false, textureOnViewport: false });
 window.cy = cy;
@@ -146,6 +147,8 @@ function styleGraph() {
     { selector: 'edge[type="ssl"]', style: { 'line-color': '#f43f5e', 'target-arrow-color': '#f43f5e', 'width': 1, 'opacity': .55 } },
     { selector: 'edge[type="gslb"]', style: { 'line-color': '#06b6d4', 'target-arrow-color': '#06b6d4' } },
     { selector: 'edge[type="link"]', style: { 'line-color': dark ? '#e879f9' : '#a21caf', 'target-arrow-color': dark ? '#e879f9' : '#a21caf', 'width': 3.4, 'line-style': 'solid', 'color': dark ? '#e879f9' : '#a21caf', 'text-border-color': dark ? '#e879f9' : '#a21caf' } },
+    { selector: 'edge.virtual', style: { 'line-color': dark ? '#38bdf8' : '#0369a1', 'target-arrow-color': dark ? '#38bdf8' : '#0369a1', 'width': 2.2, 'line-style': 'solid', 'color': dark ? '#7dd3fc' : '#075985', 'text-border-color': dark ? '#38bdf8' : '#0369a1' } },
+    { selector: 'node[?unl]', style: { 'border-style': 'dashed' } },
     { selector: 'edge[type="backup"]', style: { 'line-style': 'dotted' } },
     // Plaintext (not TLS): dashed line + dashed label frame + amber, so it is recognisable without colour
     { selector: 'edge[?plain]', style: { 'line-style': 'dashed', 'line-dash-pattern': [7, 4], 'line-color': amber, 'target-arrow-color': amber, 'width': 2.2, 'color': amber, 'text-border-style': 'dashed', 'text-border-color': amber } },
@@ -164,6 +167,7 @@ function styleGraph() {
     { selector: 'edge[?port]', style: { 'label': 'data(elabel)' } },
     { selector: 'edge.far[?port]', style: { 'label': '' } },
     { selector: 'edge.hidec', style: { 'display': 'none' } },
+    { selector: 'edge.virtual.far', style: { 'label': '' } },
   ]);
   cy.nodes().forEach(n => {
     const k = n.data('kind'), im = imagesFor(k, dark, hc);
@@ -177,13 +181,34 @@ let roots = [], depth = {}, succ = {}, laidOut = false;
 function eligible() {
   const set = new Set();
   cy.nodes().forEach(n => { const d = nodeById[n.id()]; if (state.group && d.group !== state.group) return; if (!state.kinds.has(d.kind)) return; set.add(n.id()); });
+  if (state.onlyUnlinked) { [...set].forEach(id => { if (!unlinkedSet.has(id)) set.delete(id); }); }
   const pin = s => { state.pinned.forEach(id => { if (nodeById[id]) s.add(id); }); return s; };
   if (state.onlyFindings) { const keep = new Set(); set.forEach(id => { if (nodeById[id].findings.length) { keep.add(id); cy.getElementById(id).neighborhood('node').forEach(m => { if (set.has(m.id())) keep.add(m.id()); }); } }); return pin(keep); }
   return pin(set);
 }
+// Objects of hidden types (policies, actions, ...) must not cut a chain: visible objects are connected "through" them by
+// a bridge edge that names the hidden objects it passes (e.g. CS vServer -> [policy, action] -> LB vServer).
+let curBridges = [];
+function computeBridges(elig) {
+  const out = {}; cy.edges().forEach(e => { if (e.hasClass('virtual') || e.data('type') === 'contains') return; (out[e.data('source')] = out[e.data('source')] || []).push(e.data('target')); });
+  const res = [], seen = new Set();
+  elig.forEach(u => {
+    const walk = (x, via, vis) => {
+      (out[x] || []).forEach(v => {
+        if (vis.has(v) || via.length > 6) return;
+        if (elig.has(v)) { if (v !== u && !(out[u] || []).includes(v)) { const k = u + '>' + v; if (!seen.has(k)) { seen.add(k); res.push({ s: u, t: v, via: via.slice() }); } } return; }
+        if (nodeById[v] && nodeById[v].kind === 'device') return;
+        const nv = new Set(vis); nv.add(v); walk(v, via.concat(nodeById[v] ? nodeById[v].label : v), nv);
+      });
+    };
+    walk(u, [], new Set([u]));
+  });
+  return res;
+}
 function computeVisible(elig) {
   succ = {}; const pred = {}; elig.forEach(id => { succ[id] = []; pred[id] = 0; });
-  cy.edges().forEach(e => { const s = e.data('source'), tg = e.data('target'); if (elig.has(s) && elig.has(tg)) { succ[s].push(tg); pred[tg]++; } });
+  cy.edges().forEach(e => { if (e.hasClass('virtual')) return; const s = e.data('source'), tg = e.data('target'); if (elig.has(s) && elig.has(tg)) { succ[s].push(tg); pred[tg]++; } });
+  curBridges = computeBridges(elig); curBridges.forEach(b => { succ[b.s].push(b.t); pred[b.t]++; });
   roots = []; const mark = new Set(); depth = {};
   const bfs = starts => { let q = starts.slice(); starts.forEach(s => { if (!(s in depth)) depth[s] = 0; mark.add(s); }); while (q.length) { const nq = []; q.forEach(u => succ[u].forEach(v => { if (!mark.has(v)) { mark.add(v); depth[v] = depth[u] + 1; nq.push(v); } })); q = nq; } };
   const r0 = [...elig].filter(id => pred[id] === 0); roots = r0.slice(); bfs(r0);
@@ -200,6 +225,8 @@ function subtitle(d) {
 function refresh(relayout) {
   const vis = computeVisible(eligible());
   cy.batch(() => {
+    cy.edges('.virtual').remove();
+    curBridges.forEach(b => { const lab = b.via.length > 2 ? b.via.slice(0, 2).join(' → ') + ` +${b.via.length - 2}` : b.via.join(' → '); cy.add({ group: 'edges', classes: 'virtual', data: { id: `vb|${b.s}|${b.t}`, source: b.s, target: b.t, type: 'via', elabel: clip(lab, 34), port: true } }); });
     cy.nodes().forEach(n => {
       const id = n.id(), v = vis.has(id); n.style('display', v ? 'element' : 'none'); const h = (succ[id] || []).length, d = nodeById[id];
       n.data('disp', clip(n.data('label') || '', 21) + (state.collapsed.has(id) && h ? `  ▸${h}` : '') + (n.data('nf') ? `  ⚠${n.data('nf')}` : '') + '\n' + subtitle(d));
@@ -347,6 +374,7 @@ $('#expand-all').onclick = () => { state.collapsed = new Set(); refresh(true); }
 $('#fit').onclick = () => cy.fit(cy.elements(':visible'), 30);
 $('#relayout').onclick = () => layout(true);
 function resetGraph() {
+  state.onlyUnlinked = false; $('#only-unlinked').checked = false;
   state.group = ''; state.collapsed = new Set(); state.pinned = new Set(); state.onlyFindings = false; state.labels = false; state.contains = false; state.focus = true; state.layout = 'tiers';
   state.kinds = new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k)));
   if (typeof connectOn !== 'undefined' && connectOn) setConnect(false);
@@ -362,6 +390,7 @@ $('#reset-graph').onclick = resetGraph;
 $('#reset-all').onclick = resetAll;
 $('#layout-sel').value = state.layout;
 $('#layout-sel').onchange = e => { state.layout = e.target.value; store.set('layout', state.layout); layout(true); };
+$('#only-unlinked').onchange = e => { state.onlyUnlinked = e.target.checked; refresh(true); };
 $('#contains').onchange = e => { state.contains = e.target.checked; refresh(true); };
 $('#edge-labels').onchange = e => { state.labels = e.target.checked; refresh(false); };
 $('#only-findings').onchange = e => { state.onlyFindings = e.target.checked; refresh(true); };
@@ -378,6 +407,14 @@ function renderKinds() {
     box.appendChild(l);
   });
 }
+function renderUnlinked() {
+  const box = $('#unlinked'); if (!box) return;
+  const by = {}; (D.unlinked || []).forEach(u => (by[u.kind] = by[u.kind] || []).push(u));
+  const kinds = Object.keys(by).sort((x, y) => tierOf(x) - tierOf(y) || kindLabel(x).localeCompare(kindLabel(y), lang));
+  box.innerHTML = `<details ${kinds.length && kinds.length < 5 ? 'open' : ''}><summary>${esc(t('unl_h', { n: (D.unlinked || []).length }))}</summary><p class="muted small">${esc(t('unl_hint'))}</p>` +
+    (kinds.length ? kinds.map(k => `<details><summary class="small">${esc(kindLabel(k))} (${by[k].length})</summary><ul class="unl">${by[k].slice(0, 200).map(u => `<li><a href="#" data-goto="${esc(u.node)}">${esc(u.label)}</a></li>`).join('')}</ul></details>`).join('') : `<p class="small okc">✓ ${esc(t('unl_none'))}</p>`) + '</details>';
+  $$('#unlinked [data-goto]').forEach(x => x.onclick = e => { e.preventDefault(); goTo(x.dataset.goto); });
+}
 function renderGroups() {
   const g = $('#group'); g.innerHTML = `<option value="">${esc(t('all_groups'))}</option>` + D.groups.map(x => `<option value="${x.id}" ${x.id === state.group ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
 }
@@ -388,7 +425,7 @@ function renderLegend() {
   $('#legend').innerHTML = `<details ${legendOpen ? 'open' : ''}><summary>${esc(t('legend'))}</summary>` +
     ln('stroke:#94a3b8;stroke-width:3', t('lg_bind')) + ln('stroke:#3b82f6;stroke-width:3', t('lg_route')) +
     ln(`stroke:${amber};stroke-width:3;stroke-dasharray:7 4`, t('lg_plain')) + ln('stroke:#94a3b8;stroke-width:3;opacity:.5', t('lg_tls')) +
-    ln('stroke:#ef4444;stroke-width:3;stroke-dasharray:7 4', t('lg_hop')) + ln('stroke:#a21caf;stroke-width:4', t('lg_link')) + ln('stroke:#f97316;stroke-width:3;stroke-dasharray:7 4', t('lg_loop')) +
+    ln(`stroke:${resolved() === 'dark' ? '#38bdf8' : '#0369a1'};stroke-width:3`, t('lg_via')) + ln('stroke:#94a3b8;stroke-width:3;stroke-dasharray:2 3', t('lg_unl')) + ln('stroke:#ef4444;stroke-width:3;stroke-dasharray:7 4', t('lg_hop')) + ln('stroke:#a21caf;stroke-width:4', t('lg_link')) + ln('stroke:#f97316;stroke-width:3;stroke-dasharray:7 4', t('lg_loop')) +
     SEV.slice(0, 4).map(s => `<div><span class="sw" style="background:transparent;border:3px solid ${SEVCOL[s]}"></span>${esc(t('lg_find', { s: sevLabel(s) }))}</div>`).join('') +
     `<p class="muted small">${esc(t('lg_note'))}</p><p class="muted small">${esc(t('visible', { a: cy.nodes(':visible').length, b: cy.nodes().length }))}</p></details>`;
   $('#legend details').addEventListener('toggle', e => { legendOpen = e.target.open; store.set('legend', legendOpen ? '1' : '0'); });
@@ -553,7 +590,7 @@ function applyStatic() {
   $('#subtitle').textContent = t('sub', { d: D.groups.reduce((a, g) => a + g.devices.length, 0), g: D.groups.length, o: D.nodes.length, t: dateStr() }) + ' · ' + (D.meta.redacted ? t('masked') : t('unmasked'));
 }
 function renderAll() {
-  applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderRulesUi(); renderRules(); renderOverview();
+  applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderRulesUi(); renderRules(); renderOverview();
   renderDetail(state.selected ? nodeById[state.selected] : null); showTab(curTab);
 }
 const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');

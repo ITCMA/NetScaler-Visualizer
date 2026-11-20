@@ -224,5 +224,11 @@
  "lg_link": "Lien entre appareils",
  "reset_graph": "Réinitialiser le graphe",
  "reset_all": "Réinitialiser tous les réglages",
- "reset_done": "Graphe réinitialisé"
+ "reset_done": "Graphe réinitialisé",
+ "unl_h": "Non reliés ({n})",
+ "unl_hint": "Objets auxquels ne mène aucun vServer adressable ni liaison globale. Bordure en pointillés dans le graphe.",
+ "unl_none": "Tout est relié",
+ "only_unlinked": "Afficher seulement les objets non reliés",
+ "lg_via": "Via des politiques/actions masquées (nommées sur la ligne)",
+ "lg_unl": "Bordure en pointillés : non relié"
 }

@@ -224,5 +224,11 @@
  "lg_link": "Vínculo entre dispositivos",
  "reset_graph": "Redefinir o grafo",
  "reset_all": "Redefinir todas as configurações",
- "reset_done": "Grafo redefinido"
+ "reset_done": "Grafo redefinido",
+ "unl_h": "Sem ligação ({n})",
+ "unl_hint": "Objetos aos quais nenhum vServer endereçável nem vínculo global leva. Mostrados com borda tracejada no grafo.",
+ "unl_none": "Tudo está ligado",
+ "only_unlinked": "Mostrar só objetos sem ligação",
+ "lg_via": "Via políticas/ações ocultas (nomeadas na linha)",
+ "lg_unl": "Borda tracejada: sem ligação"
 }

@@ -224,5 +224,11 @@
  "lg_link": "Enlace entre dispositivos",
  "reset_graph": "Restablecer el grafo",
  "reset_all": "Restablecer todos los ajustes",
- "reset_done": "Grafo restablecido"
+ "reset_done": "Grafo restablecido",
+ "unl_h": "Sin conexión ({n})",
+ "unl_hint": "Objetos a los que no llega ningún vServer direccionable ni enlace global. Se muestran con borde discontinuo en el grafo.",
+ "unl_none": "Todo está conectado",
+ "only_unlinked": "Mostrar solo objetos sin conexión",
+ "lg_via": "A través de políticas/acciones ocultas (nombradas en la línea)",
+ "lg_unl": "Borde discontinuo: sin conexión"
 }

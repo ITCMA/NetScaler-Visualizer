@@ -26,6 +26,8 @@ NODE_SPECIFIC_BINDS = {"vlan", "channel", "interface"}
 for _r in (
     Rule("HA-003", "high", "misconfig", ["Citrix/NetScaler documentation: high availability (synchronization)"], "likely"),
     Rule("CHAIN-001", "info", "best-practice", [], "heuristic"),
+    Rule("DEP-001", "medium", "misconfig", [], "likely"),
+    Rule("DEP-002", "info", "misconfig", [], "heuristic"),
     Rule("CHAIN-002", "medium", "compliance",
          ["BSI TR-02102-2", "BSI IT-Grundschutz NET.1.1 Network architecture and design"], "likely"),
 ):
@@ -96,6 +98,7 @@ class Project:
         self.links: list[dict] = []
         self.extra_edges: list[Edge] = []
         self.notes: list[str] = []
+        self.dep: dict[str, dict] = {}
         self._pair(ha_pairs or [])
         for g in self.groups:
             primary = next((d for d in g.devices if d.role == "primary"), g.devices[0])
@@ -105,6 +108,7 @@ class Project:
         self._chains()
         for w in (apply_map(self, link_map) if link_map else []):
             self.notes.append({"en": w, "de": w})
+        self._dependency()
         self.findings = finalize(self.findings)
         self._attach()
 
@@ -282,6 +286,56 @@ class Project:
                             self.findings.append(Finding("CHAIN-002", "medium", render_messages("CHAIN-002", src=be["name"], proto=be["proto"], dst=fe["name"], dev=h.name),
                                                          g.devices[0].name, be["etype"], be["name"], g.devices[0].cfg.name, 0, [], be["node"]))
 
+    # ---- Dependencies: what is reachable from an addressable vServer? --------------------------------
+    VS_KINDS = {"csvs", "lbvs", "gwvs", "aaavs", "gslbvs"}
+    INFRA_KINDS = {"device", "netip", "vlan", "route", "group", "missing", "domain"}
+
+    def _dependency(self) -> None:
+        """Marks every object as entry (addressable vServer), reached (reachable from an entry or from a global binding)
+        or not connected. Edges of all groups plus double-hop/confirmed links are followed; 'contains' is only membership."""
+        nodes, adj, gof = {}, {}, {}
+        for g in self.groups:
+            for nid, n in g.graph.nodes.items():
+                nodes[nid], gof[nid] = n, g
+            for e in g.graph.edges:
+                if e.type not in ("contains", "network"):
+                    adj.setdefault(e.source, []).append(e.target)
+        for e in self.extra_edges:
+            adj.setdefault(e.source, []).append(e.target)
+        entries = {nid for nid, n in nodes.items() if n.kind in self.VS_KINDS and n.props.get("Addressing", "").startswith("addressable")}
+        # GSLB vServers are reached by DNS name: with a bound domain they are entry points as well
+        entries |= {e.source for g in self.groups for e in g.graph.edges if e.type == "gslb" and nodes.get(e.target) is not None and nodes[e.target].kind == "domain"}
+        roots = set(entries) | {nid for nid, n in nodes.items() if n.kind == "device"}
+        reached, q = set(roots), list(roots)
+        while q:
+            u = q.pop()
+            for v in adj.get(u, ()):
+                if v not in reached:
+                    reached.add(v)
+                    q.append(v)
+        self.dep = {nid: {"entry": nid in entries, "reach": nid in reached} for nid in nodes}
+        for nid, n in nodes.items():
+            if n.kind in self.VS_KINDS and nid not in reached:
+                g = gof[nid]
+                self.findings.append(Finding("DEP-001", "medium", render_messages("DEP-001", name=n.name, etype=n.etype), g.devices[0].name,
+                                             n.etype, n.name, g.devices[0].cfg.name, n.lines[0]["line"] if n.lines else 0, [], nid))
+        for g in self.groups:
+            for u in g.graph.unresolved:
+                n = nodes.get(u["node"])
+                if n:
+                    self.findings.append(Finding("DEP-002", "info", render_messages("DEP-002", name=n.name, via=u["via"], host=u["host"], port=u["port"] or "?"),
+                                                 g.devices[0].name, n.etype, n.name, g.devices[0].cfg.name, n.lines[0]["line"] if n.lines else 0, [], u["node"]))
+
+    def unlinked(self) -> list[dict]:
+        """Objects that are not connected to any addressable vServer or global binding (grouped by the report)."""
+        out = []
+        for g in self.groups:
+            for nid, n in g.graph.nodes.items():
+                d = self.dep.get(nid)
+                if d and not d["reach"] and n.kind not in self.INFRA_KINDS:
+                    out.append({"node": nid, "kind": n.kind, "label": n.label, "group": g.id})
+        return out
+
     def chains(self) -> list[list[str]]:
         succ: dict[str, set[str]] = {}
         pred: dict[str, set[str]] = {}
@@ -321,7 +375,7 @@ class Project:
             for n in g.graph.nodes.values():
                 nodes.append({"id": n.id, "kind": n.kind, "label": n.label, "group": g.id, "etype": n.etype, "name": n.name,
                               "props": {k: v for k, v in n.props.items() if not k.startswith("_")},
-                              "lines": n.lines, "findings": n.findings})
+                              "lines": n.lines, "findings": n.findings, "dep": self.dep.get(n.id, {})})
             for e in g.graph.edges:
                 edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {})})
         for e in self.extra_edges:
@@ -344,6 +398,8 @@ class Project:
             "rules": rules,
             "diffs": self.diffs,
             "links": self.links,
+            "unlinked": self.unlinked(),
+            "unresolved": [{**u, "group": g.id} for g in self.groups for u in g.graph.unresolved],
             "linking": {**collect(self), "map": self.link_map},
             "chains": self.chains(),
         }

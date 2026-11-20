@@ -255,5 +255,11 @@
  "lg_link": "Cross-device link",
  "reset_graph": "Reset graph",
  "reset_all": "Reset all settings",
- "reset_done": "Graph reset"
+ "reset_done": "Graph reset",
+ "unl_h": "Not connected ({n})",
+ "unl_hint": "Objects that no addressable vServer and no global binding leads to. Shown with a dashed border in the graph.",
+ "unl_none": "Everything is connected",
+ "only_unlinked": "Show only not connected objects",
+ "lg_via": "Through hidden policies/actions (named on the line)",
+ "lg_unl": "Dashed border: not connected"
 }

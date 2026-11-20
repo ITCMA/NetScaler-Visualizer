@@ -331,6 +331,63 @@ class LinkingTests(unittest.TestCase):
         srv.close()
 
 
+class DependencyTests(unittest.TestCase):
+    CONF = "\n".join([
+        "add server s1 10.0.0.5",
+        "add service svc1 s1 HTTP 80",
+        "add lb vserver lb_front HTTP 192.0.2.10 80",
+        "bind lb vserver lb_front svc1",
+        "add lb vserver lb_hidden HTTP 0.0.0.0 0",          # non-addressable, targeted by CS policy
+        "bind lb vserver lb_hidden svc1",
+        "add lb vserver lb_orphan HTTP 0.0.0.0 0",          # non-addressable, nobody points to it
+        "add lb vserver lb_wild HTTP 0.0.0.0 443",          # wildcard address with port = addressable
+        "add cs vserver cs1 SSL 192.0.2.20 443",
+        "add cs action act1 -targetLBVserver lb_hidden",
+        "add cs policy pol1 -rule \"HTTP.REQ.URL.CONTAINS(\\\"/a\\\")\" -action act1",
+        "bind cs vserver cs1 -policyName pol1 -priority 10",
+        "bind cs vserver cs1 lb_front",
+        "add vpn sessionAction sa -wihome \"https://192.0.2.10:80/Citrix/Store\"",
+        "add vpn sessionPolicy sp ns_true sa",
+        "add vpn vserver gw SSL 192.0.2.30 443",
+        "bind vpn vserver gw -policy sp -priority 100",
+        "add vpn sessionAction sa2 -wihome \"https://store.example.test/Citrix/Store\"",
+        "add vpn sessionPolicy sp2 ns_true sa2",
+        "bind vpn vserver gw -policy sp2 -priority 110",
+        "add server unused 10.9.9.9", ""])
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        f = Path(self.tmp.name) / "a.ns.conf"
+        f.write_text(self.CONF)
+        self.p = Project.load([str(f)])
+        self.g = self.p.groups[0].graph
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def node(self, name):
+        return next(n for n in self.g.nodes.values() if n.name == name)
+
+    def test_addressing_and_reachability(self):
+        self.assertTrue(self.node("lb_wild").props["Addressing"].startswith("addressable"))
+        self.assertTrue(self.node("lb_hidden").props["Addressing"].startswith("non-addressable"))
+        dep = self.p.dep
+        self.assertTrue(dep[self.node("lb_hidden").id]["reach"])      # via CS policy -> action
+        self.assertFalse(dep[self.node("lb_orphan").id]["reach"])
+        self.assertTrue(any(f.rule_id == "DEP-001" and f.name == "lb_orphan" for f in self.p.findings))
+        self.assertFalse(any(f.rule_id == "DEP-001" and f.name == "lb_hidden" for f in self.p.findings))
+
+    def test_cs_and_gateway_edges(self):
+        ids = {n.name: n.id for n in self.g.nodes.values()}
+        edges = {(e.source, e.target) for e in self.g.edges}
+        self.assertIn((ids["cs1"], ids["lb_front"]), edges)           # default target
+        self.assertIn((ids["pol1"], ids["lb_hidden"]), edges)          # policy target (via action)
+        self.assertIn((ids["sa"], ids["lb_front"]), edges)             # session action URL -> local vServer by IP:port
+        self.assertTrue(any(f.rule_id == "DEP-002" and f.name == "sa2" for f in self.p.findings))   # FQDN: shown separately, not guessed
+        self.assertTrue(any(u["host"] == "store.example.test" for u in self.g.unresolved))
+
+
 class GuiTests(unittest.TestCase):
     def test_gui_roundtrip_and_security(self):
         import threading, urllib.request, urllib.error

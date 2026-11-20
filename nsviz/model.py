@@ -100,6 +100,14 @@ SECRET_OPTS = {
 _IP = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
 
+def is_addressable(ip: str, port: str) -> bool:
+    """A vServer listens somewhere unless address and port are both missing/zero (non-addressable, reachable only via other objects).
+    A wildcard address with a port, or an address with a wildcard port, still listens (assumption: '*' and 0.0.0.0 mean wildcard)."""
+    zero_ip = ip in ("", "0.0.0.0", "::", "*")
+    zero_port = port in ("", "0")
+    return not (zero_ip and zero_port)
+
+
 def is_ip(s: str) -> bool:
     return bool(_IP.match(s or ""))
 
@@ -164,6 +172,7 @@ class Graph:
         self.edges: list[Edge] = []
         self._edge_keys: set[tuple] = set()
         self.missing: list[dict] = []  # tote Referenzen
+        self.unresolved: list[dict] = []  # URL targets (session action/STA) that do not match a vServer of this device
         self.referenced: set[tuple[str, str]] = set()  # (etype, name) that are bound/used somewhere
         self.frontends: list[dict] = []  # vServers with ip/port
         self.backends: list[dict] = []  # service/service group targets with ip/port
@@ -327,6 +336,7 @@ class Graph:
                 p["Service"] = comm_name(proto, port)
             if ip:
                 p["IP:Port"] = f"{ip}:{port}" if port else ip
+            p["Addressing"] = "addressable" if is_addressable(ip, port) else "non-addressable (reachable only through other vServers/policies)"
             if ip and port and is_ip(ip) and ip != "0.0.0.0" and port not in ("0", "*") and et != "gslb vserver":
                 self.frontends.append({"node": n.id, "ip": ip, "port": port, "proto": proto, "etype": et, "name": e.name})
             st = o("state")
@@ -447,6 +457,7 @@ class Graph:
             for key, etypes, typ in (("servicename", ["service", "servicegroup", "gslb service", "gslb servicegroup"], "bind"),
                                      ("lbvserver", ["lb vserver"], "route"),
                                      ("targetlbvserver", ["lb vserver"], "route"),
+                                     ("targetvserver", ["lb vserver", "cs vserver"], "route"),
                                      ("staserver", None, "bind"),
                                      ("domainname", None, "gslb"),
                                      ("authnprofile", ["authentication authnprofile"], "auth"),
@@ -648,6 +659,9 @@ class Graph:
                     tl = a.opt("targetlbvserver")
                     if tl:
                         self._ref(src, ["lb vserver"], tl, "route", act, ("cs action", act), a.line)
+                    tv = a.opt("targetvserver")
+                    if tv:
+                        self._ref(src, ["lb vserver", "cs vserver"], tv, "route", act, ("cs action", act), a.line)
                 elif act:
                     self.missing.append({"src_etype": et, "src_name": name, "ref_type": "cs action", "ref_name": act, "node": src, "line": e.line})
         if et == "appfw policy":
@@ -725,7 +739,41 @@ class Graph:
                 m = re.search(r"\d+", e.label)
                 e.plain = is_plain(proto, m.group(0) if m else "")
 
+    @staticmethod
+    def _url_target(url: str) -> tuple[str, str]:
+        m = re.match(r"^\s*(?:(https?|ftp|ldaps?)://)?([^/:?#\s]+)(?::(\d+))?", url or "", re.I)
+        if not m:
+            return "", ""
+        scheme = (m.group(1) or "").lower()
+        return m.group(2), m.group(3) or {"https": "443", "http": "80", "ldaps": "636", "ldap": "389"}.get(scheme, "")
+
+    def _url_links(self) -> None:
+        """Gateway session actions (web interface/StoreFront URLs) and STA servers that point to a vServer of this device.
+        Assumption: an IP (or a server name defined here) in the URL that matches the IP:port of a local vServer means 'goes there'.
+        Names that cannot be resolved here are recorded in ``unresolved`` (shown separately, never guessed)."""
+        items = []
+        for n in self.nodes.values():
+            if n.etype == "vpn sessionaction" and n.entity is not None:
+                for key in ("wihome", "storefronturl", "ssodomain"):
+                    u = n.entity.opt(key)
+                    if u and key != "ssodomain":
+                        items.append((n.id, key, u))
+            elif n.kind == "sta":
+                items.append((n.id, "STA", n.props.get("URL", n.label)))
+        for nid, via, url in items:
+            host, port = self._url_target(url)
+            if not host:
+                continue
+            ip = self._server_ip.get(host, host)
+            hit = [fe for fe in self.frontends if fe["ip"] == ip and (not port or fe["port"] == port) and fe["node"] != nid]
+            if is_ip(ip) and hit:
+                for fe in hit:
+                    self._add_edge(nid, fe["node"], "route", f"{via} → vServer")
+            else:
+                self.unresolved.append({"node": nid, "via": via, "host": host, "port": port, "ip": ip if is_ip(ip) else ""})
+
     def _ha_and_local_links(self) -> None:
+        self._url_links()
         self._port_labels()
         for be in self.backends:
             for fe in self.frontends:

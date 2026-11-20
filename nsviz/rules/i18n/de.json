@@ -288,5 +288,15 @@
   "title": "Double-Hop: Verbindung zwischen den NetScalern unverschlüsselt",
   "rationale": "Der Frontend-NetScaler spricht den Backend-NetScaler per HTTP/TCP an, obwohl dazwischen ggf. ein schützenswertes Netz liegt (z.B. DMZ → intern).",
   "remediation": "Service-Typ SSL mit Server-Zertifikatsprüfung verwenden (Backend-Profil)."
+ },
+ "DEP-001": {
+  "title": "vServer nicht erreichbar",
+  "rationale": "Dieser vServer ist nicht adressierbar (keine IP/Port) und kein anderer vServer, keine Policy und keine globale Bindung führt zu ihm. Kein Verkehr erreicht ihn; oft ein Überbleibsel.",
+  "remediation": "Als Ziel eines CS-/LB-vServers oder einer Policy binden, eine Adresse vergeben oder entfernen."
+ },
+ "DEP-002": {
+  "title": "URL-Ziel keinem vServer zugeordnet",
+  "rationale": "Eine Gateway-Session-Action oder ein STA-Server zeigt auf einen Host, der keinem vServer dieses Geräts nach IP und Port entspricht (FQDN, anderes Gerät oder externer Dienst). Die Verbindung lässt sich allein aus der Config nicht ableiten (Annahme: IP und Port werden verglichen).",
+  "remediation": "Ziel prüfen. Bei FQDN die Zuordnung (Tab Verknüpfung) oder eine Hosts-Datei nutzen, um den richtigen vServer zu verbinden."
  }
 }

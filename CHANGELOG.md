@@ -3,9 +3,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 ### Added
+- Dependency analysis: every object is marked as connected or not (reachable from an addressable vServer or a global binding); sidebar card "Not connected" with filter; rules DEP-001 (vServer not addressable and not referenced) and DEP-002 (URL target without matching vServer); vServers show whether they are addressable.
 - GUI: the report opens directly in the same window (back to the selection or start over without quitting); GUI in 8 languages.
 - Topology: "Reset graph" and "Reset all settings".
 ### Fixed
+- Dependencies: hiding policies/actions no longer cuts the chain. CS and Gateway vServers stay connected to their LB targets through bridge lines that name the hidden policies/actions. Session actions and STA servers whose URL points to a local vServer (IP and port) are linked; FQDN targets are listed separately instead of guessed.
 - Jumping to a finding no longer switches on a whole object type or device; the object is shown as a single exception and the filters stay. Long lists in the configuration column wrap into several columns so the graph keeps a usable shape; card background image sized explicitly (rendered wrongly in some browsers).
 - `nsviz gui`: local web GUI (127.0.0.1 only, token, standard library only) to choose config files or folders, roles, HA pairs, hosts file, link map and options, and to create the report; the command line stays.
 - Cross-device links: Links tab with suggestions (IP/port via hosts file, name and certificate-file-name similarity), confirm/reject, manual links (table or Connect mode in the topology), hosts import, link map save/load (`--map`, `--hosts`); confirmed links become chain entries and edges.

@@ -132,3 +132,5 @@ button[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(-
 .nowrap{white-space:nowrap}#links code{font-size:12px;background:var(--bg2,rgba(128,128,128,.12));padding:3px 7px;border-radius:6px}
 #links h2{margin:0 0 6px}#links .tablewrap{max-height:none}
 #links .row select{width:auto;max-width:46%;flex:1}
+
+.unl{margin:2px 0 6px;padding-inline-start:18px;font-size:12.5px}.unl a{color:inherit}.okc{color:var(--ok,#15803d);font-weight:600}

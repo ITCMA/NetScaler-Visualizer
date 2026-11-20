@@ -288,5 +288,15 @@
   "title": "Double hop: connection between the NetScalers unencrypted",
   "rationale": "The frontend NetScaler talks to the backend NetScaler via HTTP/TCP although a network worth protecting may lie in between (e.g. DMZ → internal).",
   "remediation": "Use service type SSL with server certificate validation (backend profile)."
+ },
+ "DEP-001": {
+  "title": "vServer not reachable",
+  "rationale": "This vServer is not addressable (no IP/port) and no other vServer, policy or global binding leads to it, so no traffic can reach it. Often a leftover.",
+  "remediation": "Bind it as a target of a CS/LB vServer or policy, give it an address, or remove it."
+ },
+ "DEP-002": {
+  "title": "URL target not matched to a vServer",
+  "rationale": "A Gateway session action or STA server points to a host that does not match a vServer of this device by IP and port (FQDN, another device or an external service). The connection cannot be derived from the config alone (assumption: IP and port are compared).",
+  "remediation": "Check the target. For FQDNs use the link map or a hosts file (Links tab) to connect it to the right vServer."
  }
 }

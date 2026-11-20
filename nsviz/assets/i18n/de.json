@@ -282,5 +282,11 @@
  "lg_link": "Geräteübergreifende Verknüpfung",
  "reset_graph": "Graph zurücksetzen",
  "reset_all": "Alle Einstellungen zurücksetzen",
- "reset_done": "Graph zurückgesetzt"
+ "reset_done": "Graph zurückgesetzt",
+ "unl_h": "Nicht verknüpft ({n})",
+ "unl_hint": "Objekte, zu denen weder ein adressierbarer vServer noch eine globale Bindung führt. Im Graph mit gestricheltem Rand.",
+ "unl_none": "Alles ist verknüpft",
+ "only_unlinked": "Nur nicht verknüpfte Objekte zeigen",
+ "lg_via": "Über ausgeblendete Policies/Actions (Namen an der Linie)",
+ "lg_unl": "Gestrichelter Rand: nicht verknüpft"
 }

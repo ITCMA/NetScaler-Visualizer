@@ -224,5 +224,11 @@
  "lg_link": "跨设备关联",
  "reset_graph": "重置图形",
  "reset_all": "重置所有设置",
- "reset_done": "图形已重置"
+ "reset_done": "图形已重置",
+ "unl_h": "未连接（{n}）",
+ "unl_hint": "没有任何可寻址 vServer 或全局绑定能到达的对象。在图中以虚线边框显示。",
+ "unl_none": "全部已连接",
+ "only_unlinked": "只显示未连接的对象",
+ "lg_via": "经由隐藏的策略/动作（线上标注名称）",
+ "lg_unl": "虚线边框：未连接"
 }
