@@ -158,5 +158,22 @@
  "ex_md_scope": "范围",
  "ex_go": "导出",
  "ex_csvp": "CSV – 通信（端口）",
- "ex_conn": "连接（服务/端口）"
+ "ex_conn": "连接（服务/端口）",
+ "lay": "布局",
+ "lay_tiers": "分层（从左到右）",
+ "lay_flow": "流向（从左到右）",
+ "lay_down": "自上而下",
+ "lay_radial": "放射状",
+ "tier_dev": "设备",
+ "tier_entry": "入口（CS / Gateway / AAA / GSLB）",
+ "tier_lb": "负载均衡",
+ "tier_svc": "服务",
+ "tier_back": "服务器与监视器",
+ "tier_cfg": "配置对象",
+ "lg_plain": "明文（无 TLS）",
+ "lg_tls": "其他连接",
+ "lg_note": "颜色从不是唯一线索：每种类型都有图标，明文用虚线表示。",
+ "minimap": "缩略图，点击移动视图",
+ "contains": "显示设备归属连线",
+ "kinds_hint": "点击显示或隐藏某类对象。策略和动作默认隐藏。"
 }

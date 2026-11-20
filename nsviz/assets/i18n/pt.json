@@ -158,5 +158,22 @@
  "ex_md_scope": "Âmbito",
  "ex_go": "Exportar",
  "ex_csvp": "CSV – comunicação (portas)",
- "ex_conn": "Ligação (serviço/porta)"
+ "ex_conn": "Ligação (serviço/porta)",
+ "lay": "Layout",
+ "lay_tiers": "Níveis (esquerda para direita)",
+ "lay_flow": "Fluxo (esquerda para direita)",
+ "lay_down": "De cima para baixo",
+ "lay_radial": "Radial",
+ "tier_dev": "Dispositivo",
+ "tier_entry": "Entrada (CS / Gateway / AAA / GSLB)",
+ "tier_lb": "Balanceamento de carga",
+ "tier_svc": "Serviços",
+ "tier_back": "Servidores e monitores",
+ "tier_cfg": "Objetos de configuração",
+ "lg_plain": "Texto simples (sem TLS)",
+ "lg_tls": "Outra conexão",
+ "lg_note": "A cor nunca é a única pista: cada tipo tem seu ícone, texto simples é tracejado.",
+ "minimap": "Minimapa, clique para mover a vista",
+ "contains": "Mostrar pertencimento ao dispositivo",
+ "kinds_hint": "Clique para mostrar ou ocultar um tipo. Políticas e ações começam ocultas."
 }

@@ -64,6 +64,17 @@ def comm_name(proto: str, port: str) -> str:
     return PROTO_NAMES.get(p) or PORT_NAMES.get(str(port), "")
 
 
+ENCRYPTED_PROTOS = {"SSL", "SSL_TCP", "SSL_BRIDGE", "DTLS", "SSL_DIAMETER", "DIAMETER_SSL", "SSL_PUSH"}
+# Assumption: well-known ports of TLS-wrapped services; a plain TCP service on these is treated as encrypted end to end.
+ENCRYPTED_PORTS = {"443", "636", "3269", "465", "563", "585", "614", "853", "989", "990", "992", "993", "995", "8443"}
+
+
+def is_plain(proto: str, port: str) -> bool:
+    if (proto or "").upper() in ENCRYPTED_PROTOS or str(port) in ENCRYPTED_PORTS:
+        return False
+    return bool(proto or port)
+
+
 def comm_label(proto: str, port: str) -> str:
     n = comm_name(proto, port)
     pt = f"{proto}/{port}" if proto and port else (port or proto or "")
@@ -141,6 +152,7 @@ class Edge:
     type: str  # bind | route | auth | ssl | gslb | policy | nfactor | loop | doublehop | backup
     label: str = ""
     port: bool = False  # label shows protocol/port (always displayed)
+    plain: bool = False  # connection carries unencrypted traffic (assumption based on protocol/port, see is_plain)
 
 
 class Graph:
@@ -700,12 +712,18 @@ class Graph:
                 ent = tn.entity
                 if tn.etype == "service" and len(ent.args) > 3:
                     e.label, e.port = comm_label(ent.args[2], ent.args[3]), True
+                    e.plain = is_plain(ent.args[2], ent.args[3])
                 else:
                     nm = comm_name(ent_proto(ent), "")
                     if nm:
                         e.label, e.port = nm, True
+                        e.plain = is_plain(ent_proto(ent), "")
             elif sn.kind in ("svc", "sg") and tn.kind == "server" and e.label:
                 e.port = True
+                se = sn.entity
+                proto = (se.args[2] if sn.etype == "service" and se is not None and len(se.args) > 2 else ent_proto(se))
+                m = re.search(r"\d+", e.label)
+                e.plain = is_plain(proto, m.group(0) if m else "")
 
     def _ha_and_local_links(self) -> None:
         self._port_labels()

@@ -189,5 +189,22 @@
  "ex_md_scope": "Scope",
  "ex_go": "Export",
  "ex_csvp": "CSV – communication (ports)",
- "ex_conn": "Connection (service/port)"
+ "ex_conn": "Connection (service/port)",
+ "lay": "Layout",
+ "lay_tiers": "Tiers (left to right)",
+ "lay_flow": "Flow (left to right)",
+ "lay_down": "Top to bottom",
+ "lay_radial": "Radial",
+ "tier_dev": "Device",
+ "tier_entry": "Entry (CS, Gateway, AAA)",
+ "tier_lb": "Load balancing",
+ "tier_svc": "Services",
+ "tier_back": "Servers & monitors",
+ "tier_cfg": "Configuration objects",
+ "lg_plain": "Plaintext (not TLS)",
+ "lg_tls": "Other connection",
+ "lg_note": "Colour is never the only cue: each type has its own icon, plaintext is dashed.",
+ "minimap": "Minimap, click to move the view",
+ "contains": "Show device membership lines",
+ "kinds_hint": "Click to show or hide a type. Policies and actions are hidden at first."
 }

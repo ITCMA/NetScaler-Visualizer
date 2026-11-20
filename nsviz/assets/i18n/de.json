@@ -216,5 +216,22 @@
  "ex_go": "Exportieren",
  "ex_csvp": "CSV – Kommunikation (Ports)",
  "ex_conn": "Verbindung (Dienst/Port)",
- "prop_service": "Dienst"
+ "prop_service": "Dienst",
+ "lay": "Layout",
+ "lay_tiers": "Ebenen (links nach rechts)",
+ "lay_flow": "Fluss (links nach rechts)",
+ "lay_down": "Von oben nach unten",
+ "lay_radial": "Radial",
+ "tier_dev": "Gerät",
+ "tier_entry": "Einstieg (CS, Gateway, AAA)",
+ "tier_lb": "Load Balancing",
+ "tier_svc": "Services",
+ "tier_back": "Server & Monitore",
+ "tier_cfg": "Konfigurationsobjekte",
+ "lg_plain": "Klartext (kein TLS)",
+ "lg_tls": "Sonstige Verbindung",
+ "lg_note": "Farbe ist nie der einzige Hinweis: jeder Typ hat ein eigenes Icon, Klartext ist gestrichelt.",
+ "minimap": "Minimap, Klick verschiebt die Ansicht",
+ "contains": "Zugehörigkeit zum Gerät als Linien",
+ "kinds_hint": "Klick blendet einen Typ ein oder aus. Policies und Actions sind zunächst ausgeblendet."
 }

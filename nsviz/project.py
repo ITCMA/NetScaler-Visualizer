@@ -318,9 +318,9 @@ class Project:
                               "props": {k: v for k, v in n.props.items() if not k.startswith("_")},
                               "lines": n.lines, "findings": n.findings})
             for e in g.graph.edges:
-                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {})})
+                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {})})
         for e in self.extra_edges:
-            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {})})
+            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {})})
         for i, e in enumerate(edges):
             e["id"] = f"e{i}"
         rules = {r.id: r.meta() for r in RULES.values()}
