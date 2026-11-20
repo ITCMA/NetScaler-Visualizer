@@ -228,8 +228,8 @@ def serve(port: int = 0, open_browser: bool = True) -> int:
     srv.RequestHandlerClass = make_handler(st, real)
     st.server = srv
     url = f"http://127.0.0.1:{real}/?t={st.token}"
-    print(f"nsviz GUI: {url}")
-    print("Listening on this computer only (127.0.0.1). Close with Ctrl+C or the button in the page.")
+    print(f"nsviz GUI: {url}", flush=True)
+    print("Listening on this computer only (127.0.0.1). Close with Ctrl+C or the button in the page.", flush=True)
     if open_browser:
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()
     try:

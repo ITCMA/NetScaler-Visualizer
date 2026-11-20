@@ -89,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--markdown", action="store_true")
     r.add_argument("--lang", choices=["en", "de"], default="en")
     a.add_argument("--lang", choices=["en", "de"], default="en", help="language of CSV texts and console output")
+    if argv is None and len(sys.argv) == 1 and getattr(sys, "frozen", False):
+        argv = ["gui"]  # double-click on the packaged app opens the GUI
     args = ap.parse_args(argv)
 
     if args.cmd == "gui":

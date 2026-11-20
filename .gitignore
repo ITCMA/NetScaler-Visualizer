@@ -36,3 +36,6 @@ testdata/
 # link maps / hosts files contain customer names
 nsviz-links*.json
 hosts.txt
+build/
+dist/
+*.spec
