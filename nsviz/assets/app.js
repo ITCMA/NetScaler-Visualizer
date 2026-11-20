@@ -55,7 +55,7 @@ const SEVW = { critical: 15, high: 7, medium: 3, low: 1, info: 0 };
 const score = Math.round(100 * Math.exp(-D.findings.reduce((a, f) => a + SEVW[f.severity], 0) / (40 + D.nodes.length * 1.5)));
 
 // ---- Tabs -------------------------------------------------------------------------------------
-const TABS = ['overview', 'topo', 'findings', 'inventory', 'project', 'rules'];
+const TABS = ['overview', 'topo', 'findings', 'inventory', 'project', 'links', 'rules'];
 let curTab = 'overview';
 function renderTabs() {
   const hi = D.findings.filter(f => ['critical', 'high'].includes(f.severity)).length;
@@ -66,7 +66,7 @@ function showTab(k) {
   curTab = k;
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === k; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   $$('.tab').forEach(s => { const on = s.id === 'tab-' + k; s.classList.toggle('active', on); s.setAttribute('aria-labelledby', 'tb-' + s.id.slice(4)); });
-  if (k === 'topo' && window.cy) { cy.resize(); if (!laidOut) { laidOut = true; initialLayout(); } }
+  if (k === 'topo' && window.cy) { cy.resize(); if (!laidOut) { laidOut = true; initialLayout(); } else if (lkDirty) { lkDirty = false; layout(); } }
 }
 
 // ---- Graph ------------------------------------------------------------------------------------
@@ -145,6 +145,7 @@ function styleGraph() {
     { selector: 'edge[type="auth"]', style: { 'line-color': '#8b5cf6', 'target-arrow-color': '#8b5cf6', 'line-style': 'dotted' } },
     { selector: 'edge[type="ssl"]', style: { 'line-color': '#f43f5e', 'target-arrow-color': '#f43f5e', 'width': 1, 'opacity': .55 } },
     { selector: 'edge[type="gslb"]', style: { 'line-color': '#06b6d4', 'target-arrow-color': '#06b6d4' } },
+    { selector: 'edge[type="link"]', style: { 'line-color': dark ? '#e879f9' : '#a21caf', 'target-arrow-color': dark ? '#e879f9' : '#a21caf', 'width': 3.4, 'line-style': 'solid', 'color': dark ? '#e879f9' : '#a21caf', 'text-border-color': dark ? '#e879f9' : '#a21caf' } },
     { selector: 'edge[type="backup"]', style: { 'line-style': 'dotted' } },
     // Plaintext (not TLS): dashed line + dashed label frame + amber, so it is recognisable without colour
     { selector: 'edge[?plain]', style: { 'line-style': 'dashed', 'line-dash-pattern': [7, 4], 'line-color': amber, 'target-arrow-color': amber, 'width': 2.2, 'color': amber, 'text-border-style': 'dashed', 'text-border-color': amber } },
@@ -369,7 +370,7 @@ function renderLegend() {
   $('#legend').innerHTML = `<details ${legendOpen ? 'open' : ''}><summary>${esc(t('legend'))}</summary>` +
     ln('stroke:#94a3b8;stroke-width:3', t('lg_bind')) + ln('stroke:#3b82f6;stroke-width:3', t('lg_route')) +
     ln(`stroke:${amber};stroke-width:3;stroke-dasharray:7 4`, t('lg_plain')) + ln('stroke:#94a3b8;stroke-width:3;opacity:.5', t('lg_tls')) +
-    ln('stroke:#ef4444;stroke-width:3;stroke-dasharray:7 4', t('lg_hop')) + ln('stroke:#f97316;stroke-width:3;stroke-dasharray:7 4', t('lg_loop')) +
+    ln('stroke:#ef4444;stroke-width:3;stroke-dasharray:7 4', t('lg_hop')) + ln('stroke:#a21caf;stroke-width:4', t('lg_link')) + ln('stroke:#f97316;stroke-width:3;stroke-dasharray:7 4', t('lg_loop')) +
     SEV.slice(0, 4).map(s => `<div><span class="sw" style="background:transparent;border:3px solid ${SEVCOL[s]}"></span>${esc(t('lg_find', { s: sevLabel(s) }))}</div>`).join('') +
     `<p class="muted small">${esc(t('lg_note'))}</p><p class="muted small">${esc(t('visible', { a: cy.nodes(':visible').length, b: cy.nodes().length }))}</p></details>`;
   $('#legend details').addEventListener('toggle', e => { legendOpen = e.target.open; store.set('legend', legendOpen ? '1' : '0'); });
@@ -518,7 +519,7 @@ document.addEventListener('keydown', e => {
   const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
   if (e.key === '/' && !typing) { e.preventDefault(); showTab('topo'); search.focus(); }
   else if (e.key === '?' && !typing) { e.preventDefault(); openHelp(); }
-  else if (/^[1-6]$/.test(e.key) && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement.id !== 'cy') showTab(TABS[+e.key - 1]);
+  else if (/^[1-7]$/.test(e.key) && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement.id !== 'cy') showTab(TABS[+e.key - 1]);
 });
 
 // ---- Sprache ----------------------------------------------------------------------------------
@@ -534,13 +535,14 @@ function applyStatic() {
   $('#subtitle').textContent = t('sub', { d: D.groups.reduce((a, g) => a + g.devices.length, 0), g: D.groups.length, o: D.nodes.length, t: dateStr() }) + ' · ' + (D.meta.redacted ? t('masked') : t('unmasked'));
 }
 function renderAll() {
-  applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderRulesUi(); renderRules(); renderOverview();
+  applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderRulesUi(); renderRules(); renderOverview();
   renderDetail(state.selected ? nodeById[state.selected] : null); showTab(curTab);
 }
 const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');
 ls.onchange = () => { lang = ls.value; store.set('lang', lang); renderAll(); };
 
 /*__EXPORT__*/
+/*__LINKS__*/
 
 // ---- Start ------------------------------------------------------------------------------------
 lang = detectLang(); ls.value = lang;

@@ -69,11 +69,19 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--csv", metavar="FILE", help="write findings as CSV (Excel, semicolon-separated)")
     a.add_argument("--fail-on", choices=SEVERITIES, help="exit code 2 if findings of this severity or higher exist (CI)")
     a.add_argument("--title", default="NetScaler Visualizer")
+    a.add_argument("--map", metavar="FILE", help="link map (JSON) with confirmed/rejected cross-device links; save it from the report")
+    a.add_argument("--hosts", metavar="FILE", help="FQDN->IP list (hosts format or CSV) used to suggest cross-device links")
     z = sub.add_parser("anonymize", help="write anonymized copies of configs (names, IPs, hosts, secrets, text)")
     z.add_argument("paths", nargs="+", help="ns.conf files or folders")
     z.add_argument("-o", "--output", required=True, help="output folder (created; must not be inside a git repository you push)")
     z.add_argument("--keep-literals", action="store_true", help="keep string literals in expressions (only hosts/IPs/names are replaced)")
     z.add_argument("--map-file", metavar="FILE", help="also write the reverse mapping (as sensitive as the input!)")
+    d = sub.add_parser("resolve", help="OPTIONAL: resolve the FQDNs found in the configs by DNS and write a hosts file (queries a DNS server!)")
+    d.add_argument("paths", nargs="+", help="ns.conf files or folders")
+    d.add_argument("-o", "--output", help="write the hosts file here (default: print)")
+    d.add_argument("--server", default="", metavar="IP[:PORT]", help="DNS server to ask (default: the system resolver)")
+    d.add_argument("--list", action="store_true", help="only list the names that would be asked, query nothing")
+    d.add_argument("--yes", action="store_true", help="do not ask for confirmation (for scripts)")
     r = sub.add_parser("rules", help="list check rules")
     r.add_argument("--markdown", action="store_true")
     r.add_argument("--lang", choices=["en", "de"], default="en")
@@ -88,6 +96,33 @@ def main(argv: list[str] | None = None) -> int:
         print("Review the result manually before using it outside the private folder.")
         return 0 if st["statements_in"] == st["statements_out"] else 3
 
+    if args.cmd == "resolve":
+        from . import linking
+        try:
+            proj = Project.load(args.paths)
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        names = linking.fqdns(proj)
+        print(f"{len(names)} name(s) from the configs:")
+        for nm in names:
+            print("  " + nm)
+        if args.list or not names:
+            return 0
+        print(f"\nThese names would be sent to: {args.server or 'the system DNS resolver of this computer (which server that is depends on your OS/network)'}")
+        print("Customer host names then leave this computer; the DNS server and anything on the path can see them.")
+        if not args.yes and input("Type 'yes' to query: ").strip().lower() != "yes":
+            print("Aborted, nothing was sent.")
+            return 0
+        res = linking.resolve_names(names, args.server)
+        text = "# resolved by nsviz resolve (explicit user request)\n" + "".join(f"{ip}\t{nm}\n" for nm, ip in sorted(res.items()))
+        if args.output:
+            Path(args.output).write_text(text, encoding="utf-8")
+            print(f"{len(res)} of {len(names)} resolved -> {args.output}  (contains customer names: keep it private)")
+        else:
+            print(text)
+        return 0
+
     if args.cmd == "rules":
         if args.markdown:
             print(_rules_markdown(args.lang))
@@ -100,8 +135,13 @@ def main(argv: list[str] | None = None) -> int:
     pairs = [tuple(x.split(",", 1)) for x in args.ha if "," in x]
     roles = dict(x.split("=", 1) for x in args.role if "=" in x)
     try:
-        proj = Project.load(args.paths, pairs, roles, redact=not args.no_redact)
-    except FileNotFoundError as e:
+        from . import linking
+        lm = linking.load_map(args.map) if args.map else None
+        if args.hosts:
+            lm = lm or {"format": linking.MAP_FORMAT, "version": linking.MAP_VERSION, "links": []}
+            lm.setdefault("hosts", {}).update(linking.load_hosts(args.hosts))
+        proj = Project.load(args.paths, pairs, roles, redact=not args.no_redact, link_map=lm)
+    except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
     out = report.write(proj, args.output, args.title)

@@ -1,0 +1,2 @@
+# FQDN -> IP (example, documentation address range)
+10.20.0.52	extra.backend.example.test

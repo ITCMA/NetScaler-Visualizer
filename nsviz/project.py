@@ -9,6 +9,7 @@ from pathlib import Path
 
 from . import __version__
 from .model import Edge, Graph, KIND_LABELS, is_ip
+from .linking import apply_map, collect
 from .parser import Config
 from .rules import RULES, SEVERITIES, CATEGORIES, Finding, Rule, finalize, load_builtin_rules, register_meta, render_messages, run_rules
 
@@ -84,8 +85,10 @@ def diff_configs(a: Config, b: Config) -> list[dict]:
 
 
 class Project:
-    def __init__(self, devices: list[Device], ha_pairs: list[tuple[str, str]] | None = None, redact: bool = True):
+    def __init__(self, devices: list[Device], ha_pairs: list[tuple[str, str]] | None = None, redact: bool = True,
+                 link_map: dict | None = None):
         self.devices = devices
+        self.link_map = link_map or {}
         self.redact = redact
         self.groups: list[Group] = []
         self.findings: list[Finding] = []
@@ -100,13 +103,15 @@ class Project:
         self._run_rules()
         self._diff()
         self._chains()
+        for w in (apply_map(self, link_map) if link_map else []):
+            self.notes.append({"en": w, "de": w})
         self.findings = finalize(self.findings)
         self._attach()
 
     # ---- Laden ----------------------------------------------------------------------------
     @classmethod
     def load(cls, paths: list[str], ha_pairs: list[tuple[str, str]] | None = None, roles: dict[str, str] | None = None,
-             redact: bool = True) -> "Project":
+             redact: bool = True, link_map: dict | None = None) -> "Project":
         files: list[Path] = []
         for p in map(Path, paths):
             if p.is_dir():
@@ -146,7 +151,7 @@ class Project:
             devs.append(d)
         if not devs:
             raise FileNotFoundError("no ns.conf-like files found")
-        proj = cls(devs, ha_pairs, redact)
+        proj = cls(devs, ha_pairs, redact, link_map)
         if skipped:
             proj.notes.append({"en": "Skipped (no ns.conf statements recognized): " + ", ".join(skipped),
                                "de": "Übersprungen (keine ns.conf-Befehle erkannt): " + ", ".join(skipped)})
@@ -339,5 +344,6 @@ class Project:
             "rules": rules,
             "diffs": self.diffs,
             "links": self.links,
+            "linking": {**collect(self), "map": self.link_map},
             "chains": self.chains(),
         }

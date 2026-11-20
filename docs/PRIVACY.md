@@ -63,3 +63,6 @@ files to a local file.
 - [ ] `python3 -m unittest discover -s tests` is green (includes the hygiene test)
 - [ ] no real names, host names, IPs, hashes, certificates, paths in the diff
 - [ ] git identity is the intended one
+
+## Link maps and DNS
+A link map (`nsviz-links.json`) and a hosts file contain object and host names from customer configs: keep them private (they are in `.gitignore`). `nsviz resolve` sends the FQDNs found in the configs to a DNS server; it lists names and server first and asks for confirmation. Nothing is queried automatically, and the HTML report itself never uses the network.

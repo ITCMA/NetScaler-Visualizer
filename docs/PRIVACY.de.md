@@ -60,3 +60,6 @@ nur verwenden, um die Liste der eindeutigen Dateien in eine lokale Datei zu schr
 - [ ] `python3 -m unittest discover -s tests` ist grün (enthält den Hygiene-Test)
 - [ ] keine echten Namen, Hostnamen, IPs, Hashes, Zertifikate, Pfade im Diff
 - [ ] Git-Identität ist die gewünschte
+
+## Zuordnungsdatei und DNS
+Eine Zuordnungsdatei (`nsviz-links.json`) und eine Hosts-Datei enthalten Objekt- und Hostnamen aus Kundenconfigs: privat halten (steht in `.gitignore`). `nsviz resolve` sendet die in den Configs gefundenen FQDNs an einen DNS-Server; es zeigt vorher Namen und Server an und fragt nach. Es wird nichts automatisch abgefragt, und der HTML-Report selbst nutzt nie das Netz.

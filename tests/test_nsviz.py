@@ -269,7 +269,7 @@ class I18nTests(unittest.TestCase):
                 self.assertEqual(ph(d[k]), ph(i18n["en"][k]), f"{code}.{k} Platzhalter")
 
     def test_every_used_key_exists(self):
-        js = (ROOT / "nsviz" / "assets" / "app.js").read_text(encoding="utf-8") + (ROOT / "nsviz" / "assets" / "template.html").read_text(encoding="utf-8")
+        js = (ROOT / "nsviz" / "assets" / "app.js").read_text(encoding="utf-8") + (ROOT / "nsviz" / "assets" / "template.html").read_text(encoding="utf-8") + (ROOT / "nsviz" / "assets" / "links.js").read_text(encoding="utf-8")
         used = set(re.findall(r"\bt\('([a-z_]+)'", js)) | set(re.findall(r"data-i18n(?:-ph|-title|-aria)?=\"([a-z_]+)\"", js))
         used |= {m for m in re.findall(r"'(th_\w+|sc_\w+|p_\w+|o_\w+)'", js)}
         en = report.load_i18n()["en"]
@@ -280,6 +280,55 @@ class I18nTests(unittest.TestCase):
         html = report.render(Project.load([str(DEMO)]))
         for needle in ('class="skip"', 'role="tablist"', 'aria-live', 'prefers-color-scheme', 'prefers-reduced-motion', "focus-visible", "<dialog"):
             self.assertIn(needle, html, needle)
+
+
+class LinkingTests(unittest.TestCase):
+    def test_hosts_parsing(self):
+        from nsviz.linking import parse_hosts_text
+        h = parse_hosts_text("# c\n10.1.1.1 A.example.test b.example.test\napp.example.test;10.1.1.2\nbroken line\n")
+        self.assertEqual(h, {"a.example.test": "10.1.1.1", "b.example.test": "10.1.1.1", "app.example.test": "10.1.1.2"})
+
+    def test_sources_and_targets(self):
+        from nsviz.linking import collect, fqdns
+        p = Project.load([str(DEMO)])
+        c = collect(p)
+        self.assertEqual([s["host"] for s in c["sources"]], ["extra.backend.example.test"])
+        self.assertTrue(any(t["ip"] == "10.20.0.52" and t["port"] == "8080" for t in c["targets"]))
+        self.assertEqual(fqdns(p), ["extra.backend.example.test"])
+
+    def test_map_roundtrip_adds_chain(self):
+        from nsviz.linking import collect, apply_map, MAP_FORMAT
+        p0 = Project.load([str(DEMO)])
+        c = collect(p0)
+        src = c["sources"][0]["key"]
+        dst = next(t["key"] for t in c["targets"] if t["ip"] == "10.20.0.52")
+        n0 = len(p0.links)
+        p = Project.load([str(DEMO)], link_map={"format": MAP_FORMAT, "version": 1, "links": [
+            {"from": src, "to": dst, "status": "confirmed"}, {"from": "x|y|z", "to": dst, "status": "confirmed"}]})
+        self.assertEqual(len(p.links), n0 + 1)
+        d = p.to_dict()
+        self.assertTrue(any(e["type"] == "link" for e in d["edges"]))
+        self.assertTrue(any("not found" in n["en"] for n in p.notes))
+        rejected = Project.load([str(DEMO)], link_map={"format": MAP_FORMAT, "version": 1, "links": [{"from": src, "to": dst, "status": "rejected"}]})
+        self.assertEqual(len(rejected.links), n0)
+
+    def test_dns_query_against_local_server(self):
+        import socket, struct, threading
+        from nsviz.linking import resolve_names
+        srv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        srv.bind(("127.0.0.1", 0))
+        port = srv.getsockname()[1]
+
+        def serve():
+            data, addr = srv.recvfrom(512)
+            q = data[12:]
+            resp = data[:2] + struct.pack(">HHHHH", 0x8180, 1, 1, 0, 0) + q + b"\xc0\x0c" + struct.pack(">HHIH", 1, 1, 60, 4) + bytes([192, 0, 2, 7])
+            srv.sendto(resp, addr)
+        th = threading.Thread(target=serve, daemon=True)
+        th.start()
+        self.assertEqual(resolve_names(["app.example.test"], f"127.0.0.1:{port}"), {"app.example.test": "192.0.2.7"})
+        th.join(2)
+        srv.close()
 
 
 class ReportTests(unittest.TestCase):

@@ -3,6 +3,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 ### Added
+- Cross-device links: Links tab with suggestions (IP/port via hosts file, name and certificate-file-name similarity), confirm/reject, manual links (table or Connect mode in the topology), hosts import, link map save/load (`--map`, `--hosts`); confirmed links become chain entries and edges.
+- `nsviz resolve`: optional DNS resolution of FQDNs, only on explicit request (lists names and server first, asks for confirmation; `--list` queries nothing).
 - Topology redesign: cards with own icon set, name, type/address and finding badge; icons-only at far zoom; tier columns (device, entry, load balancing, services, servers, configuration) with frames per device/HA pair; layouts tiers/flow/top-down/radial; full-path highlight on selection; minimap; policies/actions hidden at first; plaintext (non-TLS) connections dashed (assumption by protocol/port); collapsible icon legend that toggles object types; high-contrast and dark variants.
 - Topology: connections show protocol/service and port (e.g. HTTPS 443, SQL Server 1433); communication CSV export.
 - Export dialog: PNG, SVG, PDF (print view), CSV (findings, inventory, communication), JSON, Markdown; scope all/view/selection; original or anonymized (asked on every export).
