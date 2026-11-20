@@ -3,6 +3,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 ### Added
+- Topology: connections show protocol/service and port (e.g. HTTPS 443, SQL Server 1433); communication CSV export.
+- Export dialog: PNG, SVG, PDF (print view), CSV (findings, inventory, communication), JSON, Markdown; scope all/view/selection; original or anonymized (asked on every export).
 - Topology: VLANs, IP addresses (SNIP/VIP), routes and cipher groups (linked from SSL bindings).
 - `nsviz anonymize`: consistent pseudonymization of names, IPs, hosts, e-mails, secrets and free text for sharing/development use.
 - Topology: responder/rewrite/session actions as nodes (policy → action) and AAA groups with their bound policies.

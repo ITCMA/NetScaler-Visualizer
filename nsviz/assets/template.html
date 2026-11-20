@@ -23,6 +23,7 @@
       <button role="radio" data-theme="light" aria-checked="false" title="Light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg><span class="sr" data-i18n="t_light">Light</span></button>
       <button role="radio" data-theme="dark" aria-checked="false" title="Dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg><span class="sr" data-i18n="t_dark">Dark</span></button>
     </div>
+    <button id="export" class="btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg> <span data-i18n="ex_btn">Export</span></button>
     <button id="help" class="icon" aria-haspopup="dialog" data-i18n-title="u_keys" data-i18n-aria="u_keys">?</button>
   </div>
 </header>
@@ -76,6 +77,7 @@
 </main>
 <footer id="legal" class="legal" role="contentinfo" data-i18n="disclaimer"></footer>
 <dialog id="dlg" aria-labelledby="dlg-t"><div class="dlg-head"><h2 id="dlg-t" data-i18n="u_keys"></h2><button class="icon" id="dlg-x" data-i18n-aria="u_close">✕</button></div><dl id="keys"></dl></dialog>
+<dialog id="dlgx" aria-labelledby="dlgx-t"><div class="dlg-head"><h2 id="dlgx-t" data-i18n="ex_title"></h2><button class="icon" id="ex-x" data-i18n-aria="u_close">✕</button></div><div id="ex-body"></div><div class="dlg-foot"><button id="ex-go" class="primary" data-i18n="ex_go" disabled></button></div></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="live" class="sr" aria-live="polite"></div>
 <script id="data" type="application/json">/*__DATA__*/</script>

@@ -41,6 +41,35 @@ KIND_LABELS = {
     "authact": "Auth action", "action": "Action", "group": "AAA group", "cipher": "Cipher group", "vlan": "VLAN", "netip": "IP address (SNIP/VIP)", "route": "Route", "domain": "GSLB domain", "sta": "STA", "missing": "Missing reference",
 }
 
+# Well-known ports -> service names (for labels on connections); proto-specific names for NetScaler service types.
+PORT_NAMES = {
+    "20": "FTP data", "21": "FTP", "22": "SSH", "23": "Telnet", "25": "SMTP", "53": "DNS", "80": "HTTP", "88": "Kerberos",
+    "110": "POP3", "123": "NTP", "135": "RPC", "143": "IMAP", "161": "SNMP", "162": "SNMP trap", "389": "LDAP", "443": "HTTPS",
+    "445": "SMB", "465": "SMTPS", "514": "Syslog", "587": "SMTP submission", "636": "LDAPS", "993": "IMAPS", "995": "POP3S",
+    "1433": "SQL Server", "1434": "SQL Browser", "1494": "ICA", "1521": "Oracle DB", "1812": "RADIUS", "1813": "RADIUS acct",
+    "2598": "ICA session reliability", "3268": "LDAP GC", "3269": "LDAPS GC", "3306": "MySQL", "3389": "RDP", "5060": "SIP",
+    "5061": "SIPS", "5432": "PostgreSQL", "6379": "Redis", "8080": "HTTP alt", "8443": "HTTPS alt", "9200": "Elasticsearch",
+    "27017": "MongoDB",
+}
+PROTO_NAMES = {"HTTP": "HTTP", "SSL": "HTTPS", "SSL_BRIDGE": "HTTPS (bridge)", "DNS": "DNS", "DNS_TCP": "DNS (TCP)", "FTP": "FTP",
+               "LDAP": "LDAP", "SSL_TCP": "TLS/TCP", "MSSQL": "SQL Server", "MYSQL": "MySQL", "RDP": "RDP", "SIP_UDP": "SIP",
+               "SYSLOGTCP": "Syslog", "SYSLOGUDP": "Syslog", "RADIUS": "RADIUS", "NNTP": "NNTP", "SMPP": "SMPP", "ICA": "ICA"}
+
+
+def comm_name(proto: str, port: str) -> str:
+    """Human-readable service name for a protocol/port pair (e.g. 'HTTPS', 'SQL Server'); empty if unknown."""
+    p = (proto or "").upper()
+    if p in ("TCP", "UDP", "ANY", ""):
+        return PORT_NAMES.get(str(port), "")
+    return PROTO_NAMES.get(p) or PORT_NAMES.get(str(port), "")
+
+
+def comm_label(proto: str, port: str) -> str:
+    n = comm_name(proto, port)
+    pt = f"{proto}/{port}" if proto and port else (port or proto or "")
+    return f"{n} {port}".strip() if n and port else pt
+
+
 BUILTIN_MONITORS = {
     "ping-default", "tcp-default", "arp", "nd6", "ping", "tcp", "http", "tcp-ecv", "http-ecv",
     "udp-ecv", "dns", "ftp", "tcps", "https", "imap", "pop3", "smtp", "ldap", "radius", "mysql",
@@ -111,6 +140,7 @@ class Edge:
     target: str
     type: str  # bind | route | auth | ssl | gslb | policy | nfactor | loop | doublehop | backup
     label: str = ""
+    port: bool = False  # label shows protocol/port (always displayed)
 
 
 class Graph:
@@ -281,6 +311,8 @@ class Graph:
             ip = e.args[2] if len(e.args) > 2 else ""
             port = e.args[3] if len(e.args) > 3 else ""
             p["Protocol"] = proto
+            if comm_name(proto, port):
+                p["Service"] = comm_name(proto, port)
             if ip:
                 p["IP:Port"] = f"{ip}:{port}" if port else ip
             if ip and port and is_ip(ip) and ip != "0.0.0.0" and port not in ("0", "*") and et != "gslb vserver":
@@ -298,6 +330,8 @@ class Graph:
                     p[label] = v
         elif et in ("service", "servicegroup"):
             p["Protocol"] = e.args[2] if et == "service" and len(e.args) > 2 else (e.args[1] if len(e.args) > 1 else "")
+            if comm_name(p["Protocol"], e.args[3] if et == "service" and len(e.args) > 3 else ""):
+                p["Service"] = comm_name(p["Protocol"], e.args[3] if et == "service" and len(e.args) > 3 else "")
             if et == "service":
                 p["Target"] = f"{e.args[1]}:{e.args[3]}" if len(e.args) > 3 else (e.args[1] if len(e.args) > 1 else "")
             for k, label in (("maxclient", "maxClient"), ("cip", "Client IP header"), ("usip", "USIP"), ("state", "Status"), ("comment", "Comment")):
@@ -444,7 +478,7 @@ class Graph:
                 srv = b.args[0]
                 port = b.args[1] if len(b.args) > 1 else ""
                 sid = self._server_node(srv, ctx)
-                self._add_edge(src, sid, "bind", f":{port}" if port else "")
+                self._add_edge(src, sid, "bind", comm_label(ent_proto(self.cfg.get("servicegroup", owner)), port) if port else "")
                 ent = self.cfg.get("servicegroup", owner)
                 ip = self._server_ip.get(srv, srv)
                 self.backends.append({"node": src, "server_node": sid, "host": ip, "port": port,
@@ -560,7 +594,7 @@ class Graph:
             if src in self.nodes and len(e.args) > 1:
                 srv = e.args[1]
                 sid = self._server_node(srv, (et, name))
-                self._add_edge(src, sid, "bind", f":{e.args[3]}" if len(e.args) > 3 else "")
+                self._add_edge(src, sid, "bind", comm_label(e.args[2] if len(e.args) > 2 else "", e.args[3]) if len(e.args) > 3 else "")
                 ip = self._server_ip.get(srv, srv)
                 self.backends.append({"node": src, "server_node": sid, "host": ip, "port": e.args[3] if len(e.args) > 3 else "",
                                       "proto": e.args[2] if len(e.args) > 2 else "", "name": name, "etype": et})
@@ -655,11 +689,34 @@ class Graph:
                 self._add_edge(src, fe["node"], "gslb", "lokaler vServer")
 
     # ---- local links: service -> vServer on the same device ------------------------
+    def _port_labels(self) -> None:
+        """Label connections with protocol/port: vServer -> service (service port), service -> server (member port)."""
+        vs_kinds = {"csvs", "lbvs", "gwvs", "aaavs", "gslbvs"}
+        for e in self.edges:
+            sn, tn = self.nodes.get(e.source), self.nodes.get(e.target)
+            if not sn or not tn:
+                continue
+            if sn.kind in vs_kinds and tn.kind in ("svc", "sg") and e.type == "bind" and not e.label and tn.entity is not None:
+                ent = tn.entity
+                if tn.etype == "service" and len(ent.args) > 3:
+                    e.label, e.port = comm_label(ent.args[2], ent.args[3]), True
+                else:
+                    nm = comm_name(ent_proto(ent), "")
+                    if nm:
+                        e.label, e.port = nm, True
+            elif sn.kind in ("svc", "sg") and tn.kind == "server" and e.label:
+                e.port = True
+
     def _ha_and_local_links(self) -> None:
+        self._port_labels()
         for be in self.backends:
             for fe in self.frontends:
                 if be["host"] == fe["ip"] and be["port"] == fe["port"] and be["node"] != fe["node"]:
                     self._add_edge(be["node"], fe["node"], "loop", "lokal (Loopback/Chain)")
+
+
+def ent_proto(ent) -> str:
+    return ent.args[1] if ent is not None and len(ent.args) > 1 else ""
 
 
 def _builtin_policy(name: str) -> bool:

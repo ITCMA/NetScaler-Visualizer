@@ -269,7 +269,7 @@ class Project:
                                            "host": host, "port": port, "to_port": fe["port"], "confidence": conf,
                                            "proto": be["proto"]})
                         self.extra_edges.append(Edge(be["node"], fe["node"], "doublehop",
-                                                     f"Double-Hop {host}:{port}" + ("" if conf == "high" else " (IP only)")))
+                                                     f"Double-Hop {host}:{port}" + ("" if conf == "high" else " (IP only)"), True))
                         if conf == "medium":
                             self.findings.append(Finding("CHAIN-001", "info", render_messages("CHAIN-001", src=be["name"], dst=fe["name"], host=host, port=port, dport=fe["port"]),
                                                          g.devices[0].name, be["etype"], be["name"], g.devices[0].cfg.name, 0, [], be["node"]))
@@ -318,9 +318,9 @@ class Project:
                               "props": {k: v for k, v in n.props.items() if not k.startswith("_")},
                               "lines": n.lines, "findings": n.findings})
             for e in g.graph.edges:
-                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label})
+                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {})})
         for e in self.extra_edges:
-            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label})
+            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {})})
         for i, e in enumerate(edges):
             e["id"] = f"e{i}"
         rules = {r.id: r.meta() for r in RULES.values()}

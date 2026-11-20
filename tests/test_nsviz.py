@@ -225,6 +225,18 @@ class AnonymizeTests(unittest.TestCase):
             self.assertFalse(g.missing)  # references still resolve
 
 
+class PortLabelTests(unittest.TestCase):
+    def test_connections_show_service_and_port(self):
+        from nsviz.model import comm_label
+        self.assertEqual(comm_label("SSL", "443"), "HTTPS 443")
+        self.assertEqual(comm_label("TCP", "1433"), "SQL Server 1433")
+        self.assertEqual(comm_label("TCP", "9999"), "TCP/9999")
+        cfg = Config.parse_text("add server db1 192.0.2.50\nadd service svc_db db1 TCP 1433\nadd lb vserver vs_db TCP 192.0.2.60 1433\nbind lb vserver vs_db svc_db\n", name="t")
+        g = Graph(cfg, "g1")
+        labels = {e.label for e in g.edges if e.port}
+        self.assertIn("SQL Server 1433", labels)
+
+
 class CatalogTests(unittest.TestCase):
     def test_rule_texts_complete_in_en_and_de(self):
         from nsviz import rules as R

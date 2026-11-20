@@ -80,7 +80,7 @@ const kindsPresent = {}; D.nodes.forEach(n => kindsPresent[n.kind] = (kindsPrese
 const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent)), focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
 cytoscape.use(cytoscapeDagre);
 const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length } }))
-  .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label } })));
+  .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
 const cy = cytoscape({ container: $('#cy'), elements, wheelSensitivity: 0.25, minZoom: 0.03, maxZoom: 3, boxSelectionEnabled: false, textureOnViewport: false });
 window.cy = cy;
 function styleGraph() {
@@ -108,6 +108,7 @@ function styleGraph() {
     { selector: '.hit', style: { 'overlay-color': '#facc15', 'overlay-opacity': .5, 'overlay-padding': 6 } },
     { selector: 'node:selected', style: { 'overlay-color': dark ? '#8b8cf8' : '#4f46e5', 'overlay-opacity': .28, 'overlay-padding': 8 } },
     { selector: 'edge.labels', style: { 'label': 'data(elabel)' } },
+    { selector: 'edge[?port]', style: { 'label': 'data(elabel)', 'font-weight': 600 } },
   ]);
   cy.nodes().forEach(n => { const k = n.data('kind'); if (k === 'missing') return; n.style({ 'background-color': kindFill(k, dark), 'border-color': n.data('sev') ? sc[n.data('sev')] : kindStroke(k, dark), 'shape': SHAPE[k] || 'round-rectangle' }); });
 }
@@ -382,6 +383,8 @@ function renderAll() {
 }
 const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');
 ls.onchange = () => { lang = ls.value; store.set('lang', lang); renderAll(); };
+
+/*__EXPORT__*/
 
 // ---- Start ------------------------------------------------------------------------------------
 lang = detectLang(); ls.value = lang;
