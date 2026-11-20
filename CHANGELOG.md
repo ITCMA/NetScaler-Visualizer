@@ -3,6 +3,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 ### Added
+- Topology: VLANs, IP addresses (SNIP/VIP), routes and cipher groups (linked from SSL bindings).
+- `nsviz anonymize`: consistent pseudonymization of names, IPs, hosts, e-mails, secrets and free text for sharing/development use.
 - Topology: responder/rewrite/session actions as nodes (policy → action) and AAA groups with their bound policies.
 - Corpus helper `scripts/corpus_stats.py` (duplicate detection, content-free statistics) for private config collections.
 - Parser for ns.conf (13.1 / 14.1 / 15.1), entity model, topology graph, HA pair detection and diff, double-hop chains.

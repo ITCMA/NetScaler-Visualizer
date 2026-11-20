@@ -29,12 +29,25 @@ Configs, Reports, CSV/JSON-Exporte und Screenshots wie Kundendaten behandeln.
 7. **Minimieren und löschen.** Nur aufbewahren, was das Projekt braucht; Configs und Reports nach Projektende löschen (Aufbewahrung mit dem Kunden vereinbaren).
 
 ## Kunden-Configs für die Entwicklung nutzen (z. B. um Regeln zu verbessern)
-Nur nach **Anonymisierung** und nur mit Zustimmung des Kunden. Vorschlag für einen geplanten Befehl `nsviz anonymize`
-(noch nicht umgesetzt): konsistente Pseudonymisierung von Hostnamen, Domänen, Benutzernamen, E-Mail-Adressen, Zertifikats- und Objektnamen;
-IPs in Dokumentationsbereiche abbilden, Subnetz-Beziehungen erhalten; Kommentare und alle Kennwort-/Schlüsselwerte entfernen.
-Das anonymisierte Ergebnis wird von einem Menschen geprüft, bevor es außerhalb des privaten Ordners verwendet wird.
-Auch dann bleibt es im privaten Ordner; nur *abgeleitete, generische* Erkenntnisse (z. B. „Regel X erkennt Muster Y nicht“)
-kommen als neue synthetische Testfälle ins Repository.
+Nur nach **Anonymisierung** und nur mit Zustimmung des Kunden.
+
+```bash
+python3 -m nsviz anonymize ~/nsviz-private/configs -o ~/nsviz-private/anonymized
+```
+Was der Befehl tut (sicher als Standard – lieber zu viel anonymisieren als etwas durchlassen):
+- alle Objektnamen (und jeder andere Wert, der kein Schlüsselwort, keine Zahl und keine Enum-Konstante ist) → konsistente Pseudonyme wie `lbvserver_0012`;
+- IPv4-Adressen → synthetische `10.x.y.z`-Adressen; Hosts im selben /24 bleiben im selben /24 (Netzmasken und `0.0.0.0` bleiben); IPv6 → `2001:db8::N`;
+  Hostnamen und E-Mail-Adressen → `hostN.example.com` / `userN@example.com`;
+- Kennwörter, Schlüssel und lange Hex-Blobs entfernt; Kommentare, Beschreibungen, LDAP-DNs/-Filter, Zertifikats-/Schlüsseldateinamen ersetzt;
+- Zeichenketten in Policy-Ausdrücken durch `lit` ersetzt (`--keep-literals` behält sie, Hosts/IPs/Namen werden trotzdem ersetzt);
+- gleiche Eingabe ergibt über **alle Dateien eines Laufs** dasselbe Pseudonym, HA-Paare und Double-Hop-Ketten bleiben also verbunden;
+- eine Rückabbildung wird nur mit `--map-file` gespeichert (diese Datei ist so sensibel wie die Eingabe).
+
+Prüfungen: das Werkzeug vergleicht die Anzahl der Anweisungen vor/nach der Anonymisierung und meldet mögliche Reste (Originalstrings, die noch
+vorkommen); auf dem öffentlichen Beispielkorpus bleibt die Zahl der Befunde innerhalb von ca. 3 % des Originals. **Ein Mensch muss das Ergebnis
+trotzdem prüfen**, bevor es den privaten Ordner verlässt; automatische Anonymisierung kann Werte übersehen, die nur im Kontext erkennbar sind
+(z. B. interne Namensschemata in Kommentaren, ungewöhnliche Optionsnamen). Auch dann bleibt das anonymisierte Ergebnis im privaten Ordner;
+nur *abgeleitete, generische* Erkenntnisse (z. B. „Regel X erkennt Muster Y nicht“) kommen als neue synthetische Testfälle ins Repository.
 
 ## Dubletten und inhaltsfreie Statistik
 `python3 scripts/corpus_stats.py <privater-Ordner>` erkennt doppelte Configs (gleicher Inhalt nach Entfernen von Kommentaren, Leerzeilen

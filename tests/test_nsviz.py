@@ -194,6 +194,37 @@ class GroupBindingTests(unittest.TestCase):
         self.assertTrue(any(e.type == "bind" and e.label == "Action" for e in g.edges))
 
 
+class AnonymizeTests(unittest.TestCase):
+    SRC = (
+        "#NS14.1 Build 29.63\n"
+        "set ns hostname acme-prod-adc01\n"
+        "set ns config -IPAddress 10.77.1.10 -netmask 255.255.255.0\n"
+        "add server web01 10.77.2.21 -comment \"Acme intranet server\"\n"
+        "add service svc_web01 web01 HTTP 80\n"
+        "add lb vserver vs_acme_portal HTTP 10.77.1.50 80\n"
+        "bind lb vserver vs_acme_portal svc_web01\n"
+        "add authentication ldapAction ldap_acme -serverIP 10.77.9.5 -ldapBase \"dc=acme,dc=de\" -ldapBindDnPassword s3cretpw\n"
+        "add rewrite policy pol_acme true act_acme\n"
+        "add responder policy rp1 \"HTTP.REQ.HOSTNAME.EQ(\\\"portal.acme.de\\\")\" NOOP\n"
+    )
+
+    def test_anonymize_removes_originals_and_keeps_structure(self):
+        import tempfile
+        from nsviz.anonymize import anonymize_paths
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "in").mkdir()
+            (Path(d) / "in" / "acme-prod.conf").write_text(self.SRC)
+            st = anonymize_paths([str(Path(d) / "in")], str(Path(d) / "out"))
+            out = (Path(d) / "out" / "device-001.conf").read_text()
+            for secret in ("acme", "10.77", "s3cretpw", "web01", "intranet"):
+                self.assertNotIn(secret, out, secret)
+            self.assertEqual(st["statements_in"], st["statements_out"])
+            cfg = Config.parse_text(out)
+            self.assertEqual(sorted(cfg.entities), sorted(Config.parse_text(self.SRC).entities))
+            g = Graph(cfg, "g1")
+            self.assertFalse(g.missing)  # references still resolve
+
+
 class CatalogTests(unittest.TestCase):
     def test_rule_texts_complete_in_en_and_de(self):
         from nsviz import rules as R

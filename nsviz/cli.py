@@ -69,11 +69,24 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--csv", metavar="FILE", help="write findings as CSV (Excel, semicolon-separated)")
     a.add_argument("--fail-on", choices=SEVERITIES, help="exit code 2 if findings of this severity or higher exist (CI)")
     a.add_argument("--title", default="NetScaler Visualizer")
+    z = sub.add_parser("anonymize", help="write anonymized copies of configs (names, IPs, hosts, secrets, text)")
+    z.add_argument("paths", nargs="+", help="ns.conf files or folders")
+    z.add_argument("-o", "--output", required=True, help="output folder (created; must not be inside a git repository you push)")
+    z.add_argument("--keep-literals", action="store_true", help="keep string literals in expressions (only hosts/IPs/names are replaced)")
+    z.add_argument("--map-file", metavar="FILE", help="also write the reverse mapping (as sensitive as the input!)")
     r = sub.add_parser("rules", help="list check rules")
     r.add_argument("--markdown", action="store_true")
     r.add_argument("--lang", choices=["en", "de"], default="en")
     a.add_argument("--lang", choices=["en", "de"], default="en", help="language of CSV texts and console output")
     args = ap.parse_args(argv)
+
+    if args.cmd == "anonymize":
+        from .anonymize import anonymize_paths
+        st = anonymize_paths(args.paths, args.output, args.keep_literals, args.map_file)
+        print(f"{st['files']} config(s) written to {args.output}; statements {st['statements_in']} -> {st['statements_out']}; "
+              f"{st['names']} names, {st['ips']} subnets, {st['hosts']} hosts/e-mails replaced; possible leftovers to review: {st['leaks']}")
+        print("Review the result manually before using it outside the private folder.")
+        return 0 if st["statements_in"] == st["statements_out"] else 3
 
     if args.cmd == "rules":
         if args.markdown:

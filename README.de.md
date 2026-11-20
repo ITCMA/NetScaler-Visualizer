@@ -28,6 +28,8 @@ python3 -m nsviz analyze configs/ --ha pri.conf,sec.conf --role pri.conf=primary
 
 # Regelkatalog (Deutsch), Tests
 python3 -m nsviz rules --markdown --lang de > docs/RULES.de.md
+# anonymisierte Kopien von Configs (zum Weitergeben oder für die Entwicklung), siehe docs/PRIVACY.de.md
+python3 -m nsviz anonymize configs/ -o anonymized/
 python3 -m unittest discover -s tests
 ```
 

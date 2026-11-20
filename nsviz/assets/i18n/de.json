@@ -187,5 +187,9 @@
  "th_title": "Titel",
  "disclaimer": "NetScaler und Citrix sind Marken der jeweiligen Rechteinhaber. Dieses Werkzeug ist unabhängig und weder mit diesen verbunden noch von ihnen unterstützt oder empfohlen. Die Ergebnisse sind automatisierte Hinweise ohne Gewähr.",
  "kind_action": "Aktion",
- "kind_group": "AAA-Gruppe"
+ "kind_group": "AAA-Gruppe",
+ "kind_cipher": "Cipher-Gruppe",
+ "kind_vlan": "VLAN",
+ "kind_netip": "IP-Adresse (SNIP/VIP)",
+ "kind_route": "Route"
 }

@@ -32,6 +32,8 @@ python3 -m nsviz analyze configs/ --lang de
 
 # rule catalog, tests
 python3 -m nsviz rules --markdown > docs/RULES.md
+# anonymized copies of configs (for sharing or development), see docs/PRIVACY.md
+python3 -m nsviz anonymize configs/ -o anonymized/
 python3 -m unittest discover -s tests
 ```
 

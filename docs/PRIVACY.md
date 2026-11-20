@@ -32,12 +32,25 @@ Treat configs, reports, CSV/JSON exports and screenshots as customer data.
    (agree on retention with the customer).
 
 ## Using customer configs for development (e.g. to improve rules)
-Only after **anonymization** and only if the customer agrees. Proposal for a planned `nsviz anonymize` command
-(not yet implemented): consistent pseudonymization of host names, domains, user names, e-mail addresses, certificate and
-object names; IPs mapped into documentation ranges while keeping subnet relations; removal of comments and of all
-password/key values. The anonymized output is reviewed by a human before it is used anywhere outside the private folder.
-Even then it stays in the private folder; only *derived, generic* findings (e.g. "rule X missed pattern Y") go into the
-repository as new synthetic test cases.
+Only after **anonymization** and only if the customer agrees.
+
+```bash
+python3 -m nsviz anonymize ~/nsviz-private/configs -o ~/nsviz-private/anonymized
+```
+What it does (safe by default - over-anonymizing is accepted, leaking is not):
+- all object names (and every other value that is not a keyword, number or enum constant) → consistent pseudonyms such as `lbvserver_0012`;
+- IPv4 addresses → synthetic `10.x.y.z` addresses; hosts in the same /24 stay in the same /24 (netmasks and `0.0.0.0` are kept);
+  IPv6 → `2001:db8::N`; host names and e-mail addresses → `hostN.example.com` / `userN@example.com`;
+- passwords, keys and long hex blobs removed; comments, descriptions, LDAP DNs/filters, certificate/key file names replaced;
+- string literals inside policy expressions replaced by `lit` (`--keep-literals` keeps them, with hosts/IPs/names still replaced);
+- the same input always maps to the same pseudonym across **all files of one run**, so HA pairs and double-hop chains still link up;
+- no reverse mapping is stored unless `--map-file` is given (that file is as sensitive as the input).
+
+Checks: the tool compares statement counts before/after and reports possible leftovers (original strings that still occur); on the
+public sample corpus the number of findings stays within about 3 % of the original. **A human must still review the result** before it
+leaves the private folder; automatic anonymization can miss values that are only identifiable in context (e.g. internal naming
+schemes in comments, unusual option names). Even then the anonymized output stays in the private folder; only *derived, generic*
+findings (e.g. "rule X missed pattern Y") go into the repository as new synthetic test cases.
 
 ## Duplicates and content-free statistics
 `python3 scripts/corpus_stats.py <private-folder>` detects duplicate configs (same content after removing comments, blank lines and

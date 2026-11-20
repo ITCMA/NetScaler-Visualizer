@@ -28,6 +28,7 @@ KIND_BY_ETYPE = {
     "rewrite action": "action", "responder action": "action", "vpn sessionaction": "action",
     "vpn trafficaction": "action", "appflow action": "action", "audit syslogaction": "action",
     "aaa group": "group",
+    "ssl cipher": "cipher", "vlan": "vlan", "ns ip": "netip", "route": "route",
 }
 
 KIND_LABELS = {
@@ -37,7 +38,7 @@ KIND_LABELS = {
     "cert": "Certificate", "sslprofile": "SSL profile", "nflabel": "nFactor Policy Label",
     "schema": "Login Schema", "authnprofile": "Authn profile", "appfwprof": "WAF profile",
     "policylabel": "Policy Label", "policy": "Policy", "authpol": "Auth policy",
-    "authact": "Auth action", "action": "Action", "group": "AAA group", "domain": "GSLB domain", "sta": "STA", "missing": "Missing reference",
+    "authact": "Auth action", "action": "Action", "group": "AAA group", "cipher": "Cipher group", "vlan": "VLAN", "netip": "IP address (SNIP/VIP)", "route": "Route", "domain": "GSLB domain", "sta": "STA", "missing": "Missing reference",
 }
 
 BUILTIN_MONITORS = {
@@ -302,6 +303,24 @@ class Graph:
             for k, label in (("maxclient", "maxClient"), ("cip", "Client IP header"), ("usip", "USIP"), ("state", "Status"), ("comment", "Comment")):
                 if o(k):
                     p[label] = o(k)
+        elif et == "ns ip":
+            p["Address"] = e.args[0] if e.args else ""
+            if len(e.args) > 1:
+                p["Netmask"] = e.args[1]
+            for k, label in (("type", "Type"), ("vserver", "vServer"), ("mgmtaccess", "Management access"), ("ssh", "SSH"), ("telnet", "Telnet"),
+                             ("gui", "GUI"), ("restrictaccess", "Restrict access"), ("hostroute", "Host route")):
+                if o(k):
+                    p[label] = o(k)
+        elif et == "vlan":
+            p["ID"] = e.args[0] if e.args else ""
+            if o("aliasname"):
+                p["Alias"] = o("aliasname")
+        elif et == "route":
+            p["Network"] = " ".join(e.args[:2])
+            if len(e.args) > 2:
+                p["Gateway"] = e.args[2]
+        elif et == "ssl cipher":
+            p["Ciphers bound"] = str(sum(1 for b in self.cfg.bindings if b.etype == "ssl cipher" and b.owner == e.name))
         elif et == "server":
             p["Address"] = e.args[1] if len(e.args) > 1 else ""
             if o("state"):
@@ -446,6 +465,9 @@ class Graph:
                 src = self._ensure(et.replace("ssl ", "").replace("servicegroup", "servicegroup") if et != "ssl profile" else et, owner)
             if not src:
                 return
+            cn = b.opt("ciphername")
+            if cn and self.cfg.get("ssl cipher", cn):
+                self._ref(src, ["ssl cipher"], cn, "ssl", "Ciphers", (et, owner), b.line)
             ck = b.opt("certkeyname")
             if ck:
                 lab = "CA" if b.opt("ca") else ("SNI" if b.opt("snicert") else ("Client-Cert" if et != "ssl vserver" else ""))
@@ -465,6 +487,11 @@ class Graph:
             pol = b.opt("policyname")
             if src and pol:
                 self._ref(src, self._policy_etypes(), pol, "policy", self._prio(b), (et, owner), b.line)
+        elif et == "vlan":
+            src = self._ensure(et, owner)
+            ipv = b.opts.get("ipaddress") or []
+            if src and ipv:
+                self._ref(src, ["ns ip"], ipv[0], "network", "IP", (et, owner), b.line)
         elif et == "aaa group":
             src = self._ensure(et, owner)
             pol = b.opt("policy") or b.opt("policyname")
