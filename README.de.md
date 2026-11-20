@@ -1,0 +1,70 @@
+# NetScaler Visualizer (`nsviz`)
+
+🇬🇧 [English version](README.md)
+
+**Die ganze NetScaler-Umgebung auf einer Seite sehen – und wissen, was daran nicht stimmt.**
+
+Eine oder viele `ns.conf`-Dateien hineingeben und **eine einzige HTML-Datei** erhalten, die sich überall offline öffnen lässt:
+
+- 🗺️ **Visualisieren** – eine interaktive Karte aller vServer, Services, Policies, Zertifikate und Authentifizierungsabläufe.
+  Mehrere NetScaler werden zusammengeführt: **HA-Paare** werden zusammengefasst und verglichen (was unterscheidet die Knoten?),
+  **Double-Hop-Ketten** (z. B. DMZ-Gateway → interner NetScaler → Backend) werden von Gerät zu Gerät verfolgt.
+  Zoomen, Einklappen, Suchen, Filtern, PNG-Export.
+- ✅ **Prüfen** – rund 60 Regeln zu Fehlkonfiguration, Hersteller-Best-Practice und BSI-Hinweisen, jeweils mit Begründung, Quelle
+  und Behebung, dazu Gesundheitswert, CSV-Export und CI-Exit-Code.
+
+Läuft lokal, braucht nur Python ≥ 3.10 (keine Pakete) und sendet nichts ins Netz. Unterstützt 13.1 / 14.1 / 15.1.
+
+> **Marken / Unabhängigkeit:** NetScaler und Citrix sind Marken der jeweiligen Rechteinhaber. Dieses Projekt ist
+> unabhängig und weder mit diesen verbunden noch von ihnen unterstützt oder empfohlen. Ergebnisse sind automatisierte
+> Hinweise ohne Gewähr. Siehe [docs/LEGAL.de.md](docs/LEGAL.de.md).
+
+```bash
+# einzelnes Gerät, Ordner mit mehreren Configs oder beides
+python3 -m nsviz analyze kunde/adc01.conf kunde/adc02.conf -o report.html --csv befunde.csv --lang de
+
+# HA-Paar explizit angeben (sonst nur Erkennung über `add ha node`), Rollen setzen
+python3 -m nsviz analyze configs/ --ha pri.conf,sec.conf --role pri.conf=primary --role sec.conf=secondary
+
+# Regelkatalog (Deutsch), Tests
+python3 -m nsviz rules --markdown --lang de > docs/RULES.de.md
+python3 -m unittest discover -s tests
+```
+
+Ausprobieren: `python3 -m nsviz analyze examples/demo -o demo.html` (synthetisch: DMZ-Frontend mit Gateway/nFactor →
+Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/report.html`.
+
+## Funktionen
+### Visualisierung und Multi-Instanz-Sicht
+- **Topologie** (Cytoscape + dagre, alles eingebettet): Zoom/Pan, Doppelklick klappt Unterstrukturen ein/aus, Ebenen 1–4,
+  Filter nach Objektart, nur Objekte mit Befunden, Suche (Name/IP/Config-Text), Umfeld-Hervorhebung, Kantenbeschriftung,
+  PNG-Export. Rote Rahmen = Befunde (Farbe = Schweregrad).
+- **Mehrere NetScaler in einem Bild:** HA-Paare (explizit mit `--ha` oder über `add ha node` erkannt) erscheinen als eine Gruppe mit
+  Konfigurationsvergleich; Backend-Ziele, die zu einem vServer eines anderen Geräts passen, werden als **Double-Hop**-Kette verbunden
+  (IP+Port = sicher, nur IP = als Annahme markiert).
+- **Mehrsprachig, hell/dunkel:** Oberfläche in 8 Sprachen (de, en, es, fr, pt, zh, ja, hi), folgt der Browsersprache und ist
+  umschaltbar. Hell/Dunkel folgt `prefers-color-scheme`, umschaltbar, Wahl wird im Browser gemerkt. Regeltexte und
+  Befundmeldungen gibt es auf Englisch und Deutsch. Übersetzungen außer en/de sind nicht von Muttersprachlern geprüft.
+- **Barrierefreiheit/Bedienung:** Skip-Link, ARIA-Tabs, Fokusrahmen, Tastatursteuerung im Graph (Pfeile, Enter, +/−, 0, `/`,
+  `?` zeigt alle Kürzel), reduzierte Animationen, Übersichtsseite mit Gesundheitswert.
+### Prüfungen
+- **Befunde:** filterbar, Klick springt zum Objekt; Begründung, Quelle und Behebung je Regel; CSV-Export.
+- **Inventar** aller vServer (sortierbar), **Projekt** (Geräte, HA-Diff, Double-Hop-Ketten), **Regeln** (Katalog).
+- Kennwörter/Schlüssel in den eingebetteten Config-Zeilen werden standardmäßig maskiert (`--no-redact` schaltet das ab).
+  Der Report enthält trotzdem Kundentopologie → wie Kundendaten behandeln ([docs/PRIVACY.de.md](docs/PRIVACY.de.md)).
+
+## Grenzen (bewusst benannt)
+- Aus einer `ns.conf` nicht prüfbar: Zertifikats-Ablaufdatum, Laufzeitstatus (UP/DOWN), das echte nsroot-Kennwort,
+  Primary/Secondary-Rolle zur Laufzeit. Regeln dazu sind als `heuristic` bzw. `likely` gekennzeichnet.
+- Defaultwerte einzelner Optionen unterscheiden sich je Version; Regeln melden deshalb nur *explizit* gesetzte unsichere
+  Werte, außer es ist als Annahme dokumentiert.
+- Die Verweise auf BSI-Bausteine und die Secure-Deployment-Hinweise des Herstellers sind auf Themenebene und nicht
+  gegen die aktuellen Fassungen verifiziert.
+
+## Dokumentation
+[Architektur](docs/ARCHITECTURE.de.md) · [Regeln](docs/RULES.de.md) · [Quellen & Lizenzen](docs/SOURCES.de.md) ·
+[Datenschutz / Kundendaten](docs/PRIVACY.de.md) · [Rechtliche Hinweise](docs/LEGAL.de.md) · [Sicherheit](SECURITY.md) ·
+[Mitarbeit](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Drittkomponenten](THIRD_PARTY_NOTICES.md)
+
+## Lizenz
+Proprietär, alle Rechte vorbehalten – siehe [LICENSE](LICENSE).

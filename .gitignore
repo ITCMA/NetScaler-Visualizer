@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Customer data and anything derived from it - NEVER commit (see docs/PRIVACY.md)
+private/
+customer/
+customers/
+local/
+*.ns.conf.bak
+*.nsconf
+anonymized/
+# Reports, exports and archives (only the demo report is tracked)
+report*.html
+!examples/**/report.html
+*.csv
+*.tar.gz
+*.tar
+tools-run/
+*.zip
+*.7z
+*.json.bak
+
+# Public sample configs are downloaded on demand (scripts/fetch_testdata.py)
+testdata/

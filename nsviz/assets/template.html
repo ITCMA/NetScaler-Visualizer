@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>NetScaler Visualizer</title>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="u_skip">Skip to content</a>
+<header class="top">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--brand-a)"/><stop offset="1" stop-color="var(--brand-b)"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><g stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"><path d="M16 9v7M16 16l-6 6M16 16l6 6"/></g><g fill="#fff"><circle cx="16" cy="8" r="3"/><circle cx="9" cy="23" r="3"/><circle cx="23" cy="23" r="3"/></g></svg>
+    <div><b>NetScaler Visualizer</b><div id="subtitle" class="sub"></div></div>
+  </div>
+  <nav id="tabs" role="tablist" aria-label="Views"></nav>
+  <div class="tools">
+    <label class="sr" for="lang" data-i18n="u_lang">Language</label>
+    <select id="lang" aria-label="Language"></select>
+    <div class="seg" id="theme" role="radiogroup" aria-label="Theme">
+      <button role="radio" data-theme="auto" aria-checked="false" title="System"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H4zM9 20h6M12 16v4" /></svg><span class="sr" data-i18n="t_auto">System</span></button>
+      <button role="radio" data-theme="light" aria-checked="false" title="Light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg><span class="sr" data-i18n="t_light">Light</span></button>
+      <button role="radio" data-theme="dark" aria-checked="false" title="Dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg><span class="sr" data-i18n="t_dark">Dark</span></button>
+    </div>
+    <button id="help" class="icon" aria-haspopup="dialog" data-i18n-title="u_keys" data-i18n-aria="u_keys">?</button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+  <section id="tab-overview" class="tab" role="tabpanel"><div class="pad" id="overview"></div></section>
+
+  <section id="tab-topo" class="tab" role="tabpanel">
+    <aside id="side" aria-label="Filters">
+      <div class="card"><label for="search" data-i18n="search">Search</label>
+        <div class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg><input id="search" type="search" autocomplete="off" data-i18n-ph="search_ph"></div>
+        <div class="row"><span id="hits" class="muted" aria-live="polite"></span><button id="hit-prev" class="icon sm" data-i18n-aria="prev" data-i18n-title="prev">◀</button><button id="hit-next" class="icon sm" data-i18n-aria="next" data-i18n-title="next">▶</button></div></div>
+      <div class="card"><label for="group" data-i18n="group">Group</label><select id="group"></select></div>
+      <div class="card"><label data-i18n="levels">Levels</label>
+        <div class="row wrap" id="levels"><button data-level="1">1</button><button data-level="2">2</button><button data-level="3">3</button><button data-level="4">4</button><button id="expand-all" data-i18n="lv_all">all</button></div>
+        <p class="muted small" data-i18n="lv_hint"></p></div>
+      <div class="card"><label data-i18n="kinds">Object types</label><div id="kinds"></div></div>
+      <div class="card"><label data-i18n="view">View</label>
+        <label class="chk"><input type="checkbox" id="only-findings"><span data-i18n="only_findings"></span></label>
+        <label class="chk"><input type="checkbox" id="edge-labels"><span data-i18n="edge_labels"></span></label>
+        <label class="chk"><input type="checkbox" id="focus" checked><span data-i18n="focus"></span></label>
+        <div class="row wrap"><button id="fit" data-i18n="fit">Fit</button><button id="relayout" data-i18n="relayout">Re-layout</button><button id="png">PNG</button></div></div>
+      <div class="card legend" id="legend"></div>
+    </aside>
+    <div id="cywrap"><div id="cy" tabindex="0" role="application"></div><div id="minihint" class="hint" aria-hidden="true"></div></div>
+    <aside id="detail" aria-live="polite" aria-label="Details"></aside>
+  </section>
+
+  <section id="tab-findings" class="tab" role="tabpanel">
+    <div class="toolbar">
+      <span id="sev-filters" role="group"></span>
+      <select id="f-cat" aria-label="Category"></select>
+      <select id="f-group" aria-label="Device"></select>
+      <input id="f-text" type="search" data-i18n-ph="f_filter" aria-label="Filter">
+      <button id="csv" data-i18n="f_csv">CSV</button>
+      <span id="f-count" class="muted" aria-live="polite"></span>
+    </div>
+    <div class="tablewrap"><table id="t-findings"><thead><tr id="h-findings"></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section id="tab-inventory" class="tab" role="tabpanel">
+    <div class="toolbar"><input id="i-text" type="search" data-i18n-ph="f_filter" aria-label="Filter"><select id="i-kind" aria-label="Type"></select><span id="i-count" class="muted" aria-live="polite"></span></div>
+    <div class="tablewrap"><table id="t-inv"><thead><tr></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section id="tab-project" class="tab" role="tabpanel"><div class="pad" id="project"></div></section>
+
+  <section id="tab-rules" class="tab" role="tabpanel">
+    <div class="toolbar"><input id="r-text" type="search" data-i18n-ph="r_filter" aria-label="Filter"><span id="r-count" class="muted"></span></div>
+    <div class="tablewrap"><table id="t-rules"><thead><tr id="h-rules"></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+<footer id="legal" class="legal" role="contentinfo" data-i18n="disclaimer"></footer>
+<dialog id="dlg" aria-labelledby="dlg-t"><div class="dlg-head"><h2 id="dlg-t" data-i18n="u_keys"></h2><button class="icon" id="dlg-x" data-i18n-aria="u_close">✕</button></div><dl id="keys"></dl></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<script id="data" type="application/json">/*__DATA__*/</script>
+<script id="i18n" type="application/json">/*__I18N__*/</script>
+<script>/*__CYTOSCAPE__*/</script>
+<script>/*__DAGRE__*/</script>
+<script>/*__CYDAGRE__*/</script>
+<script>/*__APP__*/</script>
+</body>
+</html>

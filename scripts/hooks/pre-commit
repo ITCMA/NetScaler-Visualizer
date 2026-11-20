@@ -1,0 +1,15 @@
+#!/bin/sh
+# Blocks commits that contain customer-data paths or secret-looking content, then runs the tests.
+# Install:  sh scripts/install-hooks.sh
+set -e
+bad=$(git diff --cached --name-only | grep -E '(^|/)(private|customer|customers|local|anonymized)/|\.ns\.conf\.bak$|\.nsconf$|\.(zip|tar\.gz|7z)$' || true)
+if [ -n "$bad" ]; then
+  echo "Commit blocked: files that must stay local:" >&2
+  echo "$bad" >&2
+  exit 1
+fi
+if git diff --cached -U0 | grep -E '^\+' | grep -E '[0-9a-fA-F]{40,}|-----BEGIN [A-Z ]*PRIVATE KEY|/[U]sers/|/hom[e]/[a-z]' >/dev/null; then
+  echo "Commit blocked: staged lines contain a long hex blob, a private key header or an absolute user path." >&2
+  exit 1
+fi
+python3 -m unittest discover -s tests >/dev/null

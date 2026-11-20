@@ -1,0 +1,292 @@
+{
+ "AAA-001": {
+  "title": "LDAP connection without encryption",
+  "rationale": "`-secType PLAINTEXT` (also the default when the option is missing) sends the bind DN and passwords in clear text.",
+  "remediation": "Use `-secType SSL` (LDAPS/636) or `TLS` (StartTLS) and verify the server certificate (`-validateServerCert YES` from 13.1/14.1)."
+ },
+ "AAA-002": {
+  "title": "LDAPS/TLS without certificate validation",
+  "rationale": "With `-validateServerCert NO` or no value, the LDAP server certificate is not validated (default depends on the version, hence heuristic).",
+  "remediation": "Set `-validateServerCert YES` and install the CA on the appliance."
+ },
+ "AAA-003": {
+  "title": "Gateway/auth vServer without TLS",
+  "rationale": "Gateway and authentication vServers must terminate TLS, otherwise credentials cross the network in clear text.",
+  "remediation": "Use vServer type SSL and bind a certificate."
+ },
+ "AAA-004": {
+  "title": "Gateway without authentication",
+  "rationale": "`-authentication OFF` allows anonymous access; a gateway without a bound auth policy or authn profile offers no login either (assumption: authentication is not handled by other means).",
+  "remediation": "Bind an auth policy (`bind vpn vserver <gw> -policy <authpol> -priority 100`) or set `-authnProfile`."
+ },
+ "AAA-005": {
+  "title": "nFactor: policy label without login schema",
+  "rationale": "A policy label without `-loginSchema` shows no input fields; it only makes sense with `LSCHEMA_INT` (no UI).",
+  "remediation": "`add authentication policylabel <name> -loginSchema <schema>`, or deliberately `LSCHEMA_INT` for pass-through factors."
+ },
+ "AAA-006": {
+  "title": "nFactor: policy label unreachable",
+  "rationale": "A policy label that is not reached through any `-nextFactor` is dead configuration.",
+  "remediation": "Remove it or link it."
+ },
+ "AAA-007": {
+  "title": "Authentication vServer without policy",
+  "rationale": "An authentication vServer without a bound policy cannot authenticate anyone.",
+  "remediation": "Bind auth policies with priorities."
+ },
+ "AAA-008": {
+  "title": "SAML: unsigned assertions accepted",
+  "rationale": "With `-samlRejectUnsignedAssertion OFF`, unsigned assertions are accepted (impersonation possible).",
+  "remediation": "Set `ON` (or `STRICT`)."
+ },
+ "WAF-001": {
+  "title": "WAF profile without policy binding",
+  "rationale": "An AppFW profile without a policy protects nothing.",
+  "remediation": "Create `add appfw policy` and bind it to a vServer or globally."
+ },
+ "WAF-002": {
+  "title": "WAF profile without blocking action",
+  "rationale": "Without `block` in any check action the profile effectively runs in observation mode only. Heuristic: all `...Action` options of the profile are checked; defaults from `-defaults basic/advanced` are not resolved.",
+  "remediation": "Validate the checks in learning mode, then set `block log stats`."
+ },
+ "WAF-003": {
+  "title": "HTTP(S) vServer without WAF",
+  "rationale": "Overview of HTTP/SSL vServers without an AppFW policy. Whether a WAF is required depends on the protection needs of the application (BSI APP.3.1).",
+  "remediation": "Bind an AppFW policy where the protection needs require it."
+ },
+ "GSLB-001": {
+  "title": "GSLB vServer without domain",
+  "rationale": "Without `bind gslb vserver -domainName` the vServer answers no DNS queries.",
+  "remediation": "Bind a domain."
+ },
+ "GSLB-002": {
+  "title": "GSLB without ADNS service",
+  "rationale": "GSLB answers require an ADNS service (or DNS proxy operation). Assumption: ADNS is not operated on another appliance.",
+  "remediation": "`add service <name> <ip> ADNS 53`."
+ },
+ "GSLB-003": {
+  "title": "GSLB vServer with fewer than two services",
+  "rationale": "A GSLB vServer with a single service offers no site redundancy.",
+  "remediation": "Add a second site/service."
+ },
+ "GSLB-004": {
+  "title": "GSLB metric exchange (MEP) disabled",
+  "rationale": "With several sites, no load or status information is exchanged between sites without MEP.",
+  "remediation": "Set `-metricExchange ENABLED`."
+ },
+ "HA-001": {
+  "title": "HA synchronization/propagation disabled",
+  "rationale": "`-haSync DISABLED` or `-haProp DISABLED` leads to configuration drift between the nodes.",
+  "remediation": "`set ha node -haSync ENABLED -haProp ENABLED`."
+ },
+ "HA-002": {
+  "title": "No HA partner configured",
+  "rationale": "A single appliance is a single point of failure (unless cluster/cloud HA is used). Assumption: the partner is not described in this file.",
+  "remediation": "Set up an HA pair or cluster."
+ },
+ "REP-001": {
+  "title": "IP reputation rules but feature/settings missing",
+  "rationale": "Policies with `IPREP` expressions are only evaluated if the reputation feature is enabled (assumption: feature name `REP`, may be named differently in 13.1+) and the appliance can fetch reputation data (`set reputation settings`).",
+  "remediation": "Check `enable ns feature REP` and `set reputation settings -proxyServer …` (if a proxy is needed)."
+ },
+ "MGMT-001": {
+  "title": "Telnet enabled on a NetScaler IP",
+  "rationale": "Telnet transmits credentials in clear text.",
+  "remediation": "`set ns ip <ip> -telnet DISABLED`; administer via SSH only."
+ },
+ "MGMT-002": {
+  "title": "GUI access over unencrypted HTTP",
+  "rationale": "`-gui ENABLED` allows the HTTP GUI; `SECUREONLY` enforces HTTPS.",
+  "remediation": "`set ns ip <ip> -gui SECUREONLY` (or DISABLED on non-NSIPs)."
+ },
+ "MGMT-003": {
+  "title": "Management access enabled on SNIP/VIP",
+  "rationale": "Management services (SSH/GUI/SNMP) should only be reachable via the NSIP or a management network, not via data-plane addresses.",
+  "remediation": "`set ns ip <snip> -mgmtAccess DISABLED -telnet DISABLED -ssh DISABLED -gui DISABLED -snmp DISABLED`; allow management access on the NSIP only, with ACLs where appropriate."
+ },
+ "MGMT-004": {
+  "title": "FTP enabled on a NetScaler IP",
+  "rationale": "FTP is unencrypted.",
+  "remediation": "`set ns ip <ip> -ftp DISABLED`; use SFTP/SCP."
+ },
+ "MGMT-005": {
+  "title": "Strong password policy not enabled",
+  "rationale": "Without `-strongpassword ENABLED` and a sufficient minimum length, weak admin passwords are possible.",
+  "remediation": "`set system parameter -strongpassword ENABLED -minpasswordlen 14`."
+ },
+ "MGMT-006": {
+  "title": "Password change at first login not enforced",
+  "rationale": "`-forcePasswordChange` forces changing the default password.",
+  "remediation": "`set system parameter -forcePasswordChange ENABLED`."
+ },
+ "MGMT-007": {
+  "title": "Password in clear text in the configuration",
+  "rationale": "A `-password` parameter without `-encrypted`, or a clear-text password in `add system user`, is stored in clear text.",
+  "remediation": "Set the password again and `save ns config` so it is stored encrypted; do not hand out clear-text configs."
+ },
+ "MGMT-008": {
+  "title": "nsroot password probably never changed",
+  "rationale": "A configuration without `set system user nsroot ... -encrypted` suggests the default password (assumption; hashes cannot be checked against 'nsroot' because they are salted).",
+  "remediation": "Change the nsroot password; better: personal admin accounts and restrict nsroot."
+ },
+ "MGMT-009": {
+  "title": "No external authentication for administrators",
+  "rationale": "Without `bind system global <auth-policy>` admins are managed locally only (no central access management or traceability).",
+  "remediation": "Create an LDAP/RADIUS/TACACS+ policy for management authentication and bind it with `bind system global`."
+ },
+ "MGMT-010": {
+  "title": "No remote logging (syslog/NSLOG)",
+  "rationale": "Without a syslog/NSLOG target, audit information is lost on appliance replacement or compromise.",
+  "remediation": "`add audit syslogAction ...`, `add audit syslogPolicy ...` and `bind audit syslogGlobal -policyName ...`."
+ },
+ "MGMT-011": {
+  "title": "No time synchronization (NTP)",
+  "rationale": "Without NTP, logs and certificate validation are unreliable.",
+  "remediation": "`add ntp server <ip>` and `enable ntp sync`."
+ },
+ "MGMT-012": {
+  "title": "SNMP community with default name",
+  "rationale": "Default communities (public/private …) are well known; SNMP v1/v2c is unprotected.",
+  "remediation": "Change/remove the community, use SNMPv3 (`add snmp user`/`add snmp group`), restrict `add snmp manager` to the monitoring server."
+ },
+ "MGMT-013": {
+  "title": "SNMP v1/v2c used instead of SNMPv3",
+  "rationale": "Community-based SNMP offers neither encryption nor strong authentication.",
+  "remediation": "Configure SNMPv3 with authPriv."
+ },
+ "MGMT-014": {
+  "title": "HTTP hardening parameters not set",
+  "rationale": "The Secure Deployment Guide recommends, among others, `set ns httpParam -dropInvalReqs ON` (drop invalid HTTP requests). Please verify the exact recommendation against the current version of the guide.",
+  "remediation": "`set ns httpParam -dropInvalReqs ON -markHttp09Inval ON -markConnReqInval ON`."
+ },
+ "QA-001": {
+  "title": "LB vServer without bound service",
+  "rationale": "An LB vServer without a service/service group has no backend and is DOWN.",
+  "remediation": "Bind a service/service group or remove the vServer."
+ },
+ "QA-002": {
+  "title": "Service/service group not bound to any vServer",
+  "rationale": "Unbound services cause monitoring load and confusion without benefit.",
+  "remediation": "Bind or remove."
+ },
+ "QA-003": {
+  "title": "Unused server object",
+  "rationale": "`add server` without any service/service group.",
+  "remediation": "Remove if no longer needed."
+ },
+ "QA-004": {
+  "title": "Policy without binding",
+  "rationale": "A policy that is bound nowhere has no effect.",
+  "remediation": "Bind or remove."
+ },
+ "QA-005": {
+  "title": "Unused certificate",
+  "rationale": "Unused certificates increase the attack surface and obscure expiry monitoring.",
+  "remediation": "Remove."
+ },
+ "QA-006": {
+  "title": "Monitor without binding",
+  "rationale": "Unbound monitor.",
+  "remediation": "Remove or bind."
+ },
+ "QA-007": {
+  "title": "Reference to non-existent object",
+  "rationale": "A binding/option refers to an object that does not exist in the configuration (typo, incomplete export or deleted object). With partial exports this is expected — assumption: the config is complete.",
+  "remediation": "Create the object or correct the reference."
+ },
+ "QA-008": {
+  "title": "Duplicate vServer address (IP:port)",
+  "rationale": "Two vServers with the same IP/port/protocol collide.",
+  "remediation": "Change one address."
+ },
+ "QA-009": {
+  "title": "Objects configured but feature not enabled",
+  "rationale": "Without `enable ns feature <X>` the objects of that function are ineffective (and sometimes cannot be created).",
+  "remediation": "`enable ns feature <feature>`."
+ },
+ "QA-010": {
+  "title": "CS vServer without target",
+  "rationale": "A CS vServer without a default LB vServer and without policies does nothing useful.",
+  "remediation": "Bind a default LB vServer (`bind cs vserver <cs> <lb>`) and/or CS policies."
+ },
+ "QA-011": {
+  "title": "HTTPS vServer without HTTP→HTTPS redirect",
+  "rationale": "Users who type http:// cannot reach the service. (Heuristic: `-redirectFromPort` and a vServer on port 80 on the same IP are checked.)",
+  "remediation": "`-redirectFromPort 80 -httpsRedirectUrl https://<fqdn>` or a redirect vServer on port 80."
+ },
+ "QA-012": {
+  "title": "vServer administratively disabled",
+  "rationale": "Disabled vServers often remain in configs as legacy.",
+  "remediation": "Remove if permanently unneeded."
+ },
+ "TLS-001": {
+  "title": "SSLv3 enabled",
+  "rationale": "SSLv3 is broken by POODLE and not permitted by TR-02102-2.",
+  "remediation": "`set ssl vserver <vs> -ssl3 DISABLED` or in the SSL profile."
+ },
+ "TLS-002": {
+  "title": "TLS 1.0/1.1 enabled",
+  "rationale": "TLS 1.0 and 1.1 are considered obsolete; TR-02102-2 recommends TLS 1.2/1.3.",
+  "remediation": "`-tls1 DISABLED -tls11 DISABLED` on the vServer or SSL profile."
+ },
+ "TLS-003": {
+  "title": "Weak ciphers bound",
+  "rationale": "RC4, (3)DES, EXPORT, NULL, MD5 and anonymous suites are not permitted by TR-02102-2; the group ALL contains such suites.",
+  "remediation": "Bind your own cipher group with ECDHE AEAD suites (TLS 1.3 + TLS 1.2 GCM); `unbind ssl vserver <vs> -cipherName DEFAULT/ALL`."
+ },
+ "TLS-004": {
+  "title": "TLS 1.2 disabled",
+  "rationale": "Without TLS 1.2 only obsolete protocols remain (or TLS 1.3 only).",
+  "remediation": "`-tls12 ENABLED`."
+ },
+ "TLS-005": {
+  "title": "TLS 1.3 not enabled",
+  "rationale": "TLS 1.3 is supported since NetScaler 12.1 and recommended by TR-02102-2. Only explicitly disabled TLS 1.3 is reported; missing values (defaults depend on version/profile) are an assumption.",
+  "remediation": "`-tls13 ENABLED`."
+ },
+ "TLS-006": {
+  "title": "SSL renegotiation not restricted",
+  "rationale": "`-denySSLReneg NO` allows client-initiated renegotiation (DoS vector).",
+  "remediation": "`-denySSLReneg FRONTEND_CLIENT` (default) or `ALL`."
+ },
+ "TLS-007": {
+  "title": "Self-signed default certificate on vServer",
+  "rationale": "`ns-server-certificate` is self-signed and device-specific; clients cannot validate it.",
+  "remediation": "Bind a certificate from a trusted CA."
+ },
+ "TLS-008": {
+  "title": "SSL vServer without certificate",
+  "rationale": "A TLS-terminating vServer without a bound certificate is DOWN or cannot complete handshakes.",
+  "remediation": "`bind ssl vserver <vs> -certkeyName <cert>`."
+ },
+ "TLS-009": {
+  "title": "Certificate expiry monitoring disabled",
+  "rationale": "With `-expiryMonitor DISABLED` there is no warning before expiry. The actual expiry date is not in the ns.conf and cannot be checked here.",
+  "remediation": "`set ssl certKey <ck> -expiryMonitor ENABLED -notificationPeriod 30`."
+ },
+ "TLS-010": {
+  "title": "Backend TLS without certificate validation",
+  "rationale": "SSL services without `-serverAuth ENABLED` (or a backend profile with serverAuth) do not validate the server certificate; man-in-the-middle in the backend network goes unnoticed. The result is heuristic because profiles/defaults vary by version.",
+  "remediation": "Bind an SSL backend profile with `-serverAuth ENABLED` and a CA certificate to the service (group)."
+ },
+ "TLS-011": {
+  "title": "No HSTS configured",
+  "rationale": "Without an HTTP Strict Transport Security header, browsers can fall back to HTTP.",
+  "remediation": "Rewrite policy with `Strict-Transport-Security`, or `-HSTS ENABLED` in the SSL profile."
+ },
+ "HA-003": {
+  "title": "Configuration drift between HA nodes",
+  "rationale": "After synchronization both nodes should be identical (except node-specific objects such as NSIP, hostname, interfaces). Drift leads to different behavior after failover.",
+  "remediation": "Check sync (`show ha node`, `force ha sync`), clarify causes (manual change with -haProp DISABLED, sync errors)."
+ },
+ "CHAIN-001": {
+  "title": "Double hop: match by IP only",
+  "rationale": "The backend target matches a frontend address of the downstream NetScaler only in the IP, not in the port (e.g. port mapping/NAT in between). The match is an assumption.",
+  "remediation": "Verify the mapping manually."
+ },
+ "CHAIN-002": {
+  "title": "Double hop: connection between the NetScalers unencrypted",
+  "rationale": "The frontend NetScaler talks to the backend NetScaler via HTTP/TCP although a network worth protecting may lie in between (e.g. DMZ → internal).",
+  "remediation": "Use service type SSL with server certificate validation (backend profile)."
+ }
+}

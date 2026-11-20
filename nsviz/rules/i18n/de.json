@@ -1,0 +1,292 @@
+{
+ "AAA-001": {
+  "title": "LDAP-Anbindung ohne Verschlüsselung",
+  "rationale": "`-secType PLAINTEXT` (auch der Standardwert, wenn die Option fehlt) überträgt Bind-DN und Kennwörter im Klartext.",
+  "remediation": "`-secType SSL` (LDAPS/636) oder `TLS` (StartTLS) und Server-Zertifikat prüfen (`-validateServerCert YES` ab 13.1/14.1)."
+ },
+ "AAA-002": {
+  "title": "LDAPS/TLS ohne Zertifikatsprüfung",
+  "rationale": "Bei `-validateServerCert NO` bzw. fehlender Angabe wird das LDAP-Serverzertifikat nicht geprüft (Standardwert versionsabhängig — daher heuristisch).",
+  "remediation": "`-validateServerCert YES` und CA am Gerät hinterlegen."
+ },
+ "AAA-003": {
+  "title": "Gateway/Auth-vServer ohne TLS",
+  "rationale": "Gateway- und Authentifizierungs-vServer müssen TLS terminieren, sonst gehen Zugangsdaten im Klartext über das Netz.",
+  "remediation": "vServer-Typ SSL verwenden, Zertifikat binden."
+ },
+ "AAA-004": {
+  "title": "Gateway ohne Authentifizierung",
+  "rationale": "`-authentication OFF` erlaubt anonymen Zugriff; ein Gateway ohne gebundene Auth-Policy/Authn-Profil bietet ebenfalls keine Anmeldung (Annahme: Auth ist nicht über Standard-Authentifizierung/andere Wege geregelt).",
+  "remediation": "Auth-Policy binden (`bind vpn vserver <gw> -policy <authpol> -priority 100`) oder `-authnProfile` setzen."
+ },
+ "AAA-005": {
+  "title": "nFactor: Policy Label ohne Login Schema",
+  "rationale": "Ein Policy Label ohne `-loginSchema` zeigt keine Eingabefelder; der Faktor kann nur mit `LSCHEMA_INT` (kein UI) sinnvoll sein.",
+  "remediation": "`add authentication policylabel <name> -loginSchema <schema>` bzw. bewusst `LSCHEMA_INT` für Pass-through-Faktoren."
+ },
+ "AAA-006": {
+  "title": "nFactor: Policy Label nicht erreichbar",
+  "rationale": "Ein Policy Label, das über keinen `-nextFactor` erreicht wird, ist toter Code.",
+  "remediation": "Entfernen oder verknüpfen."
+ },
+ "AAA-007": {
+  "title": "Authentifizierungs-vServer ohne Policy",
+  "rationale": "Ein authentication vServer ohne gebundene Policy kann niemanden authentifizieren.",
+  "remediation": "Auth-Policies mit Priorität binden."
+ },
+ "AAA-008": {
+  "title": "SAML: unsignierte Assertions akzeptiert",
+  "rationale": "Mit `-samlRejectUnsignedAssertion OFF` werden unsignierte Assertions akzeptiert (Impersonation möglich).",
+  "remediation": "`ON` (bzw. `STRICT`) setzen."
+ },
+ "WAF-001": {
+  "title": "WAF-Profil ohne Policy-Bindung",
+  "rationale": "Ein AppFW-Profil ohne Policy schützt nichts.",
+  "remediation": "`add appfw policy` und an vServer/global binden."
+ },
+ "WAF-002": {
+  "title": "WAF-Profil ohne blockierende Aktion",
+  "rationale": "Ohne `block` in einer der Check-Aktionen läuft das Profil faktisch nur im Beobachtungsmodus. Heuristik: es werden alle `...Action`-Optionen des Profils geprüft; Defaults aus `-defaults basic/advanced` sind nicht aufgelöst.",
+  "remediation": "Checks im Lernmodus validieren, danach `block log stats` setzen."
+ },
+ "WAF-003": {
+  "title": "HTTP(S)-vServer ohne WAF",
+  "rationale": "Übersicht: HTTP/SSL-vServer ohne AppFW-Policy. Ob eine WAF gefordert ist, hängt vom Schutzbedarf der Anwendung ab (BSI APP.3.1).",
+  "remediation": "AppFW-Policy binden, wo Schutzbedarf es verlangt."
+ },
+ "GSLB-001": {
+  "title": "GSLB-vServer ohne Domain",
+  "rationale": "Ohne `bind gslb vserver -domainName` beantwortet der vServer keine DNS-Anfrage.",
+  "remediation": "Domain binden."
+ },
+ "GSLB-002": {
+  "title": "GSLB ohne ADNS-Service",
+  "rationale": "GSLB-Antworten setzen einen ADNS-Service (oder DNS-Proxy-Betrieb) voraus. Annahme: ADNS wird nicht auf einem anderen Gerät betrieben.",
+  "remediation": "`add service <name> <ip> ADNS 53`."
+ },
+ "GSLB-003": {
+  "title": "GSLB-vServer mit weniger als zwei Services",
+  "rationale": "Ein GSLB-vServer mit nur einem Service bietet keine Standort-Redundanz.",
+  "remediation": "Zweiten Standort/Service ergänzen."
+ },
+ "GSLB-004": {
+  "title": "GSLB-Metric-Exchange (MEP) deaktiviert",
+  "rationale": "Bei mehreren Sites ist ohne MEP keine Last-/Statusinformation zwischen den Sites verfügbar.",
+  "remediation": "`-metricExchange ENABLED`."
+ },
+ "HA-001": {
+  "title": "HA-Synchronisation/Propagation deaktiviert",
+  "rationale": "`-haSync DISABLED` oder `-haProp DISABLED` führt zu Konfigurationsabweichungen zwischen den Knoten.",
+  "remediation": "`set ha node -haSync ENABLED -haProp ENABLED`."
+ },
+ "HA-002": {
+  "title": "Kein HA-Partner konfiguriert",
+  "rationale": "Einzelgerät = Single Point of Failure (sofern nicht Cluster/Cloud-HA). Annahme: Partner-Gerät ist nicht in dieser Datei beschrieben.",
+  "remediation": "HA-Paar oder Cluster einrichten."
+ },
+ "REP-001": {
+  "title": "IP-Reputation-Regeln, aber Feature/Einstellungen fehlen",
+  "rationale": "Policies mit `IPREP`-Ausdrücken werden nur ausgewertet, wenn das Reputation-Feature aktiv ist (Annahme: Feature-Name `REP`; bei 13.1+ ggf. abweichend benannt) und das Gerät die Reputationsdaten abrufen kann (`set reputation settings`).",
+  "remediation": "`enable ns feature REP` und `set reputation settings -proxyServer …` (falls Proxy nötig) prüfen."
+ },
+ "MGMT-001": {
+  "title": "Telnet auf einer NetScaler-IP aktiviert",
+  "rationale": "Telnet überträgt Zugangsdaten im Klartext.",
+  "remediation": "`set ns ip <ip> -telnet DISABLED`; Administration nur per SSH."
+ },
+ "MGMT-002": {
+  "title": "GUI-Zugriff über unverschlüsseltes HTTP",
+  "rationale": "`-gui ENABLED` erlaubt HTTP-GUI; `SECUREONLY` erzwingt HTTPS.",
+  "remediation": "`set ns ip <ip> -gui SECUREONLY` (bzw. DISABLED auf Nicht-NSIPs)."
+ },
+ "MGMT-003": {
+  "title": "Management-Zugriff auf SNIP/VIP aktiviert",
+  "rationale": "Verwaltungsdienste (SSH/GUI/SNMP) sollten nur über die NSIP/ein Management-Netz erreichbar sein, nicht über Data-Plane-Adressen.",
+  "remediation": "`set ns ip <snip> -mgmtAccess DISABLED -telnet DISABLED -ssh DISABLED -gui DISABLED -snmp DISABLED`; Management-Zugriff nur auf der NSIP, ggf. mit ACLs."
+ },
+ "MGMT-004": {
+  "title": "FTP auf einer NetScaler-IP aktiviert",
+  "rationale": "FTP ist unverschlüsselt.",
+  "remediation": "`set ns ip <ip> -ftp DISABLED`; SFTP/SCP verwenden."
+ },
+ "MGMT-005": {
+  "title": "Starke Kennwortrichtlinie nicht aktiviert",
+  "rationale": "Ohne `-strongpassword ENABLED` und ausreichende Mindestlänge sind schwache Admin-Kennwörter möglich.",
+  "remediation": "`set system parameter -strongpassword ENABLED -minpasswordlen 14`."
+ },
+ "MGMT-006": {
+  "title": "Passwortwechsel beim ersten Login nicht erzwungen",
+  "rationale": "`-forcePasswordChange` zwingt zum Ändern des Default-Kennworts.",
+  "remediation": "`set system parameter -forcePasswordChange ENABLED`."
+ },
+ "MGMT-007": {
+  "title": "Kennwort im Klartext in der Konfiguration",
+  "rationale": "Ein `-password`-Parameter ohne `-encrypted` bzw. ein Klartext-Kennwort bei `add system user` liegt im Klartext vor.",
+  "remediation": "Kennwort neu setzen und `save ns config`, sodass es verschlüsselt gespeichert wird; Klartext-Config nicht weitergeben."
+ },
+ "MGMT-008": {
+  "title": "nsroot-Kennwort vermutlich nie geändert",
+  "rationale": "Eine Konfiguration ohne `set system user nsroot ... -encrypted` deutet auf das Default-Kennwort hin (Annahme; Hashes lassen sich nicht auf 'nsroot' prüfen, weil sie gesalzen sind).",
+  "remediation": "Kennwort des nsroot ändern, besser: eigene Admin-Konten + nsroot einschränken."
+ },
+ "MGMT-009": {
+  "title": "Keine externe Authentifizierung für Administratoren",
+  "rationale": "Ohne `bind system global <auth-policy>` werden Admins nur lokal geführt (keine zentrale Rechteverwaltung/Nachvollziehbarkeit).",
+  "remediation": "LDAP/RADIUS/TACACS+-Policy für die Management-Authentifizierung anlegen und per `bind system global` binden."
+ },
+ "MGMT-010": {
+  "title": "Keine Remote-Protokollierung (Syslog/NSLOG)",
+  "rationale": "Ohne Syslog-/NSLOG-Ziel gehen Audit-Informationen bei Gerätewechsel/Kompromittierung verloren.",
+  "remediation": "`add audit syslogAction ...`, `add audit syslogPolicy ...` und `bind audit syslogGlobal -policyName ...`."
+ },
+ "MGMT-011": {
+  "title": "Keine Zeitsynchronisation (NTP)",
+  "rationale": "Ohne NTP sind Logs/Zertifikatsprüfungen unzuverlässig.",
+  "remediation": "`add ntp server <ip>` und `enable ntp sync`."
+ },
+ "MGMT-012": {
+  "title": "SNMP-Community mit Standardname",
+  "rationale": "Standard-Communities (public/private …) sind allgemein bekannt; SNMP v1/v2c ist ungeschützt.",
+  "remediation": "Community ändern/entfernen, SNMPv3 (`add snmp user`/`add snmp group`) verwenden, `add snmp manager` auf Monitoring-Server beschränken."
+ },
+ "MGMT-013": {
+  "title": "SNMP v1/v2c statt SNMPv3 verwendet",
+  "rationale": "Community-basiertes SNMP kennt weder Verschlüsselung noch starke Authentifizierung.",
+  "remediation": "SNMPv3 mit authPriv konfigurieren."
+ },
+ "MGMT-014": {
+  "title": "HTTP-Härtungsparameter nicht gesetzt",
+  "rationale": "Der Secure Deployment Guide empfiehlt u.a. `set ns httpParam -dropInvalReqs ON` (ungültige HTTP-Requests verwerfen). Konkrete Empfehlung bitte gegen die aktuelle Version des Guides prüfen.",
+  "remediation": "`set ns httpParam -dropInvalReqs ON -markHttp09Inval ON -markConnReqInval ON`."
+ },
+ "QA-001": {
+  "title": "LB-vServer ohne gebundenen Service",
+  "rationale": "Ein LB-vServer ohne Service/Service Group hat kein Backend und ist DOWN.",
+  "remediation": "Service/Service Group binden oder vServer entfernen."
+ },
+ "QA-002": {
+  "title": "Service/Service Group ohne Bindung an einen vServer",
+  "rationale": "Nicht gebundene Services erzeugen Monitoring-Last und Verwirrung ohne Nutzen.",
+  "remediation": "Binden oder entfernen."
+ },
+ "QA-003": {
+  "title": "Server-Objekt ohne Verwendung",
+  "rationale": "`add server` ohne Service/Service Group.",
+  "remediation": "Entfernen, falls nicht mehr benötigt."
+ },
+ "QA-004": {
+  "title": "Policy ohne Bindung",
+  "rationale": "Eine Policy, die nirgends gebunden ist, hat keine Wirkung.",
+  "remediation": "Binden oder entfernen."
+ },
+ "QA-005": {
+  "title": "Zertifikat ohne Verwendung",
+  "rationale": "Ungenutzte Zertifikate vergrößern die Angriffsfläche und verschleiern Ablaufmonitoring.",
+  "remediation": "Entfernen."
+ },
+ "QA-006": {
+  "title": "Monitor ohne Bindung",
+  "rationale": "Nicht gebundener Monitor.",
+  "remediation": "Entfernen oder binden."
+ },
+ "QA-007": {
+  "title": "Referenz auf nicht vorhandenes Objekt",
+  "rationale": "Eine Bindung/Option verweist auf ein Objekt, das in der Konfiguration nicht existiert (Tippfehler, unvollständiger Export oder gelöschtes Objekt). Bei Teil-Exports ist das erwartbar — Annahme: Config ist vollständig.",
+  "remediation": "Objekt anlegen oder Referenz korrigieren."
+ },
+ "QA-008": {
+  "title": "Doppelte vServer-Adresse (IP:Port)",
+  "rationale": "Zwei vServer mit derselben IP/Port/Protokoll kollidieren.",
+  "remediation": "Eine Adresse ändern."
+ },
+ "QA-009": {
+  "title": "Objekte konfiguriert, aber Feature nicht aktiviert",
+  "rationale": "Ohne `enable ns feature <X>` sind Objekte der Funktion wirkungslos (und teils nicht anlegbar).",
+  "remediation": "`enable ns feature <Feature>`."
+ },
+ "QA-010": {
+  "title": "CS-vServer ohne Ziel",
+  "rationale": "Ein CS-vServer ohne Default-LB-vServer und ohne Policies verwirft/beantwortet nichts sinnvoll.",
+  "remediation": "Default-LB-vServer (`bind cs vserver <cs> <lb>`) und/oder CS-Policies binden."
+ },
+ "QA-011": {
+  "title": "HTTPS-vServer ohne HTTP→HTTPS-Redirect",
+  "rationale": "Nutzer, die http:// eingeben, erreichen den Dienst nicht. (Heuristik: geprüft werden `-redirectFromPort` und ein vServer auf Port 80 an derselben IP.)",
+  "remediation": "`-redirectFromPort 80 -httpsRedirectUrl https://<fqdn>` oder Redirect-vServer auf Port 80."
+ },
+ "QA-012": {
+  "title": "vServer administrativ deaktiviert",
+  "rationale": "Deaktivierte vServer bleiben in Configs oft als Altlast.",
+  "remediation": "Entfernen, falls dauerhaft unbenötigt."
+ },
+ "TLS-001": {
+  "title": "SSLv3 aktiviert",
+  "rationale": "SSLv3 ist durch POODLE gebrochen und nach TR-02102-2 nicht zulässig.",
+  "remediation": "`set ssl vserver <vs> -ssl3 DISABLED` bzw. im SSL-Profil."
+ },
+ "TLS-002": {
+  "title": "TLS 1.0/1.1 aktiviert",
+  "rationale": "TLS 1.0 und 1.1 gelten als veraltet; TR-02102-2 empfiehlt TLS 1.2/1.3.",
+  "remediation": "`-tls1 DISABLED -tls11 DISABLED` am vServer bzw. SSL-Profil."
+ },
+ "TLS-003": {
+  "title": "Schwache Cipher gebunden",
+  "rationale": "RC4, (3)DES, EXPORT, NULL, MD5 und anonyme Suiten sind nach TR-02102-2 nicht zulässig; die Gruppe ALL enthält solche Suiten.",
+  "remediation": "Eigene Cipher-Gruppe mit ECDHE-AEAD-Suiten (TLS1.3 + TLS1.2 GCM) binden, `unbind ssl vserver <vs> -cipherName DEFAULT/ALL`."
+ },
+ "TLS-004": {
+  "title": "TLS 1.2 deaktiviert",
+  "rationale": "Ohne TLS 1.2 bleiben nur veraltete Protokolle (oder nur TLS 1.3).",
+  "remediation": "`-tls12 ENABLED`."
+ },
+ "TLS-005": {
+  "title": "TLS 1.3 nicht aktiviert",
+  "rationale": "TLS 1.3 wird seit NetScaler 12.1 unterstützt und in TR-02102-2 empfohlen. Nur explizit deaktiviertes TLS 1.3 wird gemeldet; fehlende Angaben (Standardwerte hängen von Version/Profil ab) sind eine Annahme.",
+  "remediation": "`-tls13 ENABLED`."
+ },
+ "TLS-006": {
+  "title": "SSL-Neuverhandlung nicht eingeschränkt",
+  "rationale": "`-denySSLReneg NO` erlaubt Client-initiierte Renegotiation (DoS-Vektor).",
+  "remediation": "`-denySSLReneg FRONTEND_CLIENT` (Standard) oder `ALL`."
+ },
+ "TLS-007": {
+  "title": "Selbstsigniertes Standardzertifikat am vServer",
+  "rationale": "`ns-server-certificate` ist selbstsigniert und gerätespezifisch; Clients können es nicht validieren.",
+  "remediation": "Zertifikat einer vertrauenswürdigen CA binden."
+ },
+ "TLS-008": {
+  "title": "SSL-vServer ohne Zertifikat",
+  "rationale": "Ein TLS-terminierender vServer ohne gebundenes Zertifikat steht auf DOWN bzw. kann keine Handshakes abschließen.",
+  "remediation": "`bind ssl vserver <vs> -certkeyName <cert>`."
+ },
+ "TLS-009": {
+  "title": "Ablaufüberwachung des Zertifikats deaktiviert",
+  "rationale": "Mit `-expiryMonitor DISABLED` gibt es keine Warnung vor Ablauf. Das tatsächliche Ablaufdatum steht nicht in der ns.conf und kann hier nicht geprüft werden.",
+  "remediation": "`set ssl certKey <ck> -expiryMonitor ENABLED -notificationPeriod 30`."
+ },
+ "TLS-010": {
+  "title": "Backend-TLS ohne Zertifikatsprüfung",
+  "rationale": "SSL-Services ohne `-serverAuth ENABLED` (bzw. Backend-Profil mit serverAuth) prüfen das Server-Zertifikat nicht; Man-in-the-Middle im Backend-Netz bleibt unentdeckt. Das Ergebnis ist heuristisch, weil Profile/Standards je Version variieren.",
+  "remediation": "SSL-Backend-Profil mit `-serverAuth ENABLED` und CA-Zertifikat am Service(Group) binden."
+ },
+ "TLS-011": {
+  "title": "Kein HSTS konfiguriert",
+  "rationale": "Ohne HTTP-Strict-Transport-Security-Header können Browser auf HTTP zurückfallen.",
+  "remediation": "Rewrite-Policy mit `Strict-Transport-Security` oder `-HSTS ENABLED` im SSL-Profil."
+ },
+ "HA-003": {
+  "title": "Konfigurationsabweichung zwischen HA-Knoten",
+  "rationale": "Nach dem Abgleich sollten beide Knoten (bis auf knotenspezifische Objekte wie NSIP, Hostname, Interfaces) identisch sein. Abweichungen führen nach Failover zu anderem Verhalten.",
+  "remediation": "Sync prüfen (`show ha node`, `force ha sync`), Ursachen klären (manuelle Änderung mit -haProp DISABLED, Sync-Fehler)."
+ },
+ "CHAIN-001": {
+  "title": "Double-Hop: Zuordnung nur über IP",
+  "rationale": "Backend-Ziel stimmt mit einer Frontend-Adresse des nachgelagerten NetScalers nur in der IP, nicht im Port überein (z.B. Port-Mapping/NAT dazwischen). Zuordnung ist eine Annahme.",
+  "remediation": "Zuordnung manuell prüfen."
+ },
+ "CHAIN-002": {
+  "title": "Double-Hop: Verbindung zwischen den NetScalern unverschlüsselt",
+  "rationale": "Der Frontend-NetScaler spricht den Backend-NetScaler per HTTP/TCP an, obwohl dazwischen ggf. ein schützenswertes Netz liegt (z.B. DMZ → intern).",
+  "remediation": "Service-Typ SSL mit Server-Zertifikatsprüfung verwenden (Backend-Profil)."
+ }
+}

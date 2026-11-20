@@ -1,0 +1,639 @@
+"""From the entity model (parser.Config) to the topology graph.
+
+Knoten = konfigurierte Objekte (vServer, Services, Policies, Zertifikate ...), Kanten = Bindungen /
+references. The graph is the data basis for the HTML view *and* for check rules that
+Beziehungen brauchen (verwaiste Objekte, tote Referenzen).
+"""
+from __future__ import annotations
+
+import ipaddress
+import re
+from dataclasses import dataclass, field
+
+from .parser import Binding, Config, Entity, Statement, is_option
+
+VSERVER_TYPES = ["lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"]
+
+KIND_BY_ETYPE = {
+    "cs vserver": "csvs", "lb vserver": "lbvs", "vpn vserver": "gwvs",
+    "authentication vserver": "aaavs", "gslb vserver": "gslbvs",
+    "service": "svc", "servicegroup": "sg", "server": "server", "lb monitor": "monitor",
+    "gslb service": "gslbsvc", "gslb servicegroup": "gslbsvc", "gslb site": "gslbsite",
+    "ssl certkey": "cert", "ssl profile": "sslprofile",
+    "authentication policylabel": "nflabel", "authentication loginschema": "schema",
+    "authentication authnprofile": "authnprofile", "appfw profile": "appfwprof",
+    "cs policylabel": "policylabel", "rewrite policylabel": "policylabel",
+    "responder policylabel": "policylabel", "cache policylabel": "policylabel",
+    "cmp policylabel": "policylabel", "appfw policylabel": "policylabel",
+}
+
+KIND_LABELS = {
+    "device": "Device", "csvs": "CS vServer", "lbvs": "LB vServer", "gwvs": "Gateway vServer",
+    "aaavs": "Auth vServer", "gslbvs": "GSLB vServer", "svc": "Service", "sg": "Service Group",
+    "server": "Server", "monitor": "Monitor", "gslbsvc": "GSLB Service", "gslbsite": "GSLB Site",
+    "cert": "Certificate", "sslprofile": "SSL profile", "nflabel": "nFactor Policy Label",
+    "schema": "Login Schema", "authnprofile": "Authn profile", "appfwprof": "WAF profile",
+    "policylabel": "Policy Label", "policy": "Policy", "authpol": "Auth policy",
+    "authact": "Auth action", "domain": "GSLB domain", "sta": "STA", "missing": "Missing reference",
+}
+
+BUILTIN_MONITORS = {
+    "ping-default", "tcp-default", "arp", "nd6", "ping", "tcp", "http", "tcp-ecv", "http-ecv",
+    "udp-ecv", "dns", "ftp", "tcps", "https", "imap", "pop3", "smtp", "ldap", "radius", "mysql",
+    "mssql", "oracle", "sip-udp", "rtsp", "snmp", "nntp", "ftp-extended", "dynamic-default",
+    "citrix-xd-ddc", "citrix-xml-service", "citrix-web-interface", "citrix-storefront",
+    "citrix-wi-extended", "stasecure", "sta", "store-front", "xnc-ecv", "tcp-ecv-default",
+}
+KEYWORD_NAMES = {"NOPOLICY", "NOSCHEMA", "LSCHEMA_INT", "NO_DEFAULT", "NONE", "NEXT", "END", "USE_INVOCATION_RESULT"}
+BUILTIN_CERTS = {"ns-server-certificate", "ns-sftrust-certificate"}
+
+SECRET_OPTS = {
+    "password", "passwd", "keyvalue", "ldapbinddnpassword", "radkey", "secret", "secretkey",
+    "sharedsecret", "passphrase", "pempassword", "authpasswd", "privpasswd", "clientsecret",
+    "encryptedpassword", "accountpassword", "tacacssecret", "sessionkey", "serversecret",
+}
+
+_IP = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
+
+
+def is_ip(s: str) -> bool:
+    return bool(_IP.match(s or ""))
+
+
+def redact(st: Statement | Binding, enabled: bool = True) -> str:
+    """Line with masked secrets (passwords, keys); the original stays in the model."""
+    if not enabled:
+        return st.raw
+    if isinstance(st, Binding):
+        return st.raw
+    toks = st.tokens
+    out: list[str] = []
+    mask_next = False
+    pos = 0
+    for i, t in enumerate(toks):
+        txt = f'"{t.text}"' if t.quoted else t.text
+        if is_option(t):
+            mask_next = t.text[1:].lower() in SECRET_OPTS
+            out.append(txt)
+            continue
+        if mask_next:
+            out.append("***")
+            continue
+        out.append(txt)
+    s = " ".join(out)
+    # positionales Kennwort: add/set system user <name> <passwort>
+    if st.etype == "system user" and st.verb in ("add", "set") and len(st.args) > 1:
+        s = s.replace(st.args[1], "***", 1)
+    return s
+
+
+@dataclass
+class Node:
+    id: str
+    kind: str
+    label: str
+    etype: str = ""
+    name: str = ""
+    props: dict[str, str] = field(default_factory=dict)
+    lines: list[dict] = field(default_factory=list)
+    findings: list[str] = field(default_factory=list)
+    group: str = ""
+    entity: Entity | None = field(default=None, repr=False)
+
+
+@dataclass
+class Edge:
+    source: str
+    target: str
+    type: str  # bind | route | auth | ssl | gslb | policy | nfactor | loop | doublehop | backup
+    label: str = ""
+
+
+class Graph:
+    def __init__(self, cfg: Config, gid: str, do_redact: bool = True):
+        self.cfg = cfg
+        self.gid = gid
+        self.redact = do_redact
+        self.nodes: dict[str, Node] = {}
+        self.edges: list[Edge] = []
+        self._edge_keys: set[tuple] = set()
+        self.missing: list[dict] = []  # tote Referenzen
+        self.referenced: set[tuple[str, str]] = set()  # (etype, name) that are bound/used somewhere
+        self.frontends: list[dict] = []  # vServers with ip/port
+        self.backends: list[dict] = []  # service/service group targets with ip/port
+        self._stmt_idx: dict[tuple[str, str], list[Statement | Binding]] = {}
+        self._server_ip: dict[str, str] = {}
+        self._build()
+
+    # ---- Hilfen ---------------------------------------------------------------------------
+    def nid(self, etype: str, name: str) -> str:
+        return f"{self.gid}|{etype}|{name}"
+
+    def node_for(self, etype: str, name: str) -> Node | None:
+        return self.nodes.get(self.nid(etype, name))
+
+    def device_node(self) -> Node:
+        return self.nodes[f"{self.gid}|device|{self.cfg.name}"]
+
+    def _kind(self, etype: str) -> str | None:
+        k = KIND_BY_ETYPE.get(etype)
+        if k:
+            return k
+        if etype.startswith("authentication ") and etype.endswith("policy"):
+            return "authpol"
+        if etype.startswith("authentication ") and (etype.endswith("action") or etype.endswith("idpprofile")):
+            return "authact"
+        if etype.endswith("policy") and etype not in ("policy",):
+            return "policy"
+        return None
+
+    def _ensure(self, etype: str, name: str) -> str | None:
+        ent = self.cfg.get(etype, name)
+        if ent is None:
+            return None
+        nid = self.nid(etype, name)
+        if nid in self.nodes:
+            return nid
+        kind = self._kind(etype)
+        if not kind:
+            return None
+        n = Node(nid, kind, name, etype, name, group=self.gid, entity=ent)
+        self.nodes[nid] = n
+        self._fill(n)
+        return nid
+
+    def _add_edge(self, s: str | None, t: str | None, typ: str, label: str = "") -> None:
+        if not s or not t or s == t:
+            return
+        k = (s, t, typ, label)
+        if k in self._edge_keys:
+            return
+        self._edge_keys.add(k)
+        self.edges.append(Edge(s, t, typ, label))
+
+    def _ref(self, src: str, etypes: list[str], name: str, typ: str, label: str = "",
+             src_ent: tuple[str, str] | None = None, line: int = 0) -> str | None:
+        """Reference to an object (one of the etypes). If it is missing, a 'missing' node is created."""
+        if not name:
+            return None
+        for et in etypes:
+            nid = self._ensure(et, name)
+            if nid:
+                self.referenced.add((et, name))
+                self._add_edge(src, nid, typ, label)
+                return nid
+        # do not report built-in objects as missing
+        if name.upper() in KEYWORD_NAMES or (len(etypes) > 5 and _builtin_policy(name)):
+            return None
+        if "lb monitor" in etypes and (name.lower() in BUILTIN_MONITORS or name.lower().endswith(("-ecv", "-default"))):
+            return None
+        if name in BUILTIN_CERTS and "ssl certkey" in etypes:
+            return None
+        if name.lower().startswith(("ns_default", "nstcp_", "nshttp_", "ns_nstcp", "ns_ssl", "default")):
+            return None
+        rt = "policy" if len(etypes) > 5 else etypes[0]
+        mid = f"{self.gid}|missing|{rt}|{name}"
+        if mid not in self.nodes:
+            self.nodes[mid] = Node(mid, "missing", name, rt, name,
+                                   props={"Expected type": rt}, group=self.gid)
+        self._add_edge(src, mid, typ, label)
+        se = src_ent or ("", "")
+        self.missing.append({"src_etype": se[0], "src_name": se[1], "ref_type": rt,
+                             "ref_name": name, "node": src, "line": line})
+        return mid
+
+    POLICY_TYPES = [
+        "rewrite policy", "responder policy", "cs policy", "cache policy", "cmp policy", "appfw policy",
+        "appflow policy", "transform policy", "feo policy", "filter policy", "tm trafficpolicy",
+        "tm sessionpolicy", "vpn sessionpolicy", "vpn trafficpolicy", "vpn clientlessaccesspolicy",
+        "authorization policy", "audit syslogpolicy", "audit nslogpolicy", "spillover policy",
+        "authentication policy", "authentication ldappolicy", "authentication radiuspolicy",
+        "authentication samlpolicy", "authentication samlidppolicy", "authentication webauthpolicy",
+        "authentication certpolicy", "authentication negotiatepolicy", "authentication tacacspolicy",
+        "authentication oauthidppolicy", "authentication localpolicy", "authentication noauthpolicy",
+        "authentication loginschemapolicy", "authentication logoutpolicy", "authentication dfapolicy",
+        "authentication emailaction_policy", "responder htmlpage_policy", "contentinspection policy",
+        "dns policy", "dos policy", "stream policy_", "ica accessprofile_", "videooptimization detectionpolicy",
+        "videooptimization pacingpolicy", "bot policy", "urlfiltering policy", "appqoe policy",
+    ]
+    LABEL_TYPES = ["authentication policylabel", "cs policylabel", "rewrite policylabel",
+                   "responder policylabel", "cache policylabel", "cmp policylabel", "appfw policylabel"]
+
+    def _policy_etypes(self) -> list[str]:
+        have = [t for t in self.cfg.entities if self._kind(t) in ("policy", "authpol")]
+        return have + [t for t in self.POLICY_TYPES if t not in have]
+
+    # ---- Aufbau ---------------------------------------------------------------------------
+    def _build(self) -> None:
+        cfg = self.cfg
+        for st in cfg.statements:
+            if st.verb in ("add", "set", "bind", "unbind", "link") and st.args:
+                self._stmt_idx.setdefault((st.etype, st.args[0]), []).append(st)
+        for e in cfg.of("server").values():
+            if len(e.args) > 1:
+                self._server_ip[e.name] = e.args[1]
+        # Device node
+        dev = Node(f"{self.gid}|device|{cfg.name}", "device", cfg.hostname or cfg.name, "device", cfg.name, group=self.gid)
+        dev.props = {"File": cfg.name, "Version": f"{cfg.version or '?'} (build {cfg.build or '?'})",
+                     "NSIP": cfg.nsip or "?", "Features": ", ".join(sorted(cfg.features)) or "-"}
+        self.nodes[dev.id] = dev
+        for et, d in list(cfg.entities.items()):
+            if et in ("server",) or self._kind(et) is None:
+                continue
+            for name, e in d.items():
+                if e.implicit and et not in VSERVER_TYPES:
+                    continue
+                self._ensure(et, name)
+        for b in cfg.bindings:
+            try:
+                self._bind(b)
+            except Exception as exc:  # pragma: no cover - defensiv
+                cfg.warnings.append(f"Zeile {b.line}: Bindung nicht ausgewertet ({exc})")
+        for et in list(cfg.entities):
+            for name, e in list(cfg.entities[et].items()):
+                try:
+                    self._entity_refs(et, name, e)
+                except Exception as exc:  # pragma: no cover
+                    cfg.warnings.append(f"{et} {name}: Referenzen nicht ausgewertet ({exc})")
+        self._ha_and_local_links()
+        self._attach_roots()
+
+    def _attach_roots(self) -> None:
+        """Device -> entry points (objects without incoming edge): one tree per device (level 1 = devices)."""
+        incoming = {e.target for e in self.edges}
+        dev = self.device_node().id
+        for nid, n in list(self.nodes.items()):
+            if nid != dev and nid not in incoming:
+                self._add_edge(dev, nid, "contains", "")
+
+    def _fill(self, n: Node) -> None:
+        e = n.entity
+        assert e is not None
+        p = n.props
+        o = e.opt
+        et = e.etype
+        if et in VSERVER_TYPES:
+            proto = e.args[1] if len(e.args) > 1 else ""
+            ip = e.args[2] if len(e.args) > 2 else ""
+            port = e.args[3] if len(e.args) > 3 else ""
+            p["Protocol"] = proto
+            if ip:
+                p["IP:Port"] = f"{ip}:{port}" if port else ip
+            if ip and port and is_ip(ip) and ip != "0.0.0.0" and port not in ("0", "*") and et != "gslb vserver":
+                self.frontends.append({"node": n.id, "ip": ip, "port": port, "proto": proto, "etype": et, "name": e.name})
+            st = o("state")
+            p["Status"] = st or "ENABLED"
+            for k, label in (("persistencetype", "Persistence"), ("lbmethod", "LB method"),
+                             ("clttimeout", "Client timeout"), ("backupvserver", "Backup vServer"),
+                             ("redirecturl", "Redirect URL"), ("httpsredirecturl", "HTTPS redirect"),
+                             ("redirectfromport", "Redirect from port"), ("comment", "Comment"),
+                             ("authentication", "Authentication"), ("authnvsname", "Auth vServer"),
+                             ("authnprofile", "Authn profile"), ("icaonly", "ICA only"), ("dnsrecordtype", "DNS record")):
+                v = o(k)
+                if v:
+                    p[label] = v
+        elif et in ("service", "servicegroup"):
+            p["Protocol"] = e.args[2] if et == "service" and len(e.args) > 2 else (e.args[1] if len(e.args) > 1 else "")
+            if et == "service":
+                p["Target"] = f"{e.args[1]}:{e.args[3]}" if len(e.args) > 3 else (e.args[1] if len(e.args) > 1 else "")
+            for k, label in (("maxclient", "maxClient"), ("cip", "Client IP header"), ("usip", "USIP"), ("state", "Status"), ("comment", "Comment")):
+                if o(k):
+                    p[label] = o(k)
+        elif et == "server":
+            p["Address"] = e.args[1] if len(e.args) > 1 else ""
+            if o("state"):
+                p["Status"] = o("state")
+        elif et == "lb monitor":
+            p["Type"] = e.args[1] if len(e.args) > 1 else ""
+            for k, label in (("interval", "Interval"), ("resptimeout", "Timeout"), ("secure", "TLS"), ("send", "Send"), ("recv", "Recv"), ("httprequest", "HTTP request"), ("respcode", "Response code")):
+                if o(k):
+                    p[label] = o(k)
+        elif et == "ssl certkey":
+            for k, label in (("cert", "Certificate"), ("key", "Key"), ("expirymonitor", "Expiry monitor"), ("notificationperiod", "Notification (days)")):
+                if o(k):
+                    p[label] = o(k)
+        elif et.startswith("gslb "):
+            p["Details"] = " ".join(e.args[1:])
+            for k, label in (("sitename", "Site"), ("publicip", "Public IP"), ("sitepersistence", "Site persistence")):
+                if o(k):
+                    p[label] = o(k)
+        elif self._kind(et) in ("policy", "authpol"):
+            rule = o("rule") or (e.args[1] if len(e.args) > 1 else "")
+            act = o("action") or o("reqaction") or (e.args[2] if len(e.args) > 2 else "")
+            if rule:
+                p["Rule"] = rule[:300]
+            if act:
+                p["Action"] = act
+            if rule and "IPREP" in rule.upper():
+                p["IP reputation"] = "rule uses IPREP"
+        elif self._kind(et) == "authact":
+            for k, label in (("serverip", "Server IP"), ("serverport", "Port"), ("sectype", "SecType"), ("ldapbase", "Base DN"), ("authtimeout", "Timeout")):
+                if o(k):
+                    p[label] = o(k)
+        n.lines = self._lines_for(e)
+        for kk in ("comment",):
+            pass
+
+    def _lines_for(self, e: Entity) -> list[dict]:
+        rel = {"lb vserver": ["ssl vserver"], "cs vserver": ["ssl vserver"], "vpn vserver": ["ssl vserver"],
+               "authentication vserver": ["ssl vserver"], "gslb vserver": ["ssl vserver"],
+               "service": ["ssl service"], "servicegroup": ["ssl servicegroup"], "ssl profile": []}
+        out: list[dict] = []
+        seen: set[int] = set()
+        for et in [e.etype] + rel.get(e.etype, []):
+            for st in self._stmt_idx.get((et, e.name), []):
+                if id(st) in seen:
+                    continue
+                seen.add(id(st))
+                out.append({"file": st.file, "line": st.line, "text": redact(st, self.redact)})
+        out.sort(key=lambda x: x["line"])
+        return out[:60]
+
+    # ---- Bindungen ------------------------------------------------------------------------
+    def _vs_node(self, name: str, types: list[str] | None = None) -> tuple[str | None, str]:
+        for et in (types or VSERVER_TYPES):
+            nid = self._ensure(et, name)
+            if nid:
+                return nid, et
+        return None, ""
+
+    def _prio(self, b: Binding) -> str:
+        pr = b.opt("priority")
+        g = b.opt("gotopriorityexpression")
+        return f"Prio {pr}" if pr and not g else (f"Prio {pr} → {g}" if pr else "")
+
+    def _bind(self, b: Binding) -> None:
+        et, owner = b.etype, b.owner
+        if et in ("lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"):
+            src = self._ensure(et, owner)
+            if not src:
+                return
+            kind = self.nodes[src].kind
+            ctx = (et, owner)
+            if b.args and not is_option_like(b.args[0]):
+                tgt = b.args[0]
+                if et == "lb vserver":
+                    self._ref(src, ["service", "servicegroup"], tgt, "bind", "", ctx, b.line)
+                elif et == "cs vserver":
+                    self._ref(src, ["lb vserver"], tgt, "route", "Default", ctx, b.line)
+            for key, etypes, typ in (("servicename", ["service", "servicegroup", "gslb service", "gslb servicegroup"], "bind"),
+                                     ("lbvserver", ["lb vserver"], "route"),
+                                     ("targetlbvserver", ["lb vserver"], "route"),
+                                     ("staserver", None, "bind"),
+                                     ("domainname", None, "gslb"),
+                                     ("authnprofile", ["authentication authnprofile"], "auth"),
+                                     ("urlname", ["vpn url"], "bind"),
+                                     ("intranetapplication", ["vpn intranetapplication"], "bind")):
+                v = b.opt(key)
+                if not v:
+                    continue
+                if key == "staserver":
+                    sid = f"{self.gid}|sta|{v}"
+                    if sid not in self.nodes:
+                        self.nodes[sid] = Node(sid, "sta", v, "sta", v, props={"URL": v}, group=self.gid)
+                    self._add_edge(src, sid, "bind", "STA")
+                elif key == "domainname":
+                    did = f"{self.gid}|domain|{v}"
+                    if did not in self.nodes:
+                        self.nodes[did] = Node(did, "domain", v, "domain", v, props={"TTL": b.opt("ttl") or ""}, group=self.gid)
+                    self._add_edge(src, did, "gslb", "Domain")
+                else:
+                    self._ref(src, etypes, v, typ, "", ctx, b.line)
+            pol = b.opt("policyname") or b.opt("policy")
+            if pol:
+                label = self._prio(b)
+                lt = b.opt("labeltype")
+                inv = b.opt("invoke")
+                lab = b.opt("labelname")
+                nid = self._ref(src, self._policy_etypes(), pol, "policy", label, ctx, b.line)
+                if nid and et == "cs vserver" and b.opt("targetlbvserver"):
+                    self._ref(nid, ["lb vserver"], b.opt("targetlbvserver"), "route", "Target", ctx, b.line)
+                if lab:
+                    self._ref(src, self.LABEL_TYPES, lab, "nfactor" if et == "authentication vserver" else "policy", label or "Label", ctx, b.line)
+            nf = b.opt("nextfactor")
+            if nf:
+                self._ref(self._ref_or_none(et, owner, pol), ["authentication policylabel"], nf, "nfactor", "nextFactor", ctx, b.line)
+        elif et in ("service", "servicegroup"):
+            src = self._ensure(et, owner)
+            if not src:
+                return
+            ctx = (et, owner)
+            if et == "servicegroup" and b.args and not is_option_like(b.args[0]):
+                srv = b.args[0]
+                port = b.args[1] if len(b.args) > 1 else ""
+                sid = self._server_node(srv, ctx)
+                self._add_edge(src, sid, "bind", f":{port}" if port else "")
+                ent = self.cfg.get("servicegroup", owner)
+                ip = self._server_ip.get(srv, srv)
+                self.backends.append({"node": src, "server_node": sid, "host": ip, "port": port,
+                                      "proto": ent.args[1] if ent and len(ent.args) > 1 else "", "name": owner, "etype": et})
+            m = b.opt("monitorname")
+            if m:
+                self._ref(src, ["lb monitor"], m, "bind", "Monitor", ctx, b.line)
+        elif et == "lb monitor":
+            mon = self._ensure("lb monitor", owner)
+            for a in b.args:
+                v, _ = self._vs_node(a, ["lb vserver"])
+                if v and mon:
+                    self._add_edge(v, mon, "bind", "Monitor")
+        elif et in ("ssl vserver", "ssl service", "ssl servicegroup", "ssl profile"):
+            if et == "ssl vserver":
+                src, _ = self._vs_node(owner)
+            else:
+                src = self._ensure(et.replace("ssl ", "").replace("servicegroup", "servicegroup") if et != "ssl profile" else et, owner)
+            if not src:
+                return
+            ck = b.opt("certkeyname")
+            if ck:
+                lab = "CA" if b.opt("ca") else ("SNI" if b.opt("snicert") else ("Client-Cert" if et != "ssl vserver" else ""))
+                self._ref(src, ["ssl certkey"], ck, "ssl", lab, (et, owner), b.line)
+        elif et == "authentication policylabel":
+            src = self._ensure(et, owner)
+            if not src:
+                return
+            pol = b.opt("policyname")
+            if pol:
+                nid = self._ref(src, self._policy_etypes(), pol, "nfactor", self._prio(b), (et, owner), b.line)
+                nf = b.opt("nextfactor")
+                if nf and nid:
+                    self._ref(nid, ["authentication policylabel"], nf, "nfactor", "nextFactor", (et, owner), b.line)
+        elif et.endswith("policylabel") and et != "authentication policylabel":
+            src = self._ensure(et, owner)
+            pol = b.opt("policyname")
+            if src and pol:
+                self._ref(src, self._policy_etypes(), pol, "policy", self._prio(b), (et, owner), b.line)
+        elif et in ("aaa group", "aaa user", "vpn user", "vpn group", "system group", "system user"):
+            # Group/user bindings are not drawn yet (planned); the bound policies count as used.
+            pol = b.opt("policy") or b.opt("policyname")
+            if pol:
+                for t in self._policy_etypes():
+                    if self.cfg.get(t, pol):
+                        self.referenced.add((t, pol))
+        elif et.endswith("global") or et == "system global":
+            dev = self.device_node().id
+            pol = b.opt("policyname") or (b.args[0] if b.args else "")
+            if pol and not is_option_like(pol):
+                self._ref(dev, self._policy_etypes(), pol, "policy", f"global {et.split()[0]}", (et, ""), b.line)
+
+    def _ref_or_none(self, et: str, owner: str, pol: str | None) -> str | None:
+        if pol:
+            for t in self._policy_etypes():
+                n = self._ensure(t, pol)
+                if n:
+                    return n
+        return self._ensure(et, owner)
+
+    def _server_node(self, name: str, ctx: tuple[str, str]) -> str:
+        nid = self._ensure("server", name)
+        if nid:
+            self.referenced.add(("server", name))
+            return nid
+        nid = self.nid("server", name)
+        if nid not in self.nodes:
+            ent = Entity("server", name, [name, name], implicit=True)
+            self.nodes[nid] = Node(nid, "server", name, "server", name, props={"Address": name, "Note": "direct by IP, no 'add server'"}, group=self.gid, entity=ent)
+        return nid
+
+    # ---- Options on objects (add/set) ---------------------------------------------------
+    def _entity_refs(self, et: str, name: str, e: Entity) -> None:
+        kind = self._kind(et)
+        if et in VSERVER_TYPES and not e.implicit:
+            src = self.nid(et, name)
+            if src not in self.nodes:
+                return
+            ctx = (et, name)
+            for key, etypes, typ, lab in (("authnvsname", ["authentication vserver"], "auth", "Auth"),
+                                          ("authnprofile", ["authentication authnprofile"], "auth", "Authn profile"),
+                                          ("backupvserver", ["lb vserver"], "backup", "Backup"),
+                                          ("sslprofile", ["ssl profile"], "ssl", "SSL profile")):
+                v = e.opt(key)
+                if v:
+                    self._ref(src, etypes, v, typ, lab, ctx, e.line)
+        if et in ("vpn vserver", "lb vserver", "cs vserver", "authentication vserver", "gslb vserver", "service", "servicegroup"):
+            sv = self.cfg.get("ssl vserver" if "vserver" in et else "ssl " + et, name)
+            src = self.nid(et, name)
+            if sv and src in self.nodes:
+                pr = sv.opt("sslprofile")
+                if pr:
+                    self._ref(src, ["ssl profile"], pr, "ssl", "SSL profile", (et, name), sv.line)
+        if et == "service":
+            src = self.nid(et, name)
+            if src in self.nodes and len(e.args) > 1:
+                srv = e.args[1]
+                sid = self._server_node(srv, (et, name))
+                self._add_edge(src, sid, "bind", f":{e.args[3]}" if len(e.args) > 3 else "")
+                ip = self._server_ip.get(srv, srv)
+                self.backends.append({"node": src, "server_node": sid, "host": ip, "port": e.args[3] if len(e.args) > 3 else "",
+                                      "proto": e.args[2] if len(e.args) > 2 else "", "name": name, "etype": et})
+        if et == "authentication authnprofile":
+            src = self.nid(et, name)
+            v = e.opt("authnvsname")
+            if v and src in self.nodes:
+                self._ref(src, ["authentication vserver"], v, "auth", "authnVsName", (et, name), e.line)
+        if et == "authentication policylabel":
+            src = self.nid(et, name)
+            ls = e.opt("loginschema") or (e.args[1] if len(e.args) > 1 and not e.args[1].startswith("-") else None)
+            if ls and src in self.nodes and ls.upper() != "LSCHEMA_INT":
+                self._ref(src, ["authentication loginschema"], ls, "nfactor", "Login Schema", (et, name), e.line)
+        if kind == "authpol":
+            src = self.nid(et, name)
+            act = e.opt("action") or e.opt("reqaction") or (e.args[2] if len(e.args) > 2 else None)
+            if act and src in self.nodes and not et.endswith("localpolicy") and not et.endswith("noauthpolicy"):
+                if et.endswith("loginschemapolicy"):
+                    self._ref(src, ["authentication loginschema"], e.opt("action") or act, "nfactor", "Login Schema", (et, name), e.line)
+                elif et.endswith("policy") and et != "authentication policy":
+                    cands = [et[: -len("policy")] + "action", et[: -len("policy")] + "profile"]
+                    self._ref(src, cands + [t for t in self.cfg.entities if self._kind(t) == "authact"], act, "bind", "Action", (et, name), e.line)
+                else:
+                    self._ref(src, [t for t in self.cfg.entities if self._kind(t) == "authact"] or ["authentication ldapaction"], act, "bind", "Action", (et, name), e.line)
+        if kind == "authact":
+            ip, port = e.opt("serverip"), e.opt("serverport")
+            src = self.nid(et, name)
+            if ip and src in self.nodes:
+                for fe in list(self.frontends):
+                    if fe["ip"] == ip and (not port or fe["port"] == port) and fe["etype"] == "lb vserver":
+                        self._add_edge(src, fe["node"], "loop", "Server via LB")
+        if et == "cs policy":
+            src = self.nid(et, name)
+            act = e.opt("action") or (e.args[2] if len(e.args) > 2 else None)
+            if act and src in self.nodes:
+                a = self.cfg.get("cs action", act)
+                if a:
+                    self.referenced.add(("cs action", act))
+                    tl = a.opt("targetlbvserver")
+                    if tl:
+                        self._ref(src, ["lb vserver"], tl, "route", act, ("cs action", act), a.line)
+                elif act:
+                    self.missing.append({"src_etype": et, "src_name": name, "ref_type": "cs action", "ref_name": act, "node": src, "line": e.line})
+        if et == "appfw policy":
+            src = self.nid(et, name)
+            prof = e.opt("profilename") or (e.args[2] if len(e.args) > 2 else None)
+            if prof and src in self.nodes:
+                self._ref(src, ["appfw profile"], prof, "policy", "Profil", (et, name), e.line)
+        if kind in ("policy",) and et not in ("cs policy", "appfw policy"):
+            act = e.opt("action") or (e.args[2] if len(e.args) > 2 else None)
+            if act:
+                for t in (et.replace("policy", "action"),):
+                    if self.cfg.get(t, act):
+                        self.referenced.add((t, act))
+        if et == "gslb service":
+            self._gslb_service(name, e)
+        if et == "gslb servicegroup":
+            site = e.opt("sitename")
+            src = self.nid(et, name)
+            if site and src in self.nodes:
+                self._ref(src, ["gslb site"], site, "gslb", "Site", (et, name), e.line)
+
+    def _gslb_service(self, name: str, e: Entity) -> None:
+        src = self.nid("gslb service", name)
+        if src not in self.nodes:
+            return
+        a = e.args[1:]
+        sites = self.cfg.of("gslb site")
+        site = e.opt("sitename")
+        host = None
+        rest = list(a)
+        for x in a[:2]:
+            if x in sites and not site:
+                site = x
+                rest.remove(x)
+                break
+        if rest:
+            host = rest[0]
+        proto = rest[1] if len(rest) > 1 else ""
+        port = rest[2] if len(rest) > 2 else ""
+        n = self.nodes[src]
+        n.props["Target"] = f"{host}:{port}" if port else (host or "")
+        n.props["Protocol"] = proto
+        if site:
+            n.props["Site"] = site
+            self._ref(src, ["gslb site"], site, "gslb", "Site", ("gslb service", name), e.line)
+        ip = self._server_ip.get(host or "", host or "")
+        n.props["_ip"] = ip
+        for fe in self.frontends:
+            if fe["ip"] == ip and (not port or fe["port"] == port) and fe["etype"] in ("lb vserver", "cs vserver"):
+                self._add_edge(src, fe["node"], "gslb", "lokaler vServer")
+
+    # ---- local links: service -> vServer on the same device ------------------------
+    def _ha_and_local_links(self) -> None:
+        for be in self.backends:
+            for fe in self.frontends:
+                if be["host"] == fe["ip"] and be["port"] == fe["port"] and be["node"] != fe["node"]:
+                    self._add_edge(be["node"], fe["node"], "loop", "lokal (Loopback/Chain)")
+
+
+def _builtin_policy(name: str) -> bool:
+    n = name.lower()
+    # Assumption: names starting with "_" are system-generated policies that are not part of the exported ns.conf
+    # (observed as bound-but-undefined in many real exports); to be confirmed against the product documentation.
+    return n.startswith(("ns_", "_")) or (name.startswith("SET") and name.endswith("_POL")) or n.startswith("default_")
+
+
+def is_option_like(s: str) -> bool:
+    return bool(s) and s.startswith("-") and len(s) > 1 and s[1].isalpha()
+
+
+def vserver_endpoint(e: Entity) -> tuple[str, str]:
+    ip = e.args[2] if len(e.args) > 2 else ""
+    port = e.args[3] if len(e.args) > 3 else ""
+    return ip, port

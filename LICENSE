@@ -1,0 +1,18 @@
+Copyright (c) 2026 ITCMA GmbH. All rights reserved.
+
+This software and its documentation are proprietary. No license is granted to use, copy,
+modify, merge, publish, distribute, sublicense, or sell copies of it, in whole or in part,
+without prior written permission of the copyright holder.
+
+Third-party components bundled with this software remain under their own licenses; see
+THIRD_PARTY_NOTICES.md.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+NetScaler and Citrix are trademarks of their respective owners. This project is independent
+and is not affiliated with, endorsed or supported by them.

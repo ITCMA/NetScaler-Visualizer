@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Compile
+        run: python -m compileall -q nsviz scripts
+      - name: Tests (corpus tests are skipped without downloaded sample configs)
+        run: python -m unittest discover -s tests -v
+      - name: Rule catalog is up to date
+        run: |
+          python -m nsviz rules --markdown > /tmp/RULES.md && diff -u docs/RULES.md /tmp/RULES.md
+          python -m nsviz rules --markdown --lang de > /tmp/RULES.de.md && diff -u docs/RULES.de.md /tmp/RULES.de.md
+      - name: Demo report builds
+        run: python -m nsviz analyze examples/demo -o /tmp/demo.html --fail-on critical || test $? -eq 2
