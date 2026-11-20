@@ -365,6 +365,8 @@ class GuiTests(unittest.TestCase):
             html = call(f"/report/{res['id']}").read().decode()
             self.assertIn("NetScaler Visualizer", html)
             self.assertTrue(html.lstrip().lower().startswith("<!doctype html"))
+            call("/api/reset", b"{}")
+            self.assertEqual(json.load(call("/api/files"))["files"], [])
         finally:
             srv.shutdown()
             srv.server_close()

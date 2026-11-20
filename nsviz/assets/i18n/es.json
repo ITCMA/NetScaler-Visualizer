@@ -221,5 +221,8 @@
  "lk_edge_manual": "Vinculado (manual)",
  "connect": "Conectar",
  "connect_hint": "Modo conectar: pulse sobre un objeto y suelte sobre otro",
- "lg_link": "Enlace entre dispositivos"
+ "lg_link": "Enlace entre dispositivos",
+ "reset_graph": "Restablecer el grafo",
+ "reset_all": "Restablecer todos los ajustes",
+ "reset_done": "Grafo restablecido"
 }

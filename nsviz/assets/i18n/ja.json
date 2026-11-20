@@ -221,5 +221,8 @@
  "lk_edge_manual": "リンク済み（手動）",
  "connect": "接続",
  "connect_hint": "接続モード：オブジェクトを押して別のオブジェクトで離します",
- "lg_link": "機器間リンク"
+ "lg_link": "機器間リンク",
+ "reset_graph": "グラフをリセット",
+ "reset_all": "すべての設定をリセット",
+ "reset_done": "グラフをリセットしました"
 }

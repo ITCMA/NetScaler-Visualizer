@@ -60,6 +60,15 @@ class State:
             (self.paths if kind == "conf" else self.extra)[target.name if kind == "conf" else kind] = target
         return target.name
 
+    def reset(self) -> None:
+        """Forget files, extras and reports (the page starts from scratch); uploads are removed from the temp folder."""
+        with self.lock:
+            self.paths.clear()
+            self.extra.clear()
+            self.reports.clear()
+        for sub in ("conf", "hosts", "map"):
+            shutil.rmtree(self.dir / sub, ignore_errors=True)
+
     def describe(self) -> list[dict]:
         out = []
         for name, p in sorted(self.paths.items()):
@@ -197,6 +206,9 @@ def make_handler(st: State, port: int):
                     self._json({"ok": True})
                 elif u.path == "/api/analyze":
                     self._json(st.analyze(json.loads(self._body(MAX_JSON) or b"{}")))
+                elif u.path == "/api/reset":
+                    st.reset()
+                    self._json({"ok": True})
                 elif u.path == "/api/shutdown":
                     self._json({"ok": True})
                     threading.Thread(target=st.server.shutdown, daemon=True).start()

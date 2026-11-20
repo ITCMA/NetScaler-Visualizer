@@ -221,5 +221,8 @@
  "lk_edge_manual": "Lié (manuel)",
  "connect": "Relier",
  "connect_hint": "Mode liaison : appuyez sur un objet et relâchez sur un autre",
- "lg_link": "Lien entre appareils"
+ "lg_link": "Lien entre appareils",
+ "reset_graph": "Réinitialiser le graphe",
+ "reset_all": "Réinitialiser tous les réglages",
+ "reset_done": "Graphe réinitialisé"
 }

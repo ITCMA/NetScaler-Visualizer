@@ -5,7 +5,7 @@ const I18N = JSON.parse(document.getElementById('i18n').textContent);
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const store = { get(k) { try { return localStorage.getItem('nsviz.' + k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem('nsviz.' + k, v); } catch (e) { /* file:// ohne Speicher */ } } };
+const store = { get(k) { try { return localStorage.getItem('nsviz.' + k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem('nsviz.' + k, v); } catch (e) { /* file:// ohne Speicher */ } }, forget(k) { try { localStorage.removeItem('nsviz.' + k); } catch (e) { /* ignore */ } } };
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---- i18n -------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ const SEVDARK = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: 
 
 const HIDDEN_KINDS = ['policy', 'action', 'policylabel']; // switched on via the object-type list
 const kindsPresent = {}; D.nodes.forEach(n => kindsPresent[n.kind] = (kindsPresent[n.kind] || 0) + 1);
-const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
+const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
 cytoscape.use(cytoscapeDagre);
 const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length } }))
   .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
@@ -115,8 +115,8 @@ const CARD_W = 190, CARD_H = 44, FAR_ZOOM = 0.36;
 const svgUri = s => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
 function cardImages(kind, dark, hc) {
   const c = kindStroke(kind, dark), g = `<g transform="translate(%X% %Y%) scale(%S%)" fill="none" stroke="${c}" stroke-width="${hc ? 2.3 : 1.9}" stroke-linecap="round" stroke-linejoin="round">${iconOf(kind)}</g>`;
-  const full = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}"><rect width="6" height="${CARD_H}" fill="${c}"/><circle cx="29" cy="22" r="15" fill="${c}" fill-opacity="${dark ? .28 : .16}"/>${g.replace('%X%', 18).replace('%Y%', 11).replace('%S%', .9167)}</svg>`;
-  const far = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="${dark ? '#171c30' : '#ffffff'}" stroke="${c}" stroke-width="2"/>${g.replace('%X%', 11).replace('%Y%', 11).replace('%S%', 1.1667)}</svg>`;
+  const full = `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}" viewBox="0 0 ${CARD_W} ${CARD_H}"><rect width="6" height="${CARD_H}" fill="${c}"/><circle cx="29" cy="22" r="15" fill="${c}" fill-opacity="${dark ? .28 : .16}"/>${g.replace('%X%', 18).replace('%Y%', 11).replace('%S%', .9167)}</svg>`;
+  const far = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="${dark ? '#171c30' : '#ffffff'}" stroke="${c}" stroke-width="2"/>${g.replace('%X%', 11).replace('%Y%', 11).replace('%S%', 1.1667)}</svg>`;
   return [svgUri(full), svgUri(far)];
 }
 const imgCache = {};
@@ -177,8 +177,9 @@ let roots = [], depth = {}, succ = {}, laidOut = false;
 function eligible() {
   const set = new Set();
   cy.nodes().forEach(n => { const d = nodeById[n.id()]; if (state.group && d.group !== state.group) return; if (!state.kinds.has(d.kind)) return; set.add(n.id()); });
-  if (state.onlyFindings) { const keep = new Set(); set.forEach(id => { if (nodeById[id].findings.length) { keep.add(id); cy.getElementById(id).neighborhood('node').forEach(m => { if (set.has(m.id())) keep.add(m.id()); }); } }); return keep; }
-  return set;
+  const pin = s => { state.pinned.forEach(id => { if (nodeById[id]) s.add(id); }); return s; };
+  if (state.onlyFindings) { const keep = new Set(); set.forEach(id => { if (nodeById[id].findings.length) { keep.add(id); cy.getElementById(id).neighborhood('node').forEach(m => { if (set.has(m.id())) keep.add(m.id()); }); } }); return pin(keep); }
+  return pin(set);
 }
 function computeVisible(elig) {
   succ = {}; const pred = {}; elig.forEach(id => { succ[id] = []; pred[id] = 0; });
@@ -226,21 +227,24 @@ function layout(animate) {
   fit(); applyZoomClass(); drawOverlay(); drawMini();
   if (animate && !reduceMotion) cy.animate({ fit: { eles, padding: 36 } }, { duration: 250 });
 }
+const TIER_CAP = 14; // max. rows per column; longer lists wrap into further columns so the graph keeps a usable shape
 function tiersLayout() {
   const nodes = cy.nodes(':visible'), ys = {}; nodes.forEach(n => ys[n.id()] = n.position('y'));
   const present = [...new Set(nodes.map(n => tierOf(n.data('kind'))))].sort((a, b) => a - b);
-  tierCols = present.map((tr, i) => ({ tier: tr, x: i * COLW }));
-  const colX = {}; tierCols.forEach(c => colX[c.tier] = c.x);
   const order = D.groups.map(g => g.id), byGrp = {};
   nodes.forEach(n => { const g = n.data('grp') || ''; (byGrp[g] = byGrp[g] || []).push(n); });
   const gids = Object.keys(byGrp).sort((a, b) => { const ia = order.indexOf(a), ib = order.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+  const GX = CARD_W + 24, sub = {};
+  present.forEach(tr => { let m = 1; gids.forEach(g => { const c = byGrp[g].filter(n => tierOf(n.data('kind')) === tr).length; m = Math.max(m, Math.ceil(c / TIER_CAP)); }); sub[tr] = m; });
+  let cur = 0; const colX = {};
+  tierCols = present.map(tr => { const x0 = cur, w = sub[tr] * GX - 24 + 150; colX[tr] = x0 + 75 + CARD_W / 2; cur += w; return { tier: tr, x0, x1: cur }; });
   let y0 = 0;
   gids.forEach(g => {
     const cols = {}; byGrp[g].forEach(n => { const tr = tierOf(n.data('kind')); (cols[tr] = cols[tr] || []).push(n); });
-    const rows = Math.max(...Object.values(cols).map(a => a.length)), H = rows * ROW;
+    const rows = Math.max(...Object.values(cols).map(a => Math.min(a.length, TIER_CAP))), H = rows * ROW;
     Object.keys(cols).forEach(tr => {
-      const a = cols[tr].sort((p, q) => ys[p.id()] - ys[q.id()]), off = (H - a.length * ROW) / 2;
-      a.forEach((n, i) => n.position({ x: colX[tr], y: y0 + off + (i + .5) * ROW }));
+      const a = cols[tr].sort((p, q) => ys[p.id()] - ys[q.id()]), per = Math.ceil(a.length / Math.ceil(a.length / TIER_CAP)), off = (H - per * ROW) / 2;
+      a.forEach((n, i) => n.position({ x: colX[tr] + Math.floor(i / per) * GX, y: y0 + Math.max(0, off) + ((i % per) + .5) * ROW }));
     });
     const grp = D.groups.find(x => x.id === g);
     frames.push({ id: g, name: grp ? grp.name : '', x0: Math.min(...byGrp[g].map(n => n.position('x'))) - CARD_W / 2 - 14, x1: Math.max(...byGrp[g].map(n => n.position('x'))) + CARD_W / 2 + 14, y0: y0 - 34, y1: y0 + H + 12 });
@@ -256,7 +260,7 @@ function drawOverlay() {
   let h = '';
   if (state.layout === 'tiers' && tierCols.length) {
     tierCols.forEach((c, i) => {
-      const l = (c.x - COLW / 2) * z + p.x, w = COLW * z;
+      const l = c.x0 * z + p.x, w = (c.x1 - c.x0) * z;
       h += `<div class="lane${i % 2 ? ' alt' : ''}" style="left:${l}px;width:${w}px"><span>${esc(t(TIER_KEYS[c.tier]))}</span></div>`;
     });
     frames.forEach(f => {
@@ -300,8 +304,8 @@ function clearSelection() { cy.elements().removeClass('dim onpath'); cy.$(':sele
 
 function revealNode(id) {
   const d = nodeById[id]; if (!d) return;
-  if (state.group && d.group !== state.group) { state.group = ''; $('#group').value = ''; }
-  state.kinds.add(d.kind); $$('#kinds input').forEach(i => i.checked = state.kinds.has(i.dataset.k));
+  // Filters stay as they are: a hidden object is shown as a single exception (pinned), not its whole type or device.
+  if ((state.group && d.group !== state.group) || !state.kinds.has(d.kind)) state.pinned.add(id);
   computeVisible(eligible());
   const prev = {}; let q = roots.slice(); const seen = new Set(roots);
   while (q.length) { const nq = []; q.forEach(u => (succ[u] || []).forEach(v => { if (!seen.has(v)) { seen.add(v); prev[v] = u; nq.push(v); } })); q = nq; }
@@ -342,6 +346,20 @@ $$('[data-level]').forEach(b => b.onclick = () => setLevel(+b.dataset.level));
 $('#expand-all').onclick = () => { state.collapsed = new Set(); refresh(true); };
 $('#fit').onclick = () => cy.fit(cy.elements(':visible'), 30);
 $('#relayout').onclick = () => layout(true);
+function resetGraph() {
+  state.group = ''; state.collapsed = new Set(); state.pinned = new Set(); state.onlyFindings = false; state.labels = false; state.contains = false; state.focus = true; state.layout = 'tiers';
+  state.kinds = new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k)));
+  if (typeof connectOn !== 'undefined' && connectOn) setConnect(false);
+  $('#search').value = ''; state.hits = []; state.hitIdx = -1; $('#hits').textContent = '';
+  $('#only-findings').checked = false; $('#edge-labels').checked = false; $('#contains').checked = false; $('#focus').checked = true; $('#layout-sel').value = 'tiers';
+  clearSelection(); renderGroups(); renderKinds();
+  state.far = false; cy.elements().removeClass('far hit');
+  if (cy.nodes().length > 120) setLevel(2); else refresh(true);
+  toast(t('reset_done'));
+}
+function resetAll() { ['layout', 'legend', 'theme', 'lang'].forEach(k => store.forget(k)); legendOpen = true; themePref = 'auto'; applyTheme(); lang = detectLang(); ls.value = lang; resetGraph(); renderAll(); }
+$('#reset-graph').onclick = resetGraph;
+$('#reset-all').onclick = resetAll;
 $('#layout-sel').value = state.layout;
 $('#layout-sel').onchange = e => { state.layout = e.target.value; store.set('layout', state.layout); layout(true); };
 $('#contains').onchange = e => { state.contains = e.target.checked; refresh(true); };

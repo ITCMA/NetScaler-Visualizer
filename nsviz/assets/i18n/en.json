@@ -252,5 +252,8 @@
  "lk_edge_manual": "Linked (manual)",
  "connect": "Connect",
  "connect_hint": "Connect mode: press on an object and release on another one",
- "lg_link": "Cross-device link"
+ "lg_link": "Cross-device link",
+ "reset_graph": "Reset graph",
+ "reset_all": "Reset all settings",
+ "reset_done": "Graph reset"
 }

@@ -221,5 +221,8 @@
  "lk_edge_manual": "已关联（手动）",
  "connect": "连接",
  "connect_hint": "连接模式：在一个对象上按下并在另一个对象上松开",
- "lg_link": "跨设备关联"
+ "lg_link": "跨设备关联",
+ "reset_graph": "重置图形",
+ "reset_all": "重置所有设置",
+ "reset_done": "图形已重置"
 }

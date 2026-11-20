@@ -279,5 +279,8 @@
  "lk_edge_manual": "Verknüpft (manuell)",
  "connect": "Verbinden",
  "connect_hint": "Verbinden-Modus: auf einem Objekt drücken und auf einem anderen loslassen",
- "lg_link": "Geräteübergreifende Verknüpfung"
+ "lg_link": "Geräteübergreifende Verknüpfung",
+ "reset_graph": "Graph zurücksetzen",
+ "reset_all": "Alle Einstellungen zurücksetzen",
+ "reset_done": "Graph zurückgesetzt"
 }
