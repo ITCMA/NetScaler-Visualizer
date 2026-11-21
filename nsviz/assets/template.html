@@ -51,7 +51,7 @@
         <label class="chk"><span data-i18n="contains"></span><input type="checkbox" role="switch" id="contains"></label>
         <label class="chk"><span data-i18n="edge_labels"></span><input type="checkbox" role="switch" id="edge-labels"></label>
         <label class="chk"><span data-i18n="focus"></span><input type="checkbox" role="switch" id="focus" checked></label>
-        <label class="chk"><span data-i18n="dbg_mode"></span><input type="checkbox" role="switch" id="debug-mode"></label>
+        <label class="chk" id="debug-row" hidden><span data-i18n="dbg_mode"></span><input type="checkbox" role="switch" id="debug-mode"></label>
       </details>
       <details class="sb" open><summary data-i18n="u_tools">Tools</summary>
         <div class="tgrid"><button id="fit" data-i18n="fit">Fit</button><button id="relayout" data-i18n="relayout">Re-layout</button><button id="connect" aria-pressed="false" data-i18n="connect">Connect</button><button id="png">PNG</button></div>
@@ -99,6 +99,7 @@
 <script>/*__CYTOSCAPE__*/</script>
 <script>/*__DAGRE__*/</script>
 <script>/*__CYDAGRE__*/</script>
+<script>window.__NSVIZ_DEBUG__=/*__DBG__*/;</script>
 <script>/*__APP__*/</script>
 </body>
 </html>

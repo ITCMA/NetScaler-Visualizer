@@ -38,7 +38,8 @@ def _looks_like_conf(p: Path) -> bool:
 
 
 class State:
-    def __init__(self) -> None:
+    def __init__(self, debug: bool = False) -> None:
+        self.debug = debug
         self.token = secrets.token_urlsafe(24)
         self.dir = Path(tempfile.mkdtemp(prefix="nsviz-gui-"))
         self.paths: dict[str, Path] = {}      # display name -> file (uploads and referenced local paths)
@@ -113,7 +114,7 @@ class State:
             lm.setdefault("hosts", {}).update(linking.load_hosts(str(self.extra["hosts"])))
         proj = Project.load([str(f) for f in files], pairs, roles, redact=bool(opts.get("redact", True)), link_map=lm)
         title = str(opts.get("title") or "NetScaler Visualizer")[:120]
-        html = report.render(proj, title)
+        html = report.render(proj, title, debug=self.debug)
         rid = secrets.token_urlsafe(8)
         self.reports[rid] = html
         d = proj.to_dict()
@@ -262,8 +263,8 @@ def make_handler(st: State, port: int):
     return H
 
 
-def serve(port: int = 0, open_browser: bool = True) -> int:
-    st = State()
+def serve(port: int = 0, open_browser: bool = True, debug: bool = False) -> int:
+    st = State(debug=debug)
     # the handler needs the real port for the Host check; bind first
     srv = ThreadingHTTPServer(("127.0.0.1", port), BaseHTTPRequestHandler)
     real = srv.server_address[1]

@@ -3,6 +3,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-21
+### Added
+- Light/dark/system theme switch on the start page (config selection), matching the report; the choice is remembered and shared with the report.
+### Changed
+- Debug tools (bug button and its sidebar switch) are off by default and no longer shown to normal users. Turn them on with `--debug` when creating a report (`analyze --debug`) or starting the GUI (`gui --debug`), or by adding `#debug` to the report URL.
+
 ## [0.3.0] - 2026-11-21
 ### Changed
 - One design language for the start page and the report, close to macOS: shared colors, spacing, radii and system font; on/off options are switches, small choices are segmented controls (levels, tabs, theme), the export format is a row of chips, original/anonymized are option cards, dialogs have Cancel plus the main action.

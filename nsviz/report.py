@@ -27,7 +27,7 @@ def load_i18n() -> dict[str, dict[str, str]]:
     return {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((ASSETS / "i18n").glob("*.json"))}
 
 
-def render(project: Project, title: str = "NetScaler Visualizer") -> str:
+def render(project: Project, title: str = "NetScaler Visualizer", debug: bool = False) -> str:
     html = _read("template.html").replace("<title>NetScaler Visualizer</title>", f"<title>{_html.escape(title)}</title>")
     # Daten/Skripte zuletzt einsetzen (enthalten beliebige Zeichen)
     for key, val in (("/*__CSS__*/", _read("style.css")),
@@ -38,11 +38,12 @@ def render(project: Project, title: str = "NetScaler Visualizer") -> str:
                      ("/*__I18N__*/", _json(load_i18n())),
                      ("/*__DATA__*/", _json(project.to_dict()))):
         html = html.replace(key, val, 1)
+    html = html.replace("/*__DBG__*/", "true" if debug else "false", 1)
     return html
 
 
-def write(project: Project, out: str | Path, title: str = "NetScaler Visualizer") -> Path:
+def write(project: Project, out: str | Path, title: str = "NetScaler Visualizer", debug: bool = False) -> Path:
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(project, title), encoding="utf-8")
+    out.write_text(render(project, title, debug), encoding="utf-8")
     return out

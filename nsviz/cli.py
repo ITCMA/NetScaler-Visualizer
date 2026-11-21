@@ -66,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--ha", action="append", default=[], metavar="A,B", help="treat two files/device names as an HA pair (repeatable)")
     a.add_argument("--role", action="append", default=[], metavar="FILE=primary|secondary")
     a.add_argument("--no-redact", action="store_true", help="do NOT mask passwords/keys in the embedded config lines")
+    a.add_argument("--debug", action="store_true", help="show the debug tools (bug button) in the report; off by default, also reachable with #debug in the URL")
     a.add_argument("--json", metavar="FILE", help="also write the complete result as JSON")
     a.add_argument("--csv", metavar="FILE", help="write findings as CSV (Excel, semicolon-separated)")
     a.add_argument("--fail-on", choices=SEVERITIES, help="exit code 2 if findings of this severity or higher exist (CI)")
@@ -82,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     g = sub.add_parser("gui", help="open the local web GUI (127.0.0.1 only) to pick configs and create the report")
     g.add_argument("--port", type=int, default=0, help="port (default: a free one)")
     g.add_argument("--no-browser", action="store_true", help="only print the URL")
+    g.add_argument("--debug", action="store_true", help="show the debug tools in generated reports; off by default")
     d = sub.add_parser("resolve", help="OPTIONAL: resolve the FQDNs found in the configs by DNS and write a hosts file (queries a DNS server!)")
     d.add_argument("paths", nargs="+", help="ns.conf files or folders")
     d.add_argument("-o", "--output", help="write the hosts file here (default: print)")
@@ -98,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "gui":
         from .gui import serve
-        return serve(args.port, not args.no_browser)
+        return serve(args.port, not args.no_browser, debug=args.debug)
 
     if args.cmd == "anonymize":
         from .anonymize import anonymize_paths
@@ -168,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
-    out = report.write(proj, args.output, args.title)
+    out = report.write(proj, args.output, args.title, debug=args.debug)
     d = proj.to_dict()
     sev = {s: sum(1 for f in proj.findings if f.severity == s) for s in SEVERITIES}
     L = args.lang

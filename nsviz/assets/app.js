@@ -79,6 +79,7 @@ const SEVDARK = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: 
 const HIDDEN_KINDS = ['policy', 'action', 'policylabel']; // switched on via the object-type list
 const unlinkedSet = new Set((D.unlinked || []).map(u => u.node));
 const kindsPresent = {}; D.nodes.forEach(n => kindsPresent[n.kind] = (kindsPresent[n.kind] || 0) + 1);
+const debugEnabled = (typeof window.__NSVIZ_DEBUG__ !== 'undefined' && window.__NSVIZ_DEBUG__ === true) || /(^|[#&?])debug\b/i.test(location.hash);
 const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), onlyUnlinked: false, debug: false, layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
 cytoscape.use(cytoscapeDagre);
 const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id), fq: !!(n.dep && n.dep.fqdn) } }))
@@ -651,7 +652,8 @@ function applyStatic() {
   $('#subtitle').title = $('#subtitle').textContent;
 }
 function renderAll() {
-  applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderRulesUi(); renderRules(); renderOverview();
+  { const b = $('#dbg-btn'), r = $('#debug-row'); if (b) b.hidden = !debugEnabled; if (r) r.hidden = !debugEnabled; }
+    applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderRulesUi(); renderRules(); renderOverview();
   renderDetail(state.selected ? nodeById[state.selected] : null); showTab(curTab);
 }
 const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');
