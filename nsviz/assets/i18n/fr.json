@@ -231,5 +231,6 @@
  "only_unlinked": "Afficher seulement les objets non reliés",
  "lg_via": "Via des politiques/actions masquées (nommées sur la ligne)",
  "lg_unl": "Bordure en pointillés : non relié",
- "lg_fqdn": "Halo orange : cible = FQDN (non résolu)"
+ "lg_fqdn": "Halo orange : cible = FQDN (non résolu)",
+ "lg_ref": "Autre référence (nom de l'option sur la ligne)"
 }

@@ -289,5 +289,6 @@
  "only_unlinked": "Nur nicht verknüpfte Objekte zeigen",
  "lg_via": "Über ausgeblendete Policies/Actions (Namen an der Linie)",
  "lg_unl": "Gestrichelter Rand: nicht verknüpft",
- "lg_fqdn": "Orange Hof: Ziel ist ein FQDN (nicht aufgelöst)"
+ "lg_fqdn": "Orange Hof: Ziel ist ein FQDN (nicht aufgelöst)",
+ "lg_ref": "Sonstiger Verweis (Optionsname an der Linie)"
 }

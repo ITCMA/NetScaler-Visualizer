@@ -231,5 +231,6 @@
  "only_unlinked": "Mostrar só objetos sem ligação",
  "lg_via": "Via políticas/ações ocultas (nomeadas na linha)",
  "lg_unl": "Borda tracejada: sem ligação",
- "lg_fqdn": "Halo laranja: destino FQDN (não resolvido)"
+ "lg_fqdn": "Halo laranja: destino FQDN (não resolvido)",
+ "lg_ref": "Outra referência (nome da opção na linha)"
 }

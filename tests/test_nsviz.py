@@ -457,5 +457,111 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("__DATA__", html)
 
 
+
+class ChainCoverageTests(unittest.TestCase):
+    """Reference forms that used to be missed: -invoke, CS -> Gateway via cs action, certificate chains, internal services,
+    global STA, local DNS records, policies bound to AAA groups, bookmarks, generic safety net."""
+    CONF = "\n".join([
+        "add server s1 10.0.0.5",
+        "add service svc1 s1 HTTP 80",
+        "add lb vserver lb_front HTTP 192.0.2.10 80",
+        "bind lb vserver lb_front svc1",
+        "add lb vserver lb_sf HTTP 192.0.2.11 80",
+        "bind lb vserver lb_sf svc1",
+        "add lb vserver lb_inv HTTP 0.0.0.0 0",
+        "bind lb vserver lb_inv svc1",
+        "add rewrite action ra1 replace HTTP.REQ.URL \"\\\"/\\\"\"",
+        "add rewrite policy rp1 true ra1",
+        "add rewrite policy rp2 true ra1",
+        "add rewrite policylabel rl1 http_req",
+        "bind rewrite policylabel rl1 rp2 10 END",
+        "bind lb vserver lb_front -policyName rp1 -priority 10 -gotoPriorityExpression NEXT -type REQUEST -invoke policylabel rl1",
+        "add responder policy resp1 true NOOP",
+        "bind lb vserver lb_front -policyName resp1 -priority 20 -gotoPriorityExpression NEXT -type REQUEST -invoke reqvserver lb_inv",
+        "add vpn vserver gw SSL 0.0.0.0 0",
+        "add authentication vserver aaa1 SSL 0.0.0.0 0",
+        "add cs vserver cs1 SSL 192.0.2.20 443",
+        "add cs action a_gw -targetVserver gw",
+        "add cs policy p_gw -rule true -action a_gw",
+        "bind cs vserver cs1 -policyName p_gw -priority 10",
+        "add ssl certkey leaf -cert leaf.crt -key leaf.key",
+        "add ssl certkey inter -cert inter.crt",
+        "link ssl certkey leaf inter",
+        "bind ssl vserver cs1 -certkeyName leaf",
+        "add ssl certkey mgmt -cert mgmt.crt -key mgmt.key",
+        "bind ssl service nshttps-127.0.0.1-443 -certkeyName mgmt",
+        "bind vpn global -staServer \"http://10.0.0.9\"",
+        "add dns addRec sf.example.test 192.0.2.11",
+        "add vpn sessionAction sa -wihome \"https://sf.example.test:80/Citrix/StoreWeb\"",
+        "add vpn sessionPolicy sp true sa",
+        "bind vpn vserver gw -policy sp -priority 100",
+        "add vpn url bm1 Intranet http://intranet.example.test",
+        "bind vpn vserver gw -urlName bm1",
+        "add vpn sessionAction sa_grp -splitTunnel OFF",
+        "add vpn sessionPolicy sp_grp true sa_grp",
+        "add aaa group g1",
+        "bind aaa group g1 -policy sp_grp -priority 10",
+        "add ssl profile sp_mon -sslProfileType BackEnd",
+        "add lb monitor mon1 HTTP -secure YES -sslProfile sp_mon",
+        "bind service svc1 -monitorName mon1",
+        ""])
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        f = Path(self.tmp.name) / "c.ns.conf"
+        f.write_text(self.CONF)
+        self.p = Project.load([str(f)])
+        self.g = self.p.groups[0].graph
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def n(self, etype, name):
+        return self.g.node_for(etype, name)
+
+    def edge(self, a, b):
+        return any(e.source == a.id and e.target == b.id for e in self.g.edges)
+
+    def reach(self, etype, name):
+        return self.p.dep[self.n(etype, name).id]["reach"]
+
+    def test_invoke_policylabel(self):
+        self.assertTrue(self.reach("rewrite policylabel", "rl1"))
+        self.assertTrue(self.reach("rewrite policy", "rp2"))
+
+    def test_invoke_vserver(self):
+        self.assertTrue(self.edge(self.n("responder policy", "resp1"), self.n("lb vserver", "lb_inv")))
+        self.assertTrue(self.reach("lb vserver", "lb_inv"))
+
+    def test_cs_action_to_gateway(self):
+        self.assertTrue(self.edge(self.n("cs policy", "p_gw"), self.n("vpn vserver", "gw")))
+        self.assertTrue(self.reach("vpn vserver", "gw"))
+        self.assertFalse(self.reach("authentication vserver", "aaa1"))
+
+    def test_certificate_chain_and_internal_service(self):
+        self.assertTrue(self.edge(self.n("ssl certkey", "leaf"), self.n("ssl certkey", "inter")))
+        self.assertTrue(self.reach("ssl certkey", "inter"))
+        self.assertTrue(self.reach("ssl certkey", "mgmt"))
+
+    def test_global_sta_and_dns_record(self):
+        self.assertTrue(any(n.kind == "sta" and self.p.dep[n.id]["reach"] for n in self.g.nodes.values()))
+        sa = self.n("vpn sessionaction", "sa")
+        self.assertTrue(self.edge(sa, self.n("lb vserver", "lb_sf")))
+        self.assertNotIn("FQDN target", sa.props)
+
+    def test_group_policy_and_bookmark(self):
+        self.assertTrue(self.reach("vpn sessionaction", "sa_grp"))
+        self.assertFalse(any(m["ref_type"] == "vpn url" for m in self.g.missing))
+
+    def test_generic_safety_net(self):
+        self.assertTrue(self.reach("ssl profile", "sp_mon"))
+        self.assertIn(("lb monitor", "sslprofile", "ssl profile"), self.g.generic_refs)
+
+    def test_no_dep001_for_reached(self):
+        names = {f.name for f in self.p.findings if f.rule_id == "DEP-001"}
+        self.assertEqual(names, {"aaa1"})
+
+
 if __name__ == "__main__":
     unittest.main()

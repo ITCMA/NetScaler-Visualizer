@@ -70,7 +70,7 @@ def collect(project) -> dict:
             sources.append({"node": be["node"], "group": g.id, "name": be["name"], "etype": be["etype"], "host": host,
                             "port": be["port"], "proto": be["proto"], "key": node_key(project, be["node"])})
         for u in g.graph.unresolved:  # session action / STA URL targets: FQDN or an address that is not a local vServer
-            if (u["node"], u["host"]) in seen or u.get("resolved"):
+            if (u["node"], u["host"]) in seen or u.get("resolved") or u.get("silent"):
                 continue
             seen.add((u["node"], u["host"]))
             nd = g.graph.nodes[u["node"]]

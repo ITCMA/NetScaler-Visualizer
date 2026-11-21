@@ -27,6 +27,9 @@ KIND_BY_ETYPE = {
     "cmp policylabel": "policylabel", "appfw policylabel": "policylabel",
     "rewrite action": "action", "responder action": "action", "vpn sessionaction": "action",
     "vpn trafficaction": "action", "appflow action": "action", "audit syslogaction": "action",
+    "tm sessionaction": "action", "tm trafficaction": "action", "audit nslogaction": "action", "ica action": "action",
+    "ica accessprofile": "action", "dns action": "action", "transform profile": "action", "vpn clientlessaccessprofile": "action",
+    "contentinspection action": "action", "appqoe action": "action", "feo action": "action", "spillover action": "action",
     "aaa group": "group",
     "ssl cipher": "cipher", "vlan": "vlan", "ns ip": "netip", "route": "route",
 }
@@ -287,6 +290,15 @@ class Graph:
         for e in cfg.of("server").values():
             if len(e.args) > 1:
                 self._server_ip[e.name] = e.args[1]
+        # local DNS records of this appliance (add dns addRec <name> <ip> / addRec via cnameRec): the device resolves these itself
+        self.dns_rec: dict[str, str] = {}
+        cname: dict[str, str] = {}
+        for st in cfg.statements:
+            if st.verb == "add" and len(st.args) >= 2 and st.etype in ("dns addrec", "dns cnamerec"):
+                (self.dns_rec if st.etype == "dns addrec" else cname)[st.args[0].lower().rstrip(".")] = st.args[1].lower().rstrip(".") if st.etype == "dns cnamerec" else st.args[1]
+        for a, b in cname.items():
+            if b in self.dns_rec and a not in self.dns_rec:
+                self.dns_rec[a] = self.dns_rec[b]
         # Device node
         dev = Node(f"{self.gid}|device|{cfg.name}", "device", cfg.hostname or cfg.name, "device", cfg.name, group=self.gid)
         dev.props = {"File": cfg.name, "Version": f"{cfg.version or '?'} (build {cfg.build or '?'})",
@@ -310,7 +322,12 @@ class Graph:
                     self._entity_refs(et, name, e)
                 except Exception as exc:  # pragma: no cover
                     cfg.warnings.append(f"{et} {name}: Referenzen nicht ausgewertet ({exc})")
+        for crt, ca in cfg.links:  # link ssl certkey <cert> <issuer>
+            a = self._ensure("ssl certkey", crt)
+            if a:
+                self._ref(a, ["ssl certkey"], ca, "ssl", "Issuer", ("ssl certkey", crt))
         self._ha_and_local_links()
+        self._generic_refs()
         self._attach_roots()
 
     def _attach_roots(self) -> None:
@@ -457,7 +474,7 @@ class Graph:
             for key, etypes, typ in (("servicename", ["service", "servicegroup", "gslb service", "gslb servicegroup"], "bind"),
                                      ("lbvserver", ["lb vserver"], "route"),
                                      ("targetlbvserver", ["lb vserver"], "route"),
-                                     ("targetvserver", ["lb vserver", "cs vserver"], "route"),
+                                     ("targetvserver", ["lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"], "route"),
                                      ("staserver", None, "bind"),
                                      ("domainname", None, "gslb"),
                                      ("authnprofile", ["authentication authnprofile"], "auth"),
@@ -476,18 +493,20 @@ class Graph:
                     if did not in self.nodes:
                         self.nodes[did] = Node(did, "domain", v, "domain", v, props={"TTL": b.opt("ttl") or ""}, group=self.gid)
                     self._add_edge(src, did, "gslb", "Domain")
+                elif key in ("urlname", "intranetapplication") and self.cfg.get(etypes[0], v) is not None:
+                    self.referenced.add((etypes[0], v))
                 else:
                     self._ref(src, etypes, v, typ, "", ctx, b.line)
             pol = b.opt("policyname") or b.opt("policy")
             if pol:
                 label = self._prio(b)
-                lt = b.opt("labeltype")
-                inv = b.opt("invoke")
-                lab = b.opt("labelname")
-                nid = self._ref(src, self._policy_etypes(), pol, "policy", label, ctx, b.line)
+                lt, lab = invoke_target(b)
+                nid = self._ref(src, self._policy_etypes() + self.LABEL_TYPES, pol, "policy", label, ctx, b.line)
                 if nid and et == "cs vserver" and b.opt("targetlbvserver"):
                     self._ref(nid, ["lb vserver"], b.opt("targetlbvserver"), "route", "Target", ctx, b.line)
-                if lab:
+                if lab and lt in VS_LABEL_TYPES:
+                    self._ref(nid or src, ["lb vserver", "cs vserver"], lab, "route", "invoke " + lt, ctx, b.line)
+                elif lab:
                     self._ref(src, self.LABEL_TYPES, lab, "nfactor" if et == "authentication vserver" else "policy", label or "Label", ctx, b.line)
             nf = b.opt("nextfactor")
             if nf:
@@ -519,9 +538,14 @@ class Graph:
             if et == "ssl vserver":
                 src, _ = self._vs_node(owner)
             else:
-                src = self._ensure(et.replace("ssl ", "").replace("servicegroup", "servicegroup") if et != "ssl profile" else et, owner)
+                src = self._ensure(et.replace("ssl ", "") if et != "ssl profile" else et, owner)
+                if not src and et == "ssl service" and owner.lower().startswith(INTERNAL_SERVICES):
+                    src = self.device_node().id  # internal management/RPC service: the certificate is used by the appliance itself
             if not src:
                 return
+            sp = b.opt("policyname")
+            if sp:
+                self._ref(src, self._policy_etypes() + ["ssl policy"], sp, "policy", self._prio(b), (et, owner), b.line)
             cn = b.opt("ciphername")
             if cn and self.cfg.get("ssl cipher", cn):
                 self._ref(src, ["ssl cipher"], cn, "ssl", "Ciphers", (et, owner), b.line)
@@ -546,9 +570,11 @@ class Graph:
                 nid = self._ref(src, self._policy_etypes(), pol, "policy", self._prio(b), (et, owner), b.line)
                 tv = b.opt("targetvserver") or b.opt("targetlbvserver")
                 if tv and nid:  # bind cs policylabel <label> <policy> <prio> -targetVserver <vserver>
-                    self._ref(nid, ["lb vserver", "cs vserver"], tv, "route", "Target", (et, owner), b.line)
-                lab = b.opt("labelname")
-                if lab:
+                    self._ref(nid, ["lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"], tv, "route", "Target", (et, owner), b.line)
+                lt, lab = invoke_target(b)
+                if lab and lt in VS_LABEL_TYPES:
+                    self._ref(nid or src, ["lb vserver", "cs vserver"], lab, "route", "invoke " + lt, (et, owner), b.line)
+                elif lab:
                     self._ref(nid or src, self.LABEL_TYPES, lab, "policy", "Label", (et, owner), b.line)
         elif et == "dns nameserver":
             # an LB vServer used as DNS name server is used globally (assumption: the first argument names it)
@@ -581,8 +607,20 @@ class Graph:
         elif et.endswith("global") or et == "system global":
             dev = self.device_node().id
             pol = b.opt("policyname") or (b.args[0] if b.args else "")
+            nid = None
             if pol and not is_option_like(pol):
-                self._ref(dev, self._policy_etypes(), pol, "policy", f"global {et.split()[0]}", (et, ""), b.line)
+                nid = self._ref(dev, self._policy_etypes(), pol, "policy", f"global {et.split()[0]}", (et, ""), b.line)
+            lt, lab = invoke_target(b)
+            if lab and lt in VS_LABEL_TYPES:
+                self._ref(nid or dev, ["lb vserver", "cs vserver"], lab, "route", "invoke " + lt, (et, ""), b.line)
+            elif lab:
+                self._ref(nid or dev, self.LABEL_TYPES, lab, "policy", "Label", (et, ""), b.line)
+            sta = b.opt("staserver")
+            if sta:  # bind vpn global -staServer <url>: STA used by every gateway
+                sid = f"{self.gid}|sta|{sta}"
+                if sid not in self.nodes:
+                    self.nodes[sid] = Node(sid, "sta", sta, "sta", sta, props={"URL": sta, "Scope": "global"}, group=self.gid)
+                self._add_edge(dev, sid, "bind", "STA (global)")
 
     def _ref_or_none(self, et: str, owner: str, pol: str | None) -> str | None:
         if pol:
@@ -611,7 +649,7 @@ class Graph:
             if src not in self.nodes:
                 return
             ctx = (et, name)
-            for key, etypes, typ, lab in (("authnvsname", ["authentication vserver"], "auth", "Auth"),
+            for key, etypes, typ, lab in (("authnvsname", ["authentication vserver", "vpn vserver"], "auth", "Auth"),
                                           ("authnprofile", ["authentication authnprofile"], "auth", "Authn profile"),
                                           ("backupvserver", ["lb vserver", "cs vserver"], "backup", "Backup"),
                                           ("sslprofile", ["ssl profile"], "ssl", "SSL profile")):
@@ -638,7 +676,7 @@ class Graph:
             src = self.nid(et, name)
             v = e.opt("authnvsname")
             if v and src in self.nodes:
-                self._ref(src, ["authentication vserver"], v, "auth", "authnVsName", (et, name), e.line)
+                self._ref(src, ["authentication vserver", "vpn vserver"], v, "auth", "authnVsName", (et, name), e.line)
         if et == "authentication policylabel":
             src = self.nid(et, name)
             ls = e.opt("loginschema") or (e.args[1] if len(e.args) > 1 and not e.args[1].startswith("-") else None)
@@ -674,7 +712,7 @@ class Graph:
                         self._ref(src, ["lb vserver"], tl, "route", act, ("cs action", act), a.line)
                     tv = a.opt("targetvserver")
                     if tv:
-                        self._ref(src, ["lb vserver", "cs vserver"], tv, "route", act, ("cs action", act), a.line)
+                        self._ref(src, ["lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"], tv, "route", act, ("cs action", act), a.line)
                 elif act:
                     self.missing.append({"src_etype": et, "src_name": name, "ref_type": "cs action", "ref_name": act, "node": src, "line": e.line})
         if et == "appfw policy":
@@ -686,7 +724,7 @@ class Graph:
             act = e.opt("action") or (e.args[2] if len(e.args) > 2 else None)
             src = self.nid(et, name)
             if act and src in self.nodes:
-                for t in (et.replace("policy", "action"),):
+                for t in POLICY_ACTION.get(et, (et.replace("policy", "action"),)):
                     if self._kind(t) == "action" and self.cfg.get(t, act):
                         self._ref(src, [t], act, "bind", "Action", (et, name), e.line)
         if et == "dns nameserver":
@@ -790,17 +828,124 @@ class Graph:
                         items.append((n.id, key, u))
             elif n.kind == "sta":
                 items.append((n.id, "STA", n.props.get("URL", n.label)))
+        vp = self.cfg.get("vpn parameter", "")
+        if vp is not None:  # global session parameters (set vpn parameter -wihome/-storefronturl) apply to every gateway
+            for key in ("wihome", "storefronturl"):
+                u = vp.opt(key)
+                if u:
+                    items.append((self.device_node().id, f"vpn parameter {key}", u))
         for nid, via, url in items:
             host, port = self._url_target(url)
             if not host:
                 continue
             ip = self._server_ip.get(host, host)
+            by_dns = not is_ip(ip) and ip.lower().rstrip(".") in self.dns_rec
+            if by_dns:
+                ip = self.dns_rec[ip.lower().rstrip(".")]
             hit = [fe for fe in self.frontends if fe["ip"] == ip and (not port or fe["port"] == port) and fe["node"] != nid]
             if is_ip(ip) and hit:
                 for fe in hit:
-                    self._add_edge(nid, fe["node"], "route", f"{via} → vServer")
+                    self._add_edge(nid, fe["node"], "route", f"{via} → vServer" + (" (local DNS record)" if by_dns else ""))
             else:
                 self.unresolved.append({"node": nid, "via": via, "host": host, "port": port, "ip": ip if is_ip(ip) else ""})
+        # Authentication servers (LDAP/RADIUS/...): a local LB vServer is already linked ("Server via LB"). Another device's
+        # vServer may match by IP (checked across configs, not listed otherwise); a server *name* is listed like a URL target.
+        local = {(e.source) for e in self.edges if e.type == "loop" and e.label == "Server via LB"}
+        for n in list(self.nodes.values()):
+            if n.kind != "authact" or n.entity is None or n.id in local:
+                continue
+            ip, name, port = n.entity.opt("serverip"), n.entity.opt("servername"), n.entity.opt("serverport") or ""
+            if ip and is_ip(ip):
+                self.unresolved.append({"node": n.id, "via": "auth server", "host": ip, "port": port, "ip": ip, "silent": True})
+            elif name:
+                self.unresolved.append({"node": n.id, "via": "auth server", "host": name, "port": port, "ip": ""})
+
+    # Safety net: options that name another object but are not modelled by a specific rule above still become an edge
+    # ("ref", labelled with the option), so that no named dependency is lost. Only options whose key says which object type
+    # is meant are used (e.g. ...vserver..., ...cert..., ...monitor...), to avoid matching unrelated values by accident.
+    REF_HINTS = (
+        (("vserver", "vsname", "vservername"), VSERVER_TYPES),
+        (("certkey", "certname", "cacert", "certkeyname", "encryptionkey"), ["ssl certkey"]),
+        (("monitor",), ["lb monitor"]),
+        (("sslprofile",), ["ssl profile"]),
+        (("authnprofile",), ["authentication authnprofile"]),
+        (("loginschema",), ["authentication loginschema"]),
+        (("servicegroup",), ["servicegroup", "gslb servicegroup"]),
+        (("servicename", "service"), ["service", "servicegroup", "gslb service"]),
+        (("labelname", "policylabel", "nextfactor"), LABEL_TYPES),
+        (("accessprofile",), ["ica accessprofile"]),
+        (("profilename",), ["appfw profile", "transform profile", "vpn clientlessaccessprofile"]),
+        (("group", "defaultauthenticationgroup"), ["aaa group"]),
+    )
+    REF_SKIP = {"td", "comment", "rule", "priority", "state", "gotopriorityexpression", "type", "bindpoint", "invoke", "labeltype"}
+    generic_refs: list[tuple[str, str, str]]
+
+    def _ref_hint(self, key: str) -> list[str]:
+        for keys, etypes in self.REF_HINTS:
+            if any(k in key for k in keys):
+                return list(etypes)
+        return []
+
+    def _generic_refs(self) -> None:
+        self.generic_refs = []
+        linked: set[frozenset] = {frozenset((e.source, e.target)) for e in self.edges}
+        dev = self.device_node().id
+
+        adj: dict[str, set[str]] = {}
+        for e in self.edges:
+            if e.type != "contains":
+                adj.setdefault(e.source, set()).add(e.target)
+
+        def near(a: str, b: str, depth: int = 3) -> bool:  # already connected through the modelled chain?
+            front = {a}
+            for _ in range(depth):
+                front = {y for x in front for y in adj.get(x, ())}
+                if b in front:
+                    return True
+            return False
+
+        def subject(et: str, name: str) -> str | None:
+            if et.endswith("global") or et in ("vpn parameter", "aaa parameter", "ns param"):
+                return dev
+            if et.startswith("ssl ") and et in ("ssl vserver", "ssl service", "ssl servicegroup"):
+                base = et[4:]
+                if base == "vserver":
+                    return self._vs_node(name)[0]
+                nid = self.node_for(base, name)
+                if nid is None and base == "service" and name.lower().startswith(INTERNAL_SERVICES):
+                    return dev
+                return nid.id if nid else None
+            n = self.node_for(et, name)
+            return n.id if n else None
+
+        items: list[tuple[str, str, dict, int]] = []
+        for et, d in self.cfg.entities.items():
+            for name, e in d.items():
+                items.append((et, name, e.opts, e.line))
+        for b in self.cfg.bindings:
+            items.append((b.etype, b.owner, b.opts, b.line))
+        for et, name, opts, line in items:
+            src = None
+            for key, vals in opts.items():
+                if key in self.REF_SKIP or not vals:
+                    continue
+                cand = [] if any(x in key for x in ("fqdn", "expr", "url")) else self._ref_hint(key)
+                if not cand:
+                    continue
+                for v in vals:
+                    if not v or is_option_like(v) or v.upper() in KEYWORD_NAMES:
+                        continue
+                    tgt = next((self.nid(t, v) for t in cand if self.cfg.get(t, v) is not None and self._ensure(t, v)), None)
+                    if not tgt:
+                        continue
+                    src = src or subject(et, name)
+                    if not src or src == tgt or frozenset((src, tgt)) in linked or near(src, tgt):
+                        continue
+                    self._add_edge(src, tgt, "ref", f"-{key}")
+                    adj.setdefault(src, set()).add(tgt)
+                    self.referenced.add((self.nodes[tgt].etype, v))
+                    linked.add(frozenset((src, tgt)))
+                    self.generic_refs.append((et, key, self.nodes[tgt].etype))
 
     def _ha_and_local_links(self) -> None:
         self._url_links()
@@ -809,6 +954,21 @@ class Graph:
             for fe in self.frontends:
                 if be["host"] == fe["ip"] and be["port"] == fe["port"] and be["node"] != fe["node"]:
                     self._add_edge(be["node"], fe["node"], "loop", "lokal (Loopback/Chain)")
+
+
+POLICY_ACTION = {"transform policy": ("transform profile",), "vpn clientlessaccesspolicy": ("vpn clientlessaccessprofile",),
+                 "ica policy": ("ica action",), "tm trafficpolicy": ("tm trafficaction",), "tm sessionpolicy": ("tm sessionaction",)}
+VS_LABEL_TYPES = ("reqvserver", "resvserver")  # -labelType values whose -labelName is a vServer (invoke a vServer's policy bank)
+INTERNAL_SERVICES = ("nshttps-", "nsrpcs-", "nskrpcs-", "nssslvpn-", "nsrnatsip-", "nsdns-", "nsntp-")
+
+
+def invoke_target(b) -> tuple[str, str]:
+    """(label type, label name) of a policy binding: ``-labelType X -labelName Y`` or ``-invoke X Y`` (ns.conf form)."""
+    lt, lab = (b.opt("labeltype") or "").lower(), b.opt("labelname") or ""
+    inv = b.opts.get("invoke") or []
+    if not lab and len(inv) >= 2:
+        lt, lab = inv[0].lower(), inv[1]
+    return lt, lab
 
 
 def ent_proto(ent) -> str:

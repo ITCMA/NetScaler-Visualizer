@@ -1,6 +1,7 @@
 """Builds the self-contained offline HTML report (no external resources, no network)."""
 from __future__ import annotations
 
+import html as _html
 import json
 from pathlib import Path
 
@@ -27,7 +28,7 @@ def load_i18n() -> dict[str, dict[str, str]]:
 
 
 def render(project: Project, title: str = "NetScaler Visualizer") -> str:
-    html = _read("template.html").replace("<title>NetScaler Visualizer</title>", f"<title>{title}</title>")
+    html = _read("template.html").replace("<title>NetScaler Visualizer</title>", f"<title>{_html.escape(title)}</title>")
     # Daten/Skripte zuletzt einsetzen (enthalten beliebige Zeichen)
     for key, val in (("/*__CSS__*/", _read("style.css")),
                      ("/*__CYTOSCAPE__*/", _js(_read("vendor/cytoscape.min.js"))),

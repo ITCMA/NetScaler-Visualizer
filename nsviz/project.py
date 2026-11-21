@@ -110,6 +110,7 @@ class Project:
             self.notes.append({"en": w, "de": w})
         self._url_chains()
         self._dependency()
+        self._coverage_note()
         self.findings = finalize(self.findings)
         self._attach()
 
@@ -289,16 +290,24 @@ class Project:
 
     def _url_chains(self) -> None:
         """Session action/STA URLs whose IP and port match a vServer of ANOTHER device (gateway -> StoreFront/LB behind it)."""
+        dns: dict[str, tuple[str, str]] = {}  # name -> (ip, device) from 'add dns addRec' of any loaded config
+        for g in self.groups:
+            for nm, ip in g.graph.dns_rec.items():
+                dns.setdefault(nm, (ip, g.name))
         for g in self.groups:
             for u in g.graph.unresolved:
-                if not u["ip"]:
+                ip, note = u["ip"], ""
+                if not ip and u["host"].lower().rstrip(".") in dns:
+                    ip, dev = dns[u["host"].lower().rstrip(".")]
+                    note = f" (DNS record on {dev})"
+                if not ip:
                     continue
                 for h in self.groups:
                     if h is g:
                         continue
                     for fe in h.graph.frontends:
-                        if fe["ip"] == u["ip"] and (not u["port"] or fe["port"] == u["port"]):
-                            self.extra_edges.append(Edge(u["node"], fe["node"], "doublehop", f"{u['via']} → {u['ip']}:{fe['port']}", True))
+                        if fe["ip"] == ip and (not u["port"] or fe["port"] == u["port"]):
+                            self.extra_edges.append(Edge(u["node"], fe["node"], "doublehop", f"{u['via']} → {ip}:{fe['port']}{note}", True))
                             u["resolved"] = True
 
     # ---- Dependencies: what is reachable from an addressable vServer? --------------------------------
@@ -320,7 +329,15 @@ class Project:
         entries = {nid for nid, n in nodes.items() if n.kind in self.VS_KINDS and n.props.get("Addressing", "").startswith("addressable")}
         # GSLB vServers are reached by DNS name: with a bound domain they are entry points as well
         entries |= {e.source for g in self.groups for e in g.graph.edges if e.type == "gslb" and nodes.get(e.target) is not None and nodes[e.target].kind == "domain"}
-        roots = set(entries) | {nid for nid, n in nodes.items() if n.kind == "device"}
+        roots = set(entries) | {nid for nid, n in nodes.items() if n.kind in ("device", "group")}
+        # Policies bound to AAA users/groups or VPN/system users/groups apply at login and are not drawn (personal data):
+        # they count as used, so they are roots of their own chain (action, ...).
+        incoming = {t for ts in adj.values() for t in ts}
+        for g in self.groups:
+            for et, name in g.graph.referenced:
+                n = g.graph.node_for(et, name)
+                if n is not None and n.id not in incoming and n.kind in ("policy", "authpol"):
+                    roots.add(n.id)
         reached, q = set(roots), list(roots)
         while q:
             u = q.pop()
@@ -344,9 +361,23 @@ class Project:
         for g in self.groups:
             for u in g.graph.unresolved:
                 n = nodes.get(u["node"])
-                if n and not u.get("resolved"):
+                if n and not u.get("resolved") and u["via"] != "auth server":
                     self.findings.append(Finding("DEP-002", "info", render_messages("DEP-002", name=n.name, via=u["via"], host=u["host"], port=u["port"] or "?"),
                                                  g.devices[0].name, n.etype, n.name, g.devices[0].cfg.name, n.lines[0]["line"] if n.lines else 0, [], u["node"]))
+
+    def _coverage_note(self) -> None:
+        """Self-check shown in the report: how much of the configuration could be linked, and what is left open."""
+        gen = sum(len(getattr(g.graph, "generic_refs", [])) for g in self.groups)
+        miss = sum(len(g.graph.missing) for g in self.groups)
+        fq = sum(1 for d in self.dep.values() if d.get("fqdn"))
+        unl = len(self.unlinked())
+        self.notes.append({
+            "en": f"Dependency check: {unl} objects not connected (sidebar 'Not connected'), {fq} objects with an FQDN target to link "
+                  f"(Links tab), {miss} references to objects that are not defined, {gen} references linked by the generic safety net "
+                  "(dashed thin lines, labelled with the option).",
+            "de": f"Abhängigkeitsprüfung: {unl} Objekte nicht verknüpft (Seitenleiste 'Nicht verknüpft'), {fq} Objekte mit FQDN-Ziel "
+                  f"zum Zuordnen (Tab Verknüpfungen), {miss} Verweise auf nicht definierte Objekte, {gen} Verweise über das allgemeine "
+                  "Sicherheitsnetz verknüpft (dünne gestrichelte Linien, mit der Option beschriftet)."})
 
     def unlinked(self) -> list[dict]:
         """Objects that are not connected to any addressable vServer or global binding (grouped by the report)."""
@@ -421,7 +452,7 @@ class Project:
             "diffs": self.diffs,
             "links": self.links,
             "unlinked": self.unlinked(),
-            "unresolved": [{**u, "group": g.id} for g in self.groups for u in g.graph.unresolved if not u.get("resolved")],
+            "unresolved": [{**u, "group": g.id} for g in self.groups for u in g.graph.unresolved if not u.get("resolved") and not u.get("silent")],
             "linking": {**collect(self), "map": self.link_map},
             "chains": self.chains(),
         }

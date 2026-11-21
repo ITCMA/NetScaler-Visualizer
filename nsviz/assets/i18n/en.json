@@ -262,5 +262,6 @@
  "only_unlinked": "Show only not connected objects",
  "lg_via": "Through hidden policies/actions (named on the line)",
  "lg_unl": "Dashed border: not connected",
- "lg_fqdn": "Orange halo: target is an FQDN (not resolved)"
+ "lg_fqdn": "Orange halo: target is an FQDN (not resolved)",
+ "lg_ref": "Other reference (option name on the line)"
 }
