@@ -1,0 +1,64 @@
+name: Release builds
+# Builds the single-file app for Windows and macOS with PyInstaller.
+# Manual run: artifacts only. Tag v*: additionally a draft release with the files (published by hand).
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: nsviz-windows-x64.exe
+            src: dist/nsviz.exe
+          - os: macos-latest
+            name: nsviz-macos-arm64
+            src: dist/nsviz
+          - os: macos-15-intel
+            name: nsviz-macos-x64
+            src: dist/nsviz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tests
+        run: python -m unittest discover -s tests
+      - name: Build
+        run: |
+          python -m pip install --disable-pip-version-check "pyinstaller==6.11.1"
+          python scripts/build_app.py
+      - name: Smoke test
+        shell: bash
+        run: ./${{ matrix.src }} --version
+      - name: Rename
+        shell: bash
+        run: mkdir out && cp "${{ matrix.src }}" "out/${{ matrix.name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: out/${{ matrix.name }}
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Checksums
+        run: cd out && sha256sum * > SHA256SUMS.txt
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" out/* --repo "${GITHUB_REPOSITORY}" --draft --title "nsviz ${GITHUB_REF_NAME#v}" --notes "See CHANGELOG.md. Unsigned builds: see README, section Download."

@@ -17,6 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      - name: Lint (unused imports and names)
+        if: matrix.python == '3.12'
+        run: python -m pip install --disable-pip-version-check pyflakes==3.2.0 && python -m pyflakes nsviz scripts
       - name: Compile
         run: python -m compileall -q nsviz scripts
       - name: Tests (corpus tests are skipped without downloaded sample configs)

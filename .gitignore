@@ -42,6 +42,7 @@ dist/
 
 # Exports from the report and transfer files - never commit (may contain customer data)
 *.png
+!docs/images/*.png
 *.svg
 !nsviz/assets/**/*.svg
 *.pdf

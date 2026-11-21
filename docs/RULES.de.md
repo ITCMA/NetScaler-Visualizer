@@ -76,6 +76,13 @@ Automatisch erzeugt mit `python -m nsviz rules --markdown --lang de`. Jede Regel
 - **Behebung:** Auth-Policies mit Priorität binden.
 - **Quellen:** –
 
+### DEP-001 – vServer nicht erreichbar
+
+- **Schweregrad:** medium · **Sicherheit der Aussage:** likely
+- **Begründung:** Dieser vServer ist nicht adressierbar (keine IP/Port) und kein anderer vServer, keine Policy und keine globale Bindung führt zu ihm. Kein Verkehr erreicht ihn; oft ein Überbleibsel.
+- **Behebung:** Als Ziel eines CS-/LB-vServers oder einer Policy binden, eine Adresse vergeben oder entfernen.
+- **Quellen:** –
+
 ### GSLB-001 – GSLB-vServer ohne Domain
 
 - **Schweregrad:** medium · **Sicherheit der Aussage:** certain
@@ -144,6 +151,13 @@ Automatisch erzeugt mit `python -m nsviz rules --markdown --lang de`. Jede Regel
 - **Schweregrad:** low · **Sicherheit der Aussage:** certain
 - **Begründung:** Ungenutzte Zertifikate vergrößern die Angriffsfläche und verschleiern Ablaufmonitoring.
 - **Behebung:** Entfernen.
+- **Quellen:** –
+
+### DEP-002 – URL-Ziel keinem vServer zugeordnet
+
+- **Schweregrad:** info · **Sicherheit der Aussage:** heuristic
+- **Begründung:** Eine Gateway-Session-Action oder ein STA-Server zeigt auf einen Host, der keinem vServer dieses Geräts nach IP und Port entspricht (FQDN, anderes Gerät oder externer Dienst). Die Verbindung lässt sich allein aus der Config nicht ableiten (Annahme: IP und Port werden verglichen).
+- **Behebung:** Ziel prüfen. Bei FQDN die Zuordnung (Tab Verknüpfung) oder eine Hosts-Datei nutzen, um den richtigen vServer zu verbinden.
 - **Quellen:** –
 
 ### QA-003 – Server-Objekt ohne Verwendung

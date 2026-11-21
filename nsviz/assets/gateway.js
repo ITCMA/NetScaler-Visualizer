@@ -45,7 +45,7 @@ function renderGateway() {
   // effective value: the session action, else the global VPN settings (set vpn parameter); a small "G" marks the latter
   const P0 = G.params || {}, eff = p => ({ ...P0, ...p.opts }), gMark = `<span class="gw-g" title="${esc(t('gw_from_global'))}">G</span>`;
   const ev = (p, k) => p.opts[k] !== undefined ? esc(p.opts[k]) : P0[k] !== undefined ? `${esc(P0[k])} ${gMark}` : '<span class="muted">–</span>';
-  const sfOf = p => ['wihome', 'storefronturl'].filter(k => p.opts[k] || P0[k]).map(k => `<code>${esc(p.opts[k] || P0[k])}</code>${p.opts[k] ? gwTargets(p.action_node) : ' ' + gMark}`).join('<br>') || '<span class="muted">–</span>';
+  const sfOf = p => ['wihome', 'storefronturl'].filter(k => p.opts[k] || P0[k]).map(k => `<code class="gw-url">${esc(p.opts[k] || P0[k]).replace(/\//g, '/<wbr>')}</code>${p.opts[k] ? gwTargets(p.action_node) : ' ' + gMark}`).join('<br>') || '<span class="muted">–</span>';
   const sessT = gwPolRows(sess, [[t('gw_action'), (p, i) => gwLink(p.action_node, p.action) + (p.grp ? ` <span class="muted">(${esc(p.grp)})</span>` : '') + `<br><button class="btn sm gw-pbtn" data-gwp="${i}">${esc(t('gw_params', { n: Object.keys(p.opts).length }))}</button>`],
     [t('gw_mode'), p => gwModes(eff(p))], [t('gw_sf'), sfOf], [t('gw_sso'), p => ev(p, 'sso')], [t('gw_split'), p => ev(p, 'splittunnel')], [t('gw_authz'), p => ev(p, 'defaultauthorizationaction')]]);
   // ICA

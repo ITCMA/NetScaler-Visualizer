@@ -4,24 +4,59 @@
 
 **See your whole NetScaler environment on one page – and know what is wrong with it.**
 
-Drop in your `ns.conf` files – one device or a whole landscape – and get **one single HTML file** that you can open anywhere,
-offline:
+Drop in your `ns.conf` files – one device or a whole landscape – and get **one single HTML file** that you can open
+anywhere, offline. Nothing is uploaded, nothing is installed on the NetScaler.
 
-- 🗺️ **Visualize** – an interactive map of every vServer, service, policy, certificate and authentication flow. Several
-  NetScalers are stitched together: **HA pairs** are merged and compared (what differs between the nodes?), and
-  **double-hop chains** (e.g. DMZ gateway → internal NetScaler → backend) are followed from one device to the next.
-  Zoom, collapse, search, filter, export as PNG.
-- ✅ **Check** – about 60 rules for misconfiguration, vendor best practice and BSI hints, each with rationale, source and
-  remediation, plus a health score, CSV export and a CI exit code.
+![Topology of a demo environment: DMZ NetScaler and backend HA pair](docs/images/topology.png)
 
-It runs locally, needs only Python ≥ 3.10 (no packages) and sends nothing over the network. Supports 13.1 / 14.1 / 15.1.
+## Key features
+| | |
+|---|---|
+| 🗺️ **Topology** | Interactive map of vServers, services, policies, certificates and authentication – by level, filterable, searchable. |
+| 🔗 **Several NetScalers** | HA pairs merged and compared, double-hop chains (DMZ → internal → backend) followed across devices. |
+| 🚪 **Gateway view** | Per gateway: session policies with effective values (incl. global defaults), StoreFront/STA, EPA, client certificates, ACLs. |
+| 🔐 **nFactor flow** | The login flow per entry point as factor columns: schemas, policies, actions, success/failure paths. |
+| ✅ **Checks** | About 60 rules (misconfiguration, vendor best practice, BSI hints) with rationale, source and remediation; health score. |
+| 🧹 **Cleanup** | Finds unused configuration and writes an ordered cleanup batch plus a rollback batch. |
+| 📤 **Export** | PNG/SVG/PDF, CSV, and selected objects as NetScaler config (with their dependencies). |
+| 🕶️ **Privacy** | Secrets masked by default; anonymize configs for sharing; runs on 127.0.0.1 only. |
+| 🌍 **Languages** | UI in 8 languages, light/dark mode, keyboard control. |
 
-> **Trademarks / independence:** NetScaler and Citrix are trademarks of their respective owners. This project is
-> independent and is not affiliated with, endorsed or supported by them. Results are automated hints without
-> warranty. See [docs/LEGAL.md](docs/LEGAL.md).
+<table><tr>
+<td><img src="docs/images/gateway.png" alt="Gateway view with session policies" width="100%"></td>
+<td><img src="docs/images/nfactor.png" alt="nFactor login flow" width="100%"></td>
+</tr><tr>
+<td><img src="docs/images/overview.png" alt="Overview with health score" width="100%"></td>
+<td><img src="docs/images/findings.png" alt="Findings with rationale and remediation" width="100%"></td>
+</tr></table>
 
-**No command line needed:** `python3 -m nsviz gui` opens a local page (127.0.0.1 only, nothing leaves your computer) where you drop the config files, set HA pairs, hosts file and options, and create the report. The command line below stays available for scripts and CI.
+All screenshots show the synthetic demo environment from [`examples/demo`](examples/demo) (documentation IP ranges,
+invented names).
 
+## Getting started
+### Option A – ready-to-run app (no Python needed)
+Download `nsviz-windows-x64.exe`, `nsviz-macos-arm64` (Apple silicon) or `nsviz-macos-x64` (Intel) from the
+*Releases* page and start it: a local page opens in your browser.
+
+The builds are **not code-signed**:
+- **Windows:** SmartScreen shows "Windows protected your PC" → *More info* → *Run anyway*.
+- **macOS:** Gatekeeper blocks the first start. Right-click the file → *Open* → *Open*, or run
+  `xattr -d com.apple.quarantine nsviz-macos-arm64 && chmod +x nsviz-macos-arm64` in Terminal.
+
+### Option B – with Python ≥ 3.10 (no packages needed)
+```bash
+git clone https://github.com/ITCMA/NetScaler-Visualizer.git && cd NetScaler-Visualizer
+python3 -m nsviz gui                                   # local page: drop configs, set options, create the report
+python3 -m nsviz analyze examples/demo -o demo.html   # or straight from the command line (demo data)
+```
+
+### Your first report
+1. Save the running config on each NetScaler (`save ns config`) and copy `/nsconfig/ns.conf`.
+2. Start `nsviz gui`, drop the files, mark HA pairs if they are not detected, create the report.
+3. Open the HTML file. Start with **Overview**, then **Topology**, **Gateway** and **nFactor**.
+   The report contains your topology – store and share it like customer data.
+
+### Command line
 ```bash
 # single device, a folder with several configs, or both
 python3 -m nsviz analyze customer/adc01.conf customer/adc02.conf -o report.html --csv findings.csv
@@ -32,19 +67,27 @@ python3 -m nsviz analyze configs/ --ha pri.conf,sec.conf --role pri.conf=primary
 # German console output / CSV texts
 python3 -m nsviz analyze configs/ --lang de
 
-# rule catalog, tests
-python3 -m nsviz rules --markdown > docs/RULES.md
+# fail a CI job on critical findings (exit code 2)
+python3 -m nsviz analyze configs/ -o report.html --fail-on critical
+
 # anonymized copies of configs (for sharing or development), see docs/PRIVACY.md
 python3 -m nsviz anonymize configs/ -o anonymized/            # everything anonymized (default)
 python3 -m nsviz anonymize configs/ -o anonymized/ --keep ips   # keep IP addresses
-python3 -m nsviz anonymize configs/ -o anonymized/ --remove comments,timezone,location   # also remove comments, time zone, location/GeoIP (off by default)
+python3 -m nsviz anonymize configs/ -o anonymized/ --remove comments,timezone,location
+
+# rule catalog, tests
+python3 -m nsviz rules --markdown > docs/RULES.md
 python3 -m unittest discover -s tests
 ```
 
-Try it: `python3 -m nsviz analyze examples/demo -o demo.html` (synthetic: DMZ frontend with gateway/nFactor →
-backend HA pair with a deliberate deviation). Prebuilt report: `examples/demo/report.html`.
+Supports NetScaler 13.1 / 14.1 / 15.1. The only network access is the optional DNS lookup in the Links tab, started
+by hand.
 
-## Features
+> **Trademarks / independence:** NetScaler and Citrix are trademarks of their respective owners. This project is
+> independent and is not affiliated with, endorsed or supported by them. Results are automated hints without
+> warranty. See [docs/LEGAL.md](docs/LEGAL.md).
+
+## Feature details
 ### Visualization and multi-instance view
 - **Topology** (Cytoscape + dagre, everything embedded): zoom/pan, double-click collapses/expands substructures,
   levels 1–4, filter by object kind, only objects with findings, search (name/IP/config text), neighbourhood

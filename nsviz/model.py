@@ -6,7 +6,6 @@ Beziehungen brauchen (verwaiste Objekte, tote Referenzen).
 """
 from __future__ import annotations
 
-import ipaddress
 import re
 import sys
 from dataclasses import dataclass, field
@@ -133,7 +132,6 @@ def redact(st: Statement | Binding, enabled: bool = True) -> str:
         return st.raw  # nothing to mask: the line exactly as in the config (escapes kept, usable for a batch import)
     out: list[str] = []
     mask_next = False
-    pos = 0
     for i, t in enumerate(toks):
         txt = quote(t.text) if t.quoted else t.text
         if is_option(t):
@@ -145,7 +143,7 @@ def redact(st: Statement | Binding, enabled: bool = True) -> str:
             continue
         out.append(txt)
     s = " ".join(out)
-    # positionales Kennwort: add/set system user <name> <passwort>
+    # positional password: add/set system user <name> <password>
     if st.etype == "system user" and st.verb in ("add", "set") and len(st.args) > 1:
         s = s.replace(st.args[1], "***", 1)
     return s
@@ -614,7 +612,6 @@ class Graph:
             src = self._ensure(et, owner)
             if not src:
                 return
-            kind = self.nodes[src].kind
             ctx = (et, owner)
             if b.args and not is_option_like(b.args[0]):
                 tgt = b.args[0]

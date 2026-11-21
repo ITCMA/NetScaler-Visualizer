@@ -3,6 +3,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-11-21
+### Added
+- Release builds for Windows and macOS (Apple silicon and Intel) with GitHub Actions; a version tag creates a draft
+  release with the files and SHA-256 checksums. The builds are not code-signed (see README, Getting started).
+- README: key features, screenshots of the demo environment, getting started; issue and pull request templates,
+  Dependabot for the GitHub Actions.
+- Demo environment: gateway with two session policies (ICA proxy, StoreFront).
+### Fixed
+- Packaged app: `--version` and the start failed because the code fingerprint read source files that are not packaged.
+- Gateway tab: StoreFront URLs break at "/" instead of letter by letter.
+### Changed
+- Rule catalog (docs/RULES*.md) updated: the cleanup rules were missing.
+- CI checks for unused imports and names; SHA-1 for finding IDs is marked as not security-relevant; SECURITY.md names
+  the optional DNS lookup as the only network access.
+
 ## [0.3.9] - 2026-11-21
 ### Security
 - Test data uses documentation addresses (RFC 5737) instead of public addresses where the test allows it.

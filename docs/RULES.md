@@ -76,6 +76,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Bind auth policies with priorities.
 - **Sources:** –
 
+### DEP-001 – vServer not reachable
+
+- **Severity:** medium · **Confidence:** likely
+- **Rationale:** This vServer is not addressable (no IP/port) and no other vServer, policy or global binding leads to it, so no traffic can reach it. Often a leftover.
+- **Remediation:** Bind it as a target of a CS/LB vServer or policy, give it an address, or remove it.
+- **Sources:** –
+
 ### GSLB-001 – GSLB vServer without domain
 
 - **Severity:** medium · **Confidence:** certain
@@ -144,6 +151,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Severity:** low · **Confidence:** certain
 - **Rationale:** Unused certificates increase the attack surface and obscure expiry monitoring.
 - **Remediation:** Remove.
+- **Sources:** –
+
+### DEP-002 – URL target not matched to a vServer
+
+- **Severity:** info · **Confidence:** heuristic
+- **Rationale:** A Gateway session action or STA server points to a host that does not match a vServer of this device by IP and port (FQDN, another device or an external service). The connection cannot be derived from the config alone (assumption: IP and port are compared).
+- **Remediation:** Check the target. For FQDNs use the link map or a hosts file (Links tab) to connect it to the right vServer.
 - **Sources:** –
 
 ### QA-003 – Unused server object

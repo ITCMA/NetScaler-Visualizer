@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from nsviz import report  # noqa: E402
-from nsviz.model import Graph, redact  # noqa: E402
+from nsviz.model import Graph  # noqa: E402
 from nsviz.parser import Config, tokenize, parse_statement  # noqa: E402
 from nsviz.project import Project  # noqa: E402
 
@@ -631,12 +631,12 @@ class LinkingTests(unittest.TestCase):
         from nsviz.linking import collect, fqdns
         p = Project.load([str(DEMO)])
         c = collect(p)
-        self.assertEqual(sorted(s["host"] for s in c["sources"]), ["extra.backend.example.test", "sta.example.com"])  # service target + STA URL
+        self.assertEqual(sorted(s["host"] for s in c["sources"]), ["extra.backend.example.test", "sta.example.com", "storefront.example.com", "storefront.example.com"])  # service target, STA URL, StoreFront of both session actions
         self.assertTrue(any(t["ip"] == "10.20.0.52" and t["port"] == "8080" for t in c["targets"]))
-        self.assertEqual(fqdns(p), ["extra.backend.example.test", "sta.example.com"])
+        self.assertEqual(fqdns(p), ["extra.backend.example.test", "sta.example.com", "storefront.example.com"])
 
     def test_map_roundtrip_adds_chain(self):
-        from nsviz.linking import collect, apply_map, MAP_FORMAT
+        from nsviz.linking import collect, MAP_FORMAT
         p0 = Project.load([str(DEMO)])
         c = collect(p0)
         src = next(x["key"] for x in c["sources"] if not x.get("url"))

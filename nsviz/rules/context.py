@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..model import Graph, redact
-from ..parser import Config, Entity, Binding, Statement
+from ..parser import Config, Entity
 from . import Finding, render_messages
 
 

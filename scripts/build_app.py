@@ -18,5 +18,7 @@ sep = ";" if os.name == "nt" else ":"
 cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--name", "nsviz",
        "--add-data", f"{root / 'nsviz' / 'assets'}{sep}nsviz/assets",
        "--add-data", f"{root / 'nsviz' / 'rules' / 'i18n'}{sep}nsviz/rules/i18n",
+       # sources for the code fingerprint shown by --version and in debug output
+       *[x for f in ("model.py", "project.py", "linking.py") for x in ("--add-data", f"{root / 'nsviz' / f}{sep}nsviz")],
        "--paths", str(root), str(root / "scripts" / "app_entry.py")]
 sys.exit(subprocess.call(cmd, cwd=root))

@@ -92,7 +92,10 @@ def _code_id() -> str:
     import hashlib
     h = hashlib.sha256()
     for f in ("model.py", "project.py", "linking.py"):
-        h.update((Path(__file__).parent / f).read_bytes())
+        try:
+            h.update((Path(__file__).parent / f).read_bytes())
+        except OSError:  # packaged app without the sources
+            return "packaged"
     return h.hexdigest()[:10]
 
 

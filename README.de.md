@@ -4,23 +4,59 @@
 
 **Die ganze NetScaler-Umgebung auf einer Seite sehen – und wissen, was daran nicht stimmt.**
 
-Eine oder viele `ns.conf`-Dateien hineingeben und **eine einzige HTML-Datei** erhalten, die sich überall offline öffnen lässt:
+Eine oder viele `ns.conf`-Dateien hineingeben und **eine einzige HTML-Datei** erhalten, die sich überall offline öffnen
+lässt. Nichts wird hochgeladen, auf dem NetScaler wird nichts installiert.
 
-- 🗺️ **Visualisieren** – eine interaktive Karte aller vServer, Services, Policies, Zertifikate und Authentifizierungsabläufe.
-  Mehrere NetScaler werden zusammengeführt: **HA-Paare** werden zusammengefasst und verglichen (was unterscheidet die Knoten?),
-  **Double-Hop-Ketten** (z. B. DMZ-Gateway → interner NetScaler → Backend) werden von Gerät zu Gerät verfolgt.
-  Zoomen, Einklappen, Suchen, Filtern, PNG-Export.
-- ✅ **Prüfen** – rund 60 Regeln zu Fehlkonfiguration, Hersteller-Best-Practice und BSI-Hinweisen, jeweils mit Begründung, Quelle
-  und Behebung, dazu Gesundheitswert, CSV-Export und CI-Exit-Code.
+![Topologie einer Demo-Umgebung: DMZ-NetScaler und Backend-HA-Paar](docs/images/topology.png)
 
-Läuft lokal, braucht nur Python ≥ 3.10 (keine Pakete) und sendet nichts ins Netz. Unterstützt 13.1 / 14.1 / 15.1.
+## Die wichtigsten Funktionen
+| | |
+|---|---|
+| 🗺️ **Topologie** | Interaktive Karte aus vServern, Services, Policies, Zertifikaten und Authentifizierung – nach Ebenen, filter- und durchsuchbar. |
+| 🔗 **Mehrere NetScaler** | HA-Paare zusammengefasst und verglichen, Double-Hop-Ketten (DMZ → intern → Backend) über Geräte hinweg verfolgt. |
+| 🚪 **Gateway-Ansicht** | Je Gateway: Session-Policies mit wirksamen Werten (inkl. globaler Vorgaben), StoreFront/STA, EPA, Client-Zertifikate, ACLs. |
+| 🔐 **nFactor-Ablauf** | Der Login-Ablauf je Einstiegspunkt als Faktor-Spalten: Schemas, Policies, Actions, Erfolgs-/Fehlerpfade. |
+| ✅ **Prüfungen** | Rund 60 Regeln (Fehlkonfiguration, Hersteller-Best-Practice, BSI-Hinweise) mit Begründung, Quelle und Behebung; Gesundheitswert. |
+| 🧹 **Bereinigung** | Findet ungenutzte Konfiguration und schreibt einen geordneten Bereinigungs- sowie einen Rollback-Batch. |
+| 📤 **Export** | PNG/SVG/PDF, CSV und ausgewählte Objekte als NetScaler-Config (mit ihren Abhängigkeiten). |
+| 🕶️ **Datenschutz** | Secrets standardmäßig maskiert; Configs zum Weitergeben anonymisieren; läuft nur auf 127.0.0.1. |
+| 🌍 **Sprachen** | Oberfläche in 8 Sprachen, Hell/Dunkel, Tastatursteuerung. |
 
-> **Marken / Unabhängigkeit:** NetScaler und Citrix sind Marken der jeweiligen Rechteinhaber. Dieses Projekt ist
-> unabhängig und weder mit diesen verbunden noch von ihnen unterstützt oder empfohlen. Ergebnisse sind automatisierte
-> Hinweise ohne Gewähr. Siehe [docs/LEGAL.de.md](docs/LEGAL.de.md).
+<table><tr>
+<td><img src="docs/images/gateway.png" alt="Gateway-Ansicht mit Session-Policies" width="100%"></td>
+<td><img src="docs/images/nfactor.png" alt="nFactor-Login-Ablauf" width="100%"></td>
+</tr><tr>
+<td><img src="docs/images/overview.png" alt="Übersicht mit Gesundheitswert" width="100%"></td>
+<td><img src="docs/images/findings.png" alt="Befunde mit Begründung und Behebung" width="100%"></td>
+</tr></table>
 
-**Ohne Kommandozeilen-Parameter:** `python3 -m nsviz gui` öffnet eine lokale Seite (nur 127.0.0.1, nichts verlässt den Rechner), in der du die Configs ablegst, HA-Paare, Hosts-Datei und Optionen setzt und den Report erstellst. Die Kommandozeile unten bleibt für Skripte und CI erhalten.
+Alle Screenshots zeigen die erfundene Demo-Umgebung aus [`examples/demo`](examples/demo) (Dokumentations-IP-Bereiche,
+ausgedachte Namen).
 
+## Erste Schritte
+### Variante A – fertige App (kein Python nötig)
+`nsviz-windows-x64.exe`, `nsviz-macos-arm64` (Apple Silicon) oder `nsviz-macos-x64` (Intel) von der Seite *Releases*
+laden und starten: Im Browser öffnet sich eine lokale Seite.
+
+Die Builds sind **nicht code-signiert**:
+- **Windows:** SmartScreen meldet „Der Computer wurde durch Windows geschützt“ → *Weitere Informationen* → *Trotzdem ausführen*.
+- **macOS:** Gatekeeper blockiert den ersten Start. Rechtsklick auf die Datei → *Öffnen* → *Öffnen*, oder im Terminal
+  `xattr -d com.apple.quarantine nsviz-macos-arm64 && chmod +x nsviz-macos-arm64`.
+
+### Variante B – mit Python ≥ 3.10 (keine Pakete nötig)
+```bash
+git clone https://github.com/ITCMA/NetScaler-Visualizer.git && cd NetScaler-Visualizer
+python3 -m nsviz gui                                   # lokale Seite: Configs ablegen, Optionen setzen, Report erstellen
+python3 -m nsviz analyze examples/demo -o demo.html   # oder direkt per Kommandozeile (Demo-Daten)
+```
+
+### Der erste Report
+1. Auf jedem NetScaler die laufende Config sichern (`save ns config`) und `/nsconfig/ns.conf` kopieren.
+2. `nsviz gui` starten, Dateien ablegen, HA-Paare markieren, falls sie nicht erkannt werden, Report erstellen.
+3. HTML-Datei öffnen. Am besten mit **Übersicht** beginnen, dann **Topologie**, **Gateway** und **nFactor**.
+   Der Report enthält die Topologie – wie Kundendaten aufbewahren und weitergeben.
+
+### Kommandozeile
 ```bash
 # einzelnes Gerät, Ordner mit mehreren Configs oder beides
 python3 -m nsviz analyze kunde/adc01.conf kunde/adc02.conf -o report.html --csv befunde.csv --lang de
@@ -28,19 +64,27 @@ python3 -m nsviz analyze kunde/adc01.conf kunde/adc02.conf -o report.html --csv 
 # HA-Paar explizit angeben (sonst nur Erkennung über `add ha node`), Rollen setzen
 python3 -m nsviz analyze configs/ --ha pri.conf,sec.conf --role pri.conf=primary --role sec.conf=secondary
 
-# Regelkatalog (Deutsch), Tests
-python3 -m nsviz rules --markdown --lang de > docs/RULES.de.md
+# CI-Job bei kritischen Befunden scheitern lassen (Exit-Code 2)
+python3 -m nsviz analyze configs/ -o report.html --fail-on critical
+
 # anonymisierte Kopien von Configs (zum Weitergeben oder für die Entwicklung), siehe docs/PRIVACY.de.md
 python3 -m nsviz anonymize configs/ -o anonymized/            # alles anonymisiert (Standard)
 python3 -m nsviz anonymize configs/ -o anonymized/ --keep ips   # IP-Adressen behalten
-python3 -m nsviz anonymize configs/ -o anonymized/ --remove comments,timezone,location   # zusätzlich Kommentare, Zeitzone, Standort/GeoIP entfernen (standardmäßig aus)
+python3 -m nsviz anonymize configs/ -o anonymized/ --remove comments,timezone,location
+
+# Regelkatalog (Deutsch), Tests
+python3 -m nsviz rules --markdown --lang de > docs/RULES.de.md
 python3 -m unittest discover -s tests
 ```
 
-Ausprobieren: `python3 -m nsviz analyze examples/demo -o demo.html` (synthetisch: DMZ-Frontend mit Gateway/nFactor →
-Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/report.html`.
+Unterstützt NetScaler 13.1 / 14.1 / 15.1. Einziger Netzzugriff ist die optionale, von Hand gestartete DNS-Auflösung
+im Reiter Verknüpfungen.
 
-## Funktionen
+> **Marken / Unabhängigkeit:** NetScaler und Citrix sind Marken der jeweiligen Rechteinhaber. Dieses Projekt ist
+> unabhängig und weder mit diesen verbunden noch von ihnen unterstützt oder empfohlen. Ergebnisse sind automatisierte
+> Hinweise ohne Gewähr. Siehe [docs/LEGAL.de.md](docs/LEGAL.de.md).
+
+## Funktionen im Detail
 ### Visualisierung und Multi-Instanz-Sicht
 - **Topologie** (Cytoscape + dagre, alles eingebettet): Zoom/Pan, Doppelklick klappt Unterstrukturen ein/aus, Ebenen 1–4,
   Filter nach Objektart, nur Objekte mit Befunden, Suche (Name/IP/Config-Text), Umfeld-Hervorhebung, Kantenbeschriftung,

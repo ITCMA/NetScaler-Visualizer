@@ -137,5 +137,5 @@ def finalize(findings: list[Finding]) -> list[Finding]:
             merged[k] = f
     res = sorted(merged.values(), key=lambda f: (SEVERITIES.index(f.severity), f.rule_id, f.name))
     for f in res:
-        f.id = "F" + hashlib.sha1(repr(f.key()).encode()).hexdigest()[:8]
+        f.id = "F" + hashlib.sha1(repr(f.key()).encode(), usedforsecurity=False).hexdigest()[:8]
     return res

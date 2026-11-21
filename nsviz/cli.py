@@ -35,7 +35,8 @@ _MD = {
 
 def _load_rules() -> None:
     load_builtin_rules()
-    import nsviz.project  # noqa: F401 (registers project-level rules)
+    import importlib
+    importlib.import_module("nsviz.project")  # registers project-level rules
 
 
 def _rules_markdown(lang: str = "en") -> str:
