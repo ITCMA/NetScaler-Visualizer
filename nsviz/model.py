@@ -788,6 +788,227 @@ class Graph:
                     self.nodes[sid] = Node(sid, "sta", sta, "sta", sta, props={"URL": sta, "Scope": "global"}, group=self.gid)
                 self._add_edge(dev, sid, "bind", "STA (global)")
 
+    # ---- Citrix Gateway view -----------------------------------------------------------------
+    def gateway_view(self) -> dict:
+        """Per gateway vServer: access profiles (session policies), ICA (STA, StoreFront), VPN (intranet applications, IPs,
+        traffic policies), clientless/portal (bookmarks, theme, EULA), RDP/PCoIP, authorization and AAA groups.
+        Global bindings (bind vpn global) and AAA groups apply to every gateway of the device. Used by the Gateway tab."""
+        cfg = self.cfg
+        if not cfg.of("vpn vserver"):
+            return {}
+
+        def num(x):
+            try:
+                return float(x or "")
+            except ValueError:
+                return 1e12
+
+        def opts(e: Entity | None) -> dict:
+            if e is None:
+                return {}
+            return {k: (" ".join(v) if v else "true") for k, v in e.opts.items() if k not in SECRET_OPTS}
+
+        def node(et: str, name: str) -> str:
+            nid = self.nid(et, name)
+            return nid if nid in self.nodes else ""
+
+        def pol(name: str, b: Binding | None = None) -> dict | None:
+            for et in ("vpn sessionpolicy", "vpn trafficpolicy", "authorization policy", "vpn clientlessaccesspolicy", "ica policy",
+                       "tm sessionpolicy", "tm trafficpolicy", "vpn urlpolicy", "rewrite policy", "responder policy", "cache policy",
+                       "cmp policy", "audit syslogpolicy", "audit nslogpolicy", "appflow policy", "vpn eula"):
+                e = cfg.get(et, name)
+                if e is None:
+                    continue
+                rule = e.opt("rule") or (e.args[1] if len(e.args) > 1 and not is_option_like(e.args[1]) else "")
+                act = e.opt("action") or e.opt("profilename") or (e.args[2] if len(e.args) > 2 and not is_option_like(e.args[2]) else "")
+                aet = {"vpn sessionpolicy": "vpn sessionaction", "vpn trafficpolicy": "vpn trafficaction", "ica policy": "ica action",
+                       "vpn clientlessaccesspolicy": "vpn clientlessaccessprofile", "tm sessionpolicy": "tm sessionaction",
+                       "tm trafficpolicy": "tm trafficaction", "vpn urlpolicy": "vpn urlaction"}.get(et, et.replace("policy", "action"))
+                ae = cfg.get(aet, act) if act else None
+                r = {"policy": name, "etype": et, "node": node(et, name), "prio": (b.opt("priority") if b else "") or "",
+                     "rule": rule[:300], "action": act, "action_node": node(aet, act) if ae is not None else "", "opts": opts(ae),
+                     "type": (b.opt("type") or "") if b else ""}
+                if et == "ica policy" and ae is not None and ae.opt("accessprofilename"):
+                    r["profile"] = ae.opt("accessprofilename")
+                    r["profile_opts"] = opts(cfg.get("ica accessprofile", ae.opt("accessprofilename")))
+                return r
+            return None
+
+        def url(name: str) -> dict:
+            e = cfg.get("vpn url", name)
+            a = e.args if e is not None else []
+            return {"name": name, "node": node("vpn url", name), "label": a[1] if len(a) > 1 else "", "url": a[2] if len(a) > 2 else "",
+                    "clientless": (e.opt("clientlessaccess") or "") if e is not None else "", "missing": e is None}
+
+        def app(name: str) -> dict:
+            e = cfg.get("vpn intranetapplication", name)
+            a = e.args if e is not None else []
+            return {"name": name, "node": node("vpn intranetapplication", name), "proto": a[1] if len(a) > 1 else "",
+                    "dest": a[2] if len(a) > 2 else "", "port": (e.opt("destport") or "") if e is not None else "",
+                    "mode": (e.opt("interception") or "") if e is not None else "", "missing": e is None}
+
+        def collect(binds: list[Binding]) -> dict:
+            out = {"policies": [], "sta": [], "bookmarks": [], "apps": [], "ips": [], "theme": "", "eula": [], "nexthop": [], "other": []}
+            for b in binds:
+                p = b.opt("policy") or b.opt("policyname")
+                if p:
+                    r = pol(p, b)
+                    if r:
+                        out["policies"].append(r)
+                    elif p.startswith("_") and not any(cfg.get(t, p) for t in cfg.entities):
+                        pass  # built-in policies (e.g. the default caching policies the gateway binds), not part of the config
+                    elif not any(cfg.get(t, p) for t in cfg.entities if self._kind(t) == "authpol"):  # auth: nFactor tab
+                        out["other"].append({"policy": p, "prio": b.opt("priority") or "", "node": next((self.nid(t, p) for t in cfg.entities if cfg.get(t, p) is not None and self.nid(t, p) in self.nodes), "")})
+                for k, v in b.opts.items():
+                    val = " ".join(v) if isinstance(v, list) else str(v)
+                    if k == "staserver":
+                        out["sta"].append({"url": val, "addresstype": b.opt("staaddresstype") or ""})
+                    elif k == "urlname":
+                        out["bookmarks"].append(url(val))
+                    elif k == "intranetapplication":
+                        out["apps"].append(app(val))
+                    elif k == "intranetip":
+                        out["ips"].append(" ".join(v) if isinstance(v, list) else val)
+                    elif k == "portaltheme":
+                        out["theme"] = val
+                    elif k == "eula":
+                        out["eula"].append(val)
+                    elif k == "nexthopserver":
+                        e = cfg.get("vpn nexthopserver", val)
+                        out["nexthop"].append({"name": val, "target": " ".join(e.args[1:3]) if e is not None else ""})
+            out["policies"].sort(key=lambda r: (r["etype"], num(r["prio"])))
+            return out
+
+        gws = []
+        for name, e in cfg.of("vpn vserver").items():
+            src = self.nid("vpn vserver", name)
+            if src not in self.nodes:
+                continue
+            g = {"name": name, "node": src, "proto": e.args[1] if len(e.args) > 1 else "", "ip": e.args[2] if len(e.args) > 2 else "",
+                 "port": e.args[3] if len(e.args) > 3 else "", "opts": opts(e), **collect(cfg.binds("vpn vserver", name))}
+            gws.append(g)
+        groups = []
+        for gname in sorted({b.owner for b in cfg.binds("aaa group")} | set(cfg.of("aaa group"))):
+            c = collect(cfg.binds("aaa group", gname))
+            if any(c[k] for k in ("policies", "bookmarks", "apps", "ips")):
+                groups.append({"name": gname, "node": node("aaa group", gname), **c})
+        vp = cfg.get("vpn parameter", "")
+        return {"gateways": gws, "global": {**collect(cfg.binds("vpn global")), "params": opts(vp)}, "groups": groups,
+                "rdp": {n: opts(x) for n, x in cfg.of("rdp clientprofile").items()},
+                "rdp_server": {n: opts(x) for n, x in cfg.of("rdp serverprofile").items()}}
+
+    # ---- nFactor / authentication flow ------------------------------------------------------
+    def auth_flows(self) -> dict:
+        """Authentication flow per entry point: factors (auth vServer, policy labels, classic gateway binds) with their
+        policies in priority order, the action type, the login schema and the next factor. Used by the nFactor view."""
+        cfg = self.cfg
+        authpol_types = [t for t in cfg.entities if self._kind(t) == "authpol"]
+        authact_types = [t for t in cfg.entities if self._kind(t) == "authact"]
+
+        def num(x: str | None) -> float:
+            try:
+                return float(x or "")
+            except ValueError:
+                return 1e12
+
+        def schema_info(name: str | None) -> dict | None:
+            if not name:
+                return None
+            if name.upper() in ("LSCHEMA_INT", "NOSCHEMA"):
+                return {"name": name, "file": "", "builtin": True}
+            e = cfg.get("authentication loginschema", name)
+            f = (e.opt("authenticationschema") or "") if e else ""
+            return {"name": name, "file": f.replace("\\", "/").rsplit("/", 1)[-1], "node": self.nid("authentication loginschema", name) if e else None,
+                    "missing": e is None}
+
+        def action_info(pet: str, pe: Entity) -> dict:
+            act = pe.opt("action") or pe.opt("reqaction") or (pe.args[2] if len(pe.args) > 2 and not is_option_like(pe.args[2]) else "")
+            if not act:
+                kind = {"authentication localpolicy": "LOCAL", "authentication noauthpolicy": "NOAUTH"}.get(pet, "")
+                return {"name": "", "type": kind}
+            if ("ns assignment", act) in self._stmt_idx:
+                return {"name": act, "type": "ASSIGNMENT"}
+            cands = [pet[: -len("policy")] + "action", pet[: -len("policy")] + "profile"] if pet != "authentication policy" else []
+            for t in cands + authact_types:
+                if cfg.get(t, act):
+                    base = t.split(" ", 1)[1]
+                    typ = AUTH_TYPE_LABELS.get(base, base.replace("action", "").replace("profile", " profile").strip().upper())
+                    return {"name": act, "type": typ, "etype": t, "node": self.nid(t, act)}
+            if re.fullmatch(r"[A-Z_]+", act):
+                return {"name": act, "type": act}  # built-in (NO_AUTHN, ...)
+            return {"name": act, "type": "", "missing": True}
+
+        def policy_row(b: Binding, pol: str, secondary: str = "") -> dict | None:
+            pet = next((t for t in authpol_types if cfg.get(t, pol)), None)
+            if not pet:
+                return None
+            pe = cfg.get(pet, pol)
+            rule = pe.opt("rule") or (pe.args[1] if len(pe.args) > 1 and not is_option_like(pe.args[1]) else "")
+            nf = b.opt("nextfactor")
+            return {"policy": pol, "etype": pet, "node": self.nid(pet, pol), "prio": b.opt("priority") or "",
+                    "goto": (b.opt("gotopriorityexpression") or "").upper(), "rule": rule[:400],
+                    "next": nf or "", "next_id": self.nid("authentication policylabel", nf) if nf and cfg.get("authentication policylabel", nf) else "",
+                    "action": action_info(pet, pe), "line": b.line, **({"role": secondary} if secondary else {})}
+
+        factors: dict[str, dict] = {}
+        for name in cfg.of("authentication vserver"):
+            fid = self.nid("authentication vserver", name)
+            rows, schemas = [], []
+            for b in cfg.binds("authentication vserver", name):
+                pol = b.opt("policy") or b.opt("policyname")
+                if not pol:
+                    continue
+                if cfg.get("authentication loginschemapolicy", pol):
+                    le = cfg.get("authentication loginschemapolicy", pol)
+                    sch = schema_info(le.opt("action") or (le.args[2] if len(le.args) > 2 else None))
+                    if sch:
+                        schemas.append({**sch, "policy": pol, "prio": b.opt("priority") or "",
+                                        "rule": (le.opt("rule") or (le.args[1] if len(le.args) > 1 else ""))[:200]})
+                    continue
+                r = policy_row(b, pol)
+                if r:
+                    rows.append(r)
+            rows.sort(key=lambda r: num(r["prio"]))
+            schemas.sort(key=lambda r: num(r["prio"]))
+            factors[fid] = {"id": fid, "type": "vserver", "etype": "authentication vserver", "name": name, "node": fid, "schemas": schemas, "rows": rows}
+        for name, e in cfg.of("authentication policylabel").items():
+            fid = self.nid("authentication policylabel", name)
+            ls = e.opt("loginschema") or (e.args[1] if len(e.args) > 1 and not is_option_like(e.args[1]) else None)
+            rows = [r for b in cfg.binds("authentication policylabel", name) for r in [policy_row(b, b.opt("policyname") or "")] if r]
+            rows.sort(key=lambda r: num(r["prio"]))
+            sch = schema_info(ls)
+            factors[fid] = {"id": fid, "type": "label", "etype": "authentication policylabel", "name": name, "node": fid,
+                            "schemas": [sch] if sch else [], "rows": rows}
+        entries = []
+        for et in ("vpn vserver", "lb vserver", "cs vserver"):
+            for name, e in cfg.of(et).items():
+                src = self.nid(et, name)
+                if src not in self.nodes:
+                    continue
+                aaa, via = e.opt("authnvsname"), ""
+                prof = e.opt("authnprofile")
+                if prof and cfg.get("authentication authnprofile", prof):
+                    aaa, via = cfg.get("authentication authnprofile", prof).opt("authnvsname") or aaa, prof
+                if aaa and self.nid("authentication vserver", aaa) in factors:
+                    entries.append({"node": src, "etype": et, "name": name, "factor": self.nid("authentication vserver", aaa), "via": via})
+                if et == "vpn vserver":  # classic authentication policies bound directly to the gateway
+                    rows = []
+                    for b in cfg.binds(et, name):
+                        pol = b.opt("policy") or b.opt("policyname")
+                        r = policy_row(b, pol, "secondary" if "secondary" in b.opts else ("group extraction" if "groupextraction" in b.opts else "primary")) if pol else None
+                        if r:
+                            rows.append(r)
+                    if rows:
+                        rows.sort(key=lambda r: ({"primary": 0, "secondary": 1}.get(r.get("role"), 2), num(r["prio"])))
+                        fid = src + "|classic"
+                        factors[fid] = {"id": fid, "type": "classic", "etype": et, "name": name, "node": src, "schemas": [], "rows": rows}
+                        entries.append({"node": src, "etype": et, "name": name, "factor": fid, "via": "classic"})
+        reached = {x["factor"] for x in entries}
+        for fid, f in factors.items():  # auth vServers that no other vServer uses are entry points of their own
+            if f["type"] == "vserver" and fid not in reached:
+                entries.append({"node": fid, "etype": "authentication vserver", "name": f["name"], "factor": fid, "via": ""})
+        return {"factors": factors, "entries": entries} if factors else {}
+
     def _ref_or_none(self, et: str, owner: str, pol: str | None) -> str | None:
         if pol:
             for t in self._policy_etypes():
@@ -1138,6 +1359,13 @@ class Graph:
                 if be["host"] == fe["ip"] and be["port"] == fe["port"] and be["node"] != fe["node"]:
                     self._add_edge(be["node"], fe["node"], "loop", "lokal (Loopback/Chain)")
 
+
+# action/profile type -> short label in the nFactor view (others: upper-cased type word)
+AUTH_TYPE_LABELS = {"ldapaction": "LDAP", "radiusaction": "RADIUS", "samlaction": "SAML", "oauthaction": "OAuth/OIDC", "certaction": "Certificate",
+                    "negotiateaction": "Kerberos", "epaaction": "EPA", "webauthaction": "Web auth", "tacacsaction": "TACACS+",
+                    "emailaction": "E-mail OTP", "storefrontauthaction": "StoreFront", "dfaaction": "DFA", "captchaaction": "CAPTCHA",
+                    "noauthaction": "No auth", "samlidpprofile": "SAML IdP", "oauthidpprofile": "OAuth IdP", "citrixauthaction": "Citrix auth",
+                    "adfsproxyprofile": "ADFS proxy", "pushservice": "Push"}
 
 # special functions inside policy expressions (shown as "Uses" on the policy)
 EXPR_FEATURES = ((r"IPREP_", "IP reputation"), (r"CHECK_LIMIT|\.LIMIT\(|limitidentifier", "Rate limiting"),

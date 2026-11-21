@@ -45,6 +45,18 @@ Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/r
 - **Topologie** (Cytoscape + dagre, alles eingebettet): Zoom/Pan, Doppelklick klappt Unterstrukturen ein/aus, Ebenen 1–4,
   Filter nach Objektart, nur Objekte mit Befunden, Suche (Name/IP/Config-Text), Umfeld-Hervorhebung, Kantenbeschriftung,
   PNG-Export. Rote Rahmen = Befunde (Farbe = Schweregrad).
+- **Reiter Gateway** (erscheint, wenn die Config Gateway-vServer enthält): eine Seite je Gateway mit den Zugriffsprofilen
+  (Session-Policies: ICA-Proxy, Voll-VPN, Clientless, StoreFront-URL und wohin sie führt, SSO, Split Tunnel,
+  Standard-Autorisierung), STA-Servern, ICA-Policies, Intranet-Anwendungen und -IPs, Traffic-Policies, Portal-Theme,
+  Lesezeichen, Clientless-Zugriff, Autorisierungs-Policies (ACLs), AAA-Gruppen, RDP/PCoIP-Profilen und weiteren gebundenen
+  Policies; globale Bindungen und AAA-Gruppen sind gekennzeichnet. „Config exportieren“ exportiert das Gateway mit
+  seinen Abhängigkeiten.
+- **Reiter nFactor** (erscheint, wenn die Config Anmeldungen enthält): der Anmeldeablauf je Einstiegspunkt (Gateway,
+  LB/CS-vServer mit Anmeldung, Authentifizierungs-vServer) als Faktor-Spalten: Login-Schema, Policies in
+  Prioritätsreihenfolge mit Action-Typ (LDAP, RADIUS, SAML, OAuth, Zertifikat, Entscheidung, ...), Erfolg → nächster Faktor
+  oder Anmeldung abgeschlossen, Fehler → nächste Policy oder Abbruch, Pfeile zwischen den Faktoren. Klassische
+  Gateway-Anmeldung (primär/sekundär) wird ebenfalls gezeigt. In der Topologie haben die Details passender Objekte
+  Schaltflächen, die diese Reiter öffnen.
 - **Mehrere NetScaler in einem Bild:** HA-Paare (explizit mit `--ha` oder über `add ha node` erkannt) erscheinen als eine Gruppe mit
   Konfigurationsvergleich; Backend-Ziele, die zu einem vServer eines anderen Geräts passen, werden als **Double-Hop**-Kette verbunden
   (IP+Port = sicher, nur IP = als Annahme markiert).

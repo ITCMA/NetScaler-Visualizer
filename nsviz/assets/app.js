@@ -55,7 +55,7 @@ const SEVW = { critical: 15, high: 7, medium: 3, low: 1, info: 0 };
 const score = Math.round(100 * Math.exp(-D.findings.reduce((a, f) => a + SEVW[f.severity], 0) / (40 + D.nodes.length * 1.5)));
 
 // ---- Tabs -------------------------------------------------------------------------------------
-const TABS = ['overview', 'topo', 'findings', 'inventory', 'project', 'links', 'rules'];
+const TABS = ['overview', 'topo', ...(D.gateway && Object.keys(D.gateway).length ? ['gateway'] : []), ...(D.nfactor && Object.keys(D.nfactor).length ? ['nfactor'] : []), 'findings', 'inventory', 'project', 'links', 'rules'];
 let curTab = 'overview';
 function renderTabs() {
   const hi = D.findings.filter(f => ['critical', 'high'].includes(f.severity)).length;
@@ -66,6 +66,7 @@ function showTab(k) {
   curTab = k;
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === k; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   $$('.tab').forEach(s => { const on = s.id === 'tab-' + k; s.classList.toggle('active', on); s.setAttribute('aria-labelledby', 'tb-' + s.id.slice(4)); });
+  if (k === 'nfactor') requestAnimationFrame(nfArrows);
   if (k === 'topo' && window.cy) { cy.resize(); if (!laidOut) { laidOut = true; initialLayout(); } else if (lkDirty) { lkDirty = false; layout(); } }
 }
 
@@ -502,13 +503,18 @@ function renderDetail(d) {
   const nb = cy.getElementById(d.id);
   const lst = col => col.map(x => `<a href="#" data-go="${esc(x.id())}">${esc(x.data('label'))}</a> <span class="muted">${esc(kindLabel(x.data('kind')))}</span>`).join('<br>') || `<span class="muted">–</span>`;
   const out = nb.outgoers('node'), inc = nb.incomers('node');
-  box.innerHTML = `<h3>${esc(d.label)}</h3><div class="kind">${esc(kindLabel(d.kind))} · ${esc(d.etype)}</div>
+  const jb = [gwEntryFor(d.id) >= 0 ? `<button class="btn sm" data-gw="${esc(d.id)}">${esc(t('gw_open'))}</button>` : '',
+    nfEntryFor(d.id) >= 0 ? `<button class="btn sm" data-nf="${esc(d.id)}">${esc(t('nf_open'))}</button>` : ''].join('');
+  const jump = jb ? `<div class="jump">${jb}</div>` : '';
+  box.innerHTML = `<h3>${esc(d.label)}</h3><div class="kind">${esc(kindLabel(d.kind))} · ${esc(d.etype)}</div>${jump}
   ${props ? `<section><h4>${esc(t('d_props'))}</h4><dl>${props}</dl></section>` : ''}
   <section><h4>${esc(t('d_findings', { n: f.length }))}</h4>${f.map(findingHtml).join('') || `<span class="muted">${esc(t('none'))}</span>`}</section>
   <section><h4>${esc(t('d_to', { n: out.length }))}</h4>${lst(out)}</section>
   <section><h4>${esc(t('d_from', { n: inc.length }))}</h4>${lst(inc)}</section>
   <section><h4>${esc(t('d_cfg', { n: d.lines.length }))}</h4>${d.lines.slice(0, 150).map(l => `<pre data-copy="${esc(l.text)}" title="⧉"><span class="ln">${esc(l.file)}:${l.line}</span>\n${esc(l.text)}</pre>`).join('') || `<span class="muted">${esc(t('d_nolines'))}</span>`}${d.lines.length > 150 ? `<p class="muted small">+ ${d.lines.length - 150} …</p>` : ''}</section>`;
   $$('#detail [data-go]').forEach(a => a.onclick = e => { e.preventDefault(); goTo(a.dataset.go); });
+  $$('#detail [data-nf]').forEach(b => b.onclick = () => nfOpen(b.dataset.nf));
+  $$('#detail [data-gw]').forEach(b => b.onclick = () => gwOpen(b.dataset.gw));
   $$('#detail pre[data-copy]').forEach(p => p.onclick = () => { if (getSelection().toString()) return; (navigator.clipboard ? navigator.clipboard.writeText(p.dataset.copy) : Promise.reject()).then(() => toast('✓')).catch(() => { }); });
 }
 
@@ -620,7 +626,7 @@ function renderOverview() {
 // ---- Dialog / shortcuts --------------------------------------------------------------------------
 const dlg = $('#dlg');
 function openHelp() {
-  const k = [['⇧ / ⌘ / ⌥ + 🖱', 'sc_multi'], ['⇧ + 🖱 ⇲', 'sc_box'], ['⌘F / Ctrl+F', 'sc_find'], ['/', 'sc_search'], ['←↑↓→', 'sc_arrows'], ['Enter / Space', 'sc_enter'], ['+ / −', 'sc_zoom'], ['0', 'sc_fit'], ['1 – 7', 'sc_tabs'], ['Esc', 'sc_esc'], ['?', 'sc_help']];
+  const k = [['⇧ / ⌘ / ⌥ + 🖱', 'sc_multi'], ['⇧ + 🖱 ⇲', 'sc_box'], ['⌘F / Ctrl+F', 'sc_find'], ['/', 'sc_search'], ['←↑↓→', 'sc_arrows'], ['Enter / Space', 'sc_enter'], ['+ / −', 'sc_zoom'], ['0', 'sc_fit'], ['1 – ' + TABS.length, 'sc_tabs'], ['Esc', 'sc_esc'], ['?', 'sc_help']];
   $('#keys').innerHTML = k.map(x => `<dt><kbd>${esc(x[0])}</kbd></dt><dd>${esc(t(x[1]))}</dd>`).join('');
   dlg.showModal ? dlg.showModal() : dlg.setAttribute('open', '');
 }
@@ -634,7 +640,7 @@ document.addEventListener('keydown', e => {
   else if (e.key === '/' && !typing) { e.preventDefault(); showTab('topo'); search.focus(); }
   else if (e.key === '?' && !typing) { e.preventDefault(); openHelp(); }
   else if (e.key === 'Escape' && !$('dialog[open]') && document.activeElement.id !== 'cy') { if (typing) document.activeElement.blur(); else if (curTab === 'topo') clearSelection(); }
-  else if (/^[1-7]$/.test(e.key) && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement.id !== 'cy') showTab(TABS[+e.key - 1]);
+  else if (/^[1-9]$/.test(e.key) && +e.key <= TABS.length && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement.id !== 'cy') showTab(TABS[+e.key - 1]);
 });
 
 // ---- Sprache ----------------------------------------------------------------------------------
@@ -653,7 +659,7 @@ function applyStatic() {
 }
 function renderAll() {
   { const b = $('#dbg-btn'), r = $('#debug-row'); if (b) b.hidden = !debugEnabled; if (r) r.hidden = !debugEnabled; }
-    applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderRulesUi(); renderRules(); renderOverview();
+    applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderNfactor(); renderGateway(); renderRulesUi(); renderRules(); renderOverview();
   renderDetail(state.selected ? nodeById[state.selected] : null); showTab(curTab);
 }
 const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');
@@ -692,6 +698,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('.ib.ope
 
 /*__EXPORT__*/
 /*__LINKS__*/
+/*__NFACTOR__*/
+/*__GATEWAY__*/
 /*__DEBUG__*/
 
 // ---- Start ------------------------------------------------------------------------------------

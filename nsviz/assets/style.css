@@ -268,6 +268,55 @@ th,td{border-bottom-color:var(--sep)}tbody tr:last-child td{border-bottom:0}
 /* overview and project cards follow the inset-group look */
 .card{border-radius:var(--rg);border:0;box-shadow:0 .5px 2px rgba(0,0,0,.1)}
 #links .row .muted{flex:0 1 auto}
-@media (max-width:1380px){nav#tabs button{padding:4px 8px}.tools{gap:4px}header.top{gap:8px}.tools select#lang{max-width:88px}}
+@media (max-width:1600px){nav#tabs button{padding:4px 8px}.tools{gap:4px}header.top{gap:8px}.tools select#lang{max-width:88px}#export>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}#export{padding-left:9px;padding-right:9px}}
 @media (forced-colors:active){.chip:has(input:checked),input[type=checkbox][role=switch]:checked{forced-color-adjust:none;background:Highlight;color:HighlightText;border-color:Highlight}input[type=checkbox][role=switch]{forced-color-adjust:none;border:1px solid CanvasText;background:Canvas}input[type=checkbox][role=switch]::before{background:CanvasText}input[type=checkbox][role=switch]:checked::before{background:HighlightText}}
 :root[data-resolved=dark] nav#tabs button[aria-selected=true],:root[data-resolved=dark] .segc button.on,:root[data-resolved=dark] .segc button[aria-pressed=true],:root[data-resolved=dark] .seg button[aria-checked=true]{background:color-mix(in srgb,var(--fg) 16%,var(--panel))}
+/* ---- nFactor tab ---- */
+#nfactor{height:100%;overflow:hidden;display:flex}
+.nf-wrap{display:grid;grid-template-columns:minmax(220px,280px) 1fr;gap:var(--sp4);width:100%;min-height:0;height:calc(100vh - 110px)}
+.nf-list{overflow:auto;background:var(--panel);border-radius:var(--rg);box-shadow:var(--shadow);padding:var(--sp3)}
+.nf-list h2{font-size:15px;margin:2px 4px 10px}
+.nf-entry{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;width:100%;text-align:left;border:0;background:none;color:var(--fg);padding:8px 10px;border-radius:var(--rc);cursor:pointer;font:inherit;font-size:13px}
+.nf-entry:hover{background:var(--fill)}.nf-entry.on{background:var(--accent-soft)}.nf-entry .nf-g{flex-basis:100%;font-size:11px}
+.nf-entry:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.nf-k{font-size:11px;color:var(--muted);text-transform:none}.nf-entry b{color:var(--fg)}
+.nf-flowbox{display:flex;flex-direction:column;min-width:0;min-height:0}
+.nf-path{padding:4px 4px 12px;font-size:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.nf-flow{position:relative;flex:1;overflow:auto;display:flex;gap:64px;align-items:flex-start;padding:4px 4px 24px}
+.nf-svg{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.nf-col{display:flex;flex-direction:column;gap:var(--sp4);flex:0 0 auto}
+.nf-card{position:relative;width:340px;background:var(--panel);border-radius:var(--rg);box-shadow:var(--shadow);border:1px solid var(--line);padding:var(--sp3)}
+.nf-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin-bottom:6px}
+.nf-step{font-size:11px;font-weight:600;color:var(--accent-fg);background:var(--accent);border-radius:999px;padding:1px 8px}
+.nf-schema{font-size:12px;margin:2px 0 6px}.nf-schema code,.nf-rule,.nf-path code{font-size:11.5px;background:var(--fill);padding:1px 5px;border-radius:5px}
+.nf-tag{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 6px}
+.nf-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.nf-row{position:relative;display:grid;grid-template-columns:auto 1fr;gap:4px 8px;padding:8px;border-radius:var(--rc);background:var(--panel2);border:1px solid var(--line);font-size:12.5px}
+.nf-prio{grid-row:span 2;font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted);min-width:30px;text-align:right;padding-top:1px}
+.nf-main{min-width:0}.nf-rule{display:block;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nf-type{display:inline-block;font-size:11px;font-weight:600;padding:0 6px;border-radius:5px;background:var(--accent-soft);color:var(--fg)}
+.nf-out{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px}.nf-ok{color:var(--ok)}.nf-ko{color:var(--muted)}
+.nf-port{position:absolute;right:-1px;top:50%;width:1px;height:1px}
+.nf-miss{color:var(--high);font-size:11px}.nf-end{font-size:11.5px;margin-top:8px}.nf-empty{font-size:12px;padding:4px}
+.detail .jump,#detail .jump{margin:6px 0 2px}button.btn.sm{font-size:12px;padding:4px 10px;white-space:nowrap;flex:none;width:auto}
+@media (forced-colors:active){.nf-step,.nf-type{border:1px solid CanvasText}.nf-entry.on{outline:2px solid Highlight}}
+/* ---- Gateway tab ---- */
+#gateway{height:100%;overflow:hidden;display:flex}
+.gw-page{overflow:auto;min-width:0;padding:0 4px 24px}
+.gw-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:4px 0 12px}.gw-name{font-size:17px}
+.gw-head code,.gw-t code,.gw-ul code{font-size:11.5px;background:var(--fill);padding:1px 5px;border-radius:5px;word-break:break-all}
+.gw-btns{display:flex;gap:6px;margin-left:auto}
+.gw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:var(--sp4)}
+.gw-sec{background:var(--panel);border-radius:var(--rg);box-shadow:var(--shadow);padding:var(--sp3) var(--sp4);min-width:0}
+.gw-sec:first-child{grid-column:1/-1}
+.gw-sec h3{font-size:14px;margin:2px 0 8px}.gw-sec h4{font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:600}
+.gw-t{font-size:12.5px}.gw-t th{position:static;cursor:default;font-size:11px;text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)}
+.gw-t td{padding:6px 8px;border-bottom:1px solid var(--sep);vertical-align:top}.gw-t tr:last-child td{border-bottom:0}
+.gw-t .nf-rule{max-width:420px}.gw-prio{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.gw-ul{margin:0;padding-left:18px;font-size:12.5px;line-height:1.7}
+.gw-kv{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;font-size:11.5px;margin:4px 0 0}.gw-kv dt{color:var(--muted)}.gw-kv dd{margin:0;word-break:break-all}
+.gw-more summary{cursor:pointer;font-size:11.5px;color:var(--muted)}.gw-more{margin-top:2px}.gw-head .gw-more{flex-basis:100%}
+.gw-none{font-size:12.5px;margin:0}
+#detail .jump{display:flex;gap:6px;flex-wrap:wrap}
+.gw-tw{overflow-x:auto}.nf-type{white-space:nowrap}.gw-t th{white-space:normal}
+@media (max-width:1380px){#ver{display:none}nav#tabs button{padding:4px 7px;font-size:13px}}

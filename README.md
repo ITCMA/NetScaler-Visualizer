@@ -49,6 +49,16 @@ backend HA pair with a deliberate deviation). Prebuilt report: `examples/demo/re
 - **Topology** (Cytoscape + dagre, everything embedded): zoom/pan, double-click collapses/expands substructures,
   levels 1–4, filter by object kind, only objects with findings, search (name/IP/config text), neighbourhood
   highlighting, edge labels, PNG export. Red outlines = findings (colour = severity).
+- **Gateway tab** (shown when the config has Gateway vServers): one page per gateway with the access profiles (session
+  policies: ICA proxy, full VPN, clientless, StoreFront URL and where it goes, SSO, split tunnel, default authorization),
+  STA servers, ICA policies, intranet applications and IPs, traffic policies, portal theme, bookmarks, clientless access,
+  authorization policies (ACLs), AAA groups, RDP/PCoIP profiles and other bound policies; global bindings and AAA groups
+  are tagged. "Export config" exports the gateway with its dependencies.
+- **nFactor tab** (shown when the config has authentication): the login flow per entry point (gateway, LB/CS vServer with
+  authentication, auth vServer) as factor columns: login schema, policies in priority order with action type (LDAP,
+  RADIUS, SAML, OAuth, certificate, decision, ...), success → next factor or login complete, failure → next policy or
+  login fails, arrows between factors. Classic gateway authentication (primary/secondary) is shown as well.
+  In the topology, the details of related objects have buttons to open these tabs.
 - **Several NetScalers in one picture:** HA pairs (explicit via `--ha` or detected from `add ha node`) are shown as one group with a
   configuration diff; backend targets that match another device's vServer are linked as **double-hop** chains (IP+port = certain, IP only = marked as assumption).
 - **Multilingual, light/dark:** UI in 8 languages (de, en, es, fr, pt, zh, ja, hi); follows the browser language and

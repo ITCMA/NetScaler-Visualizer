@@ -26,7 +26,7 @@
       <button role="radio" data-theme="light" aria-checked="false" title="Light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg><span class="sr" data-i18n="t_light">Light</span></button>
       <button role="radio" data-theme="dark" aria-checked="false" title="Dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg><span class="sr" data-i18n="t_dark">Dark</span></button>
     </div>
-    <button id="export" class="btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg> <span data-i18n="ex_btn">Export</span></button>
+    <button id="export" class="btn" aria-haspopup="dialog" data-i18n-title="ex_btn"><svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg> <span data-i18n="ex_btn">Export</span></button>
     <button id="help" class="icon" aria-haspopup="dialog" data-i18n-title="u_keys" data-i18n-aria="u_keys">?</button>
     <button id="g-quit" class="icon" hidden data-i18n-title="g_quit" data-i18n-aria="g_quit">⏻</button>
   </div>
@@ -64,6 +64,8 @@
     <aside id="detail" aria-live="polite" aria-label="Details"></aside>
   </section>
 
+  <section id="tab-gateway" class="tab" role="tabpanel"><div class="pad" id="gateway"></div></section>
+  <section id="tab-nfactor" class="tab" role="tabpanel"><div class="pad" id="nfactor"></div></section>
   <section id="tab-links" class="tab" role="tabpanel"><div class="pad" id="links"></div></section>
 
   <section id="tab-findings" class="tab" role="tabpanel">

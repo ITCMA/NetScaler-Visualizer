@@ -3,6 +3,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-21
+### Added
+- Gateway tab: one page per Gateway vServer with access profiles (session policies and their mode: ICA proxy, full VPN,
+  clientless; StoreFront/Web Interface URL and the local vServer it goes to; SSO, split tunnel, default authorization),
+  STA servers, ICA policies, intranet applications and IPs, traffic policies, AlwaysOn and next hop, portal theme,
+  EULA, bookmarks, clientless access policies, authorization policies (ACLs), AAA groups, RDP/PCoIP profiles and other
+  bound policies. Global bindings and AAA groups are tagged. "Export config" exports the gateway with its dependencies.
+- nFactor tab: the login flow per entry point as factor columns with login schema, policies in priority order, action
+  type, success/failure paths and arrows to the next factor; classic gateway authentication (primary/secondary) too.
+- Topology details: "Open in Gateway tab" / "Open in nFactor tab" for related objects.
+### Changed
+- Narrow windows: below 1600 px the Export button shows only its icon, below 1380 px the version badge is hidden (the header has up to nine tabs now).
+- The keyboard shortcut for tabs covers all shown tabs.
+
 ## [0.3.3] - 2026-11-21
 ### Added
 - New objects in the topology: network rules (ACL, PBR, RNAT), traffic domains (with their VLANs and vServers), persistency groups (from each member vServer) and certificate revocation lists (from their CA certificate). Transform actions hang under their transform profile.

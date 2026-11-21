@@ -477,4 +477,6 @@ class Project:
             "unresolved": [{**u, "group": g.id} for g in self.groups for u in g.graph.unresolved if not u.get("resolved") and not u.get("silent")],
             "linking": {**collect(self), "map": self.link_map},
             "chains": self.chains(),
+            "nfactor": {g.id: f for g in self.groups for f in [g.graph.auth_flows()] if f},
+            "gateway": {g.id: v for g in self.groups for v in [g.graph.gateway_view()] if v},
         }

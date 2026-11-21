@@ -303,6 +303,41 @@ class ConfigLineTests(unittest.TestCase):
         self.assertIn(("tp1", "ta1"), lab)
         self.assertIn(("10", "20"), lab)
 
+    def test_auth_flows(self):
+        """nFactor flow: factors in priority order, login schemas, next factor, decision and classic gateway policies."""
+        src = ('add authentication loginSchema ls1 -authenticationSchema "/nsconfig/loginschema/LoginSchema/SingleAuth.xml"\n'
+               'add authentication loginSchemaPolicy lsp1 -rule true -action ls1\n'
+               'add authentication ldapAction ldap1 -serverIP 192.0.2.10\n'
+               'add authentication radiusAction rad1 -serverIP 192.0.2.20\n'
+               'add authentication Policy p_ldap -rule true -action ldap1\n'
+               'add authentication Policy p_dec -rule true -action NO_AUTHN\n'
+               'add authentication Policy p_rad -rule true -action rad1\n'
+               'add authentication policylabel lbl2 -loginSchema LSCHEMA_INT\n'
+               'bind authentication policylabel lbl2 -policyName p_rad -priority 100 -gotoPriorityExpression NEXT\n'
+               'add authentication vserver aaa1 SSL 0.0.0.0\n'
+               'bind authentication vserver aaa1 -policy lsp1 -priority 100\n'
+               'bind authentication vserver aaa1 -policy p_ldap -priority 200 -nextFactor lbl2 -gotoPriorityExpression NEXT\n'
+               'bind authentication vserver aaa1 -policy p_dec -priority 100 -gotoPriorityExpression END\n'
+               'add authentication authnProfile prof1 -authnVsName aaa1\n'
+               'add vpn vserver gw1 SSL 192.0.2.50 443 -authnProfile prof1\n'
+               'add authentication ldapPolicy cl1 ns_true ldap1\n'
+               'add vpn vserver gw2 SSL 192.0.2.51 443\n'
+               'bind vpn vserver gw2 -policy cl1 -priority 100 -secondary\n')
+        g = Graph(Config.parse_text(src), "g1")
+        fl = g.auth_flows()
+        aaa = fl["factors"]["g1|authentication vserver|aaa1"]
+        self.assertEqual([r["policy"] for r in aaa["rows"]], ["p_dec", "p_ldap"])         # priority order, schema policy separate
+        self.assertEqual(aaa["schemas"][0]["file"], "SingleAuth.xml")
+        self.assertEqual(aaa["rows"][0]["action"]["type"], "NO_AUTHN")
+        self.assertEqual(aaa["rows"][1]["action"]["type"], "LDAP")
+        self.assertEqual(aaa["rows"][1]["next_id"], "g1|authentication policylabel|lbl2")
+        self.assertTrue(fl["factors"]["g1|authentication policylabel|lbl2"]["schemas"][0]["builtin"])
+        ent = {e["name"]: e for e in fl["entries"]}
+        self.assertEqual(ent["gw1"]["factor"], "g1|authentication vserver|aaa1")
+        self.assertEqual(ent["gw1"]["via"], "prof1")
+        self.assertEqual(fl["factors"][ent["gw2"]["factor"]]["rows"][0]["role"], "secondary")
+        self.assertNotIn("aaa1", ent)                                                      # reached through gw1
+
     def test_supporting_objects_and_builtin_actions(self):
         src = ('add ns httpProfile hp_custom -http2 ENABLED\n'
                'add ns tcpProfile tp_custom -WS ENABLED\n'
