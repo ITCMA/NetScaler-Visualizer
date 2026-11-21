@@ -290,5 +290,20 @@
  "lg_via": "Über ausgeblendete Policies/Actions (Namen an der Linie)",
  "lg_unl": "Gestrichelter Rand: nicht verknüpft",
  "lg_fqdn": "Orange Hof: Ziel ist ein FQDN (nicht aufgelöst)",
- "lg_ref": "Sonstiger Verweis (Optionsname an der Linie)"
+ "lg_ref": "Sonstiger Verweis (Optionsname an der Linie)",
+ "dbg_mode": "Debug-Modus",
+ "dbg_obj": "Objekt (anonymisiert)",
+ "dbg_edge": "Linie (anonymisiert)",
+ "dbg_lines": "Verbindungen dieses Objekts",
+ "dbg_conn": "Verbindung",
+ "dbg_type": "Typ",
+ "dbg_rule": "Regel (Code)",
+ "dbg_line": "Config-Zeile",
+ "dbg_drawn": "Gezeichnet",
+ "dbg_copy": "Debug-Info kopieren",
+ "dbg_all": "Ganzen Graph exportieren (anonymisiert)",
+ "dbg_hint": "Kopieren und in den Chat einfügen: enthält keine Namen, IPs, Dateinamen oder Werte, nur Typen, Regeln, Zeilennummern und den Aufbau der Config-Zeilen.",
+ "dbg_copied": "Kopiert",
+ "dbg_manual": "Kopieren ging nicht: Text im Feld markieren und manuell kopieren",
+ "dbg_saved": "Gespeichert als nsviz-debug.json (anonymisiert)"
 }

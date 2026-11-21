@@ -2,7 +2,11 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/) (0.x = interface may change).
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-11-21
 ### Added
+- Debug mode in the topology (sidebar checkbox): every line shows the rule (code location) and config line that created it; "Copy debug info" and "Export whole graph" produce an anonymised description (types, rules, line numbers, structure of the config lines; no names, IPs, file names or values) to report wrong or missing lines.
+- Version visible in the report header, the GUI and `nsviz --version`, together with a code fingerprint; the version is kept in one place (`nsviz/__init__.py`).
 - Safety net: options that name another object (vServer, certificate, monitor, SSL profile, AAA group, ...) but have no specific rule still become a thin dashed line labelled with the option, so no named dependency is lost. Report note with a dependency self-check (not connected, FQDN targets, undefined references, safety-net links).
 - Report: Content Security Policy (no external requests possible, offline by design); report title is escaped.
 - Dependency analysis: every object is marked as connected or not (reachable from an addressable vServer or a global binding); sidebar card "Not connected" with filter; rules DEP-001 (vServer not addressable and not referenced) and DEP-002 (URL target without matching vServer); vServers show whether they are addressable.

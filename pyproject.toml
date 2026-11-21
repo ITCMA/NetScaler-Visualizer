@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nsviz"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Visualize NetScaler (ADC) environments - HA pairs, double-hop chains - and check ns.conf files, as one offline HTML report"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,6 +22,9 @@ nsviz = "nsviz.cli:main"
 
 [tool.setuptools]
 packages = ["nsviz", "nsviz.rules"]
+
+[tool.setuptools.dynamic]
+version = { attr = "nsviz.__version__" }
 
 [tool.setuptools.package-data]
 nsviz = ["assets/*", "assets/vendor/*", "assets/i18n/*", "rules/i18n/*"]

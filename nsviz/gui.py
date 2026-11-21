@@ -20,7 +20,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__, linking, report
 from .parser import Config
-from .project import CONF_SUFFIX, Project
+from .project import CONF_SUFFIX, Project, _code_id
 
 ASSET = Path(__file__).parent / "assets" / "gui.html"
 MAX_UPLOAD = 100 * 1024 * 1024  # per file; ns.conf files are small, this only protects against mistakes
@@ -157,7 +157,7 @@ def make_handler(st: State, port: int):
                 return
             u = urlparse(self.path)
             if u.path == "/":
-                html = ASSET.read_text(encoding="utf-8").replace("__TOKEN__", st.token).replace("__VERSION__", __version__)
+                html = ASSET.read_text(encoding="utf-8").replace("__TOKEN__", st.token).replace("__VERSION__", f"{__version__} (code {_code_id()})")
                 self._send(200, html.encode("utf-8"), "text/html; charset=utf-8",
                            {"Content-Security-Policy": "default-src 'self' 'unsafe-inline'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer"})
             elif u.path == "/api/files":

@@ -232,5 +232,20 @@
  "lg_via": "经由隐藏的策略/动作（线上标注名称）",
  "lg_unl": "虚线边框：未连接",
  "lg_fqdn": "橙色光晕：目标为 FQDN（未解析）",
- "lg_ref": "其他引用（线上标注选项名）"
+ "lg_ref": "其他引用（线上标注选项名）",
+ "dbg_mode": "调试模式",
+ "dbg_obj": "对象（已匿名）",
+ "dbg_edge": "连线（已匿名）",
+ "dbg_lines": "此对象的连接",
+ "dbg_conn": "连接",
+ "dbg_type": "类型",
+ "dbg_rule": "规则（代码）",
+ "dbg_line": "配置行",
+ "dbg_drawn": "已绘制",
+ "dbg_copy": "复制调试信息",
+ "dbg_all": "导出整个图（已匿名）",
+ "dbg_hint": "复制并粘贴到聊天：不含名称、IP、文件名或值，只有类型、规则、行号和配置行结构。",
+ "dbg_copied": "已复制",
+ "dbg_manual": "复制失败：请选中文本手动复制",
+ "dbg_saved": "已保存为 nsviz-debug.json（已匿名）"
 }

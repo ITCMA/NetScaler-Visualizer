@@ -263,5 +263,20 @@
  "lg_via": "Through hidden policies/actions (named on the line)",
  "lg_unl": "Dashed border: not connected",
  "lg_fqdn": "Orange halo: target is an FQDN (not resolved)",
- "lg_ref": "Other reference (option name on the line)"
+ "lg_ref": "Other reference (option name on the line)",
+ "dbg_mode": "Debug mode",
+ "dbg_obj": "Object (anonymised)",
+ "dbg_edge": "Line (anonymised)",
+ "dbg_lines": "Connections of this object",
+ "dbg_conn": "Connection",
+ "dbg_type": "Type",
+ "dbg_rule": "Rule (code)",
+ "dbg_line": "Config line",
+ "dbg_drawn": "Drawn",
+ "dbg_copy": "Copy debug info",
+ "dbg_all": "Export whole graph (anonymised)",
+ "dbg_hint": "Copied. Paste it into the chat: it contains no names, IPs, file names or values, only types, rules, line numbers and the structure of the config lines.",
+ "dbg_copied": "Copied",
+ "dbg_manual": "Copy did not work: select the text in the box and copy it manually",
+ "dbg_saved": "Saved as nsviz-debug.json (anonymised)"
 }

@@ -53,6 +53,7 @@ backend HA pair with a deliberate deviation). Prebuilt report: `examples/demo/re
   can be switched. Light/dark follows `prefers-color-scheme` and can be switched; the choice is remembered in the browser.
   Rule texts and finding messages are available in English and German. UI translations other than en/de are not
   reviewed by native speakers.
+- **Debug mode:** shows for every line which rule and config line created it; copies an anonymised description (no names, IPs or values) to report wrong or missing lines.
 - **Accessibility/usability:** skip link, ARIA tabs, focus outlines, keyboard control in the graph (arrows, Enter,
   +/−, 0, `/`, `?` lists all shortcuts), reduced motion support, overview page with health score.
 ### Checks

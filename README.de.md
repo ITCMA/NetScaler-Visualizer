@@ -49,6 +49,7 @@ Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/r
 - **Mehrsprachig, hell/dunkel:** Oberfläche in 8 Sprachen (de, en, es, fr, pt, zh, ja, hi), folgt der Browsersprache und ist
   umschaltbar. Hell/Dunkel folgt `prefers-color-scheme`, umschaltbar, Wahl wird im Browser gemerkt. Regeltexte und
   Befundmeldungen gibt es auf Englisch und Deutsch. Übersetzungen außer en/de sind nicht von Muttersprachlern geprüft.
+- **Debug-Modus:** zeigt zu jeder Linie, welche Regel und welche Config-Zeile sie erzeugt hat; kopiert eine anonymisierte Beschreibung (keine Namen, IPs oder Werte), um falsche oder fehlende Linien zu melden.
 - **Barrierefreiheit/Bedienung:** Skip-Link, ARIA-Tabs, Fokusrahmen, Tastatursteuerung im Graph (Pfeile, Enter, +/−, 0, `/`,
   `?` zeigt alle Kürzel), reduzierte Animationen, Übersichtsseite mit Gesundheitswert.
 ### Prüfungen

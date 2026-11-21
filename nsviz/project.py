@@ -86,6 +86,15 @@ def diff_configs(a: Config, b: Config) -> list[dict]:
     return res
 
 
+def _code_id() -> str:
+    """Fingerprint of the tool's own source (model/project), so that debug output can be matched to the code version."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in ("model.py", "project.py", "linking.py"):
+        h.update((Path(__file__).parent / f).read_bytes())
+    return h.hexdigest()[:10]
+
+
 class Project:
     def __init__(self, devices: list[Device], ha_pairs: list[tuple[str, str]] | None = None, redact: bool = True,
                  link_map: dict | None = None):
@@ -430,14 +439,14 @@ class Project:
                               "props": {k: v for k, v in n.props.items() if not k.startswith("_")},
                               "lines": n.lines, "findings": n.findings, "dep": self.dep.get(n.id, {})})
             for e in g.graph.edges:
-                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {})})
+                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {}), "origin": e.origin, "line": e.line})
         for e in self.extra_edges:
-            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {})})
+            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {}), "origin": e.origin, "line": e.line})
         for i, e in enumerate(edges):
             e["id"] = f"e{i}"
         rules = {r.id: r.meta() for r in RULES.values()}
         return {
-            "meta": {"generator": f"nsviz {__version__}", "created": _dt.datetime.now().isoformat(timespec="seconds"),
+            "meta": {"generator": f"nsviz {__version__}", "code": _code_id(), "created": _dt.datetime.now().isoformat(timespec="seconds"),
                      "redacted": self.redact, "kind_labels": KIND_LABELS, "severities": SEVERITIES, "categories": CATEGORIES,
                      "notes": self.notes},
             "groups": [{"id": g.id, "name": g.name, "kind": g.kind, "assumption": g.assumption,

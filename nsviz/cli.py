@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __version__, report
+from .project import _code_id
 from .project import Project
 from .rules import RULES, SEVERITIES, CATEGORIES, load_builtin_rules
 
@@ -57,7 +58,7 @@ def _rules_markdown(lang: str = "en") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="nsviz", description="Read, check and visualize NetScaler ns.conf files as an offline HTML report")
-    ap.add_argument("--version", action="version", version=__version__)
+    ap.add_argument("--version", action="version", version=f"nsviz {__version__} (code {_code_id()})")
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("analyze", help="Analyze configs and write an HTML report")
     a.add_argument("paths", nargs="+", help="ns.conf files or folders")

@@ -232,5 +232,20 @@
  "lg_via": "Via políticas/ações ocultas (nomeadas na linha)",
  "lg_unl": "Borda tracejada: sem ligação",
  "lg_fqdn": "Halo laranja: destino FQDN (não resolvido)",
- "lg_ref": "Outra referência (nome da opção na linha)"
+ "lg_ref": "Outra referência (nome da opção na linha)",
+ "dbg_mode": "Modo de depuração",
+ "dbg_obj": "Objeto (anonimizado)",
+ "dbg_edge": "Linha (anonimizada)",
+ "dbg_lines": "Ligações deste objeto",
+ "dbg_conn": "Ligação",
+ "dbg_type": "Tipo",
+ "dbg_rule": "Regra (código)",
+ "dbg_line": "Linha de config",
+ "dbg_drawn": "Desenhada",
+ "dbg_copy": "Copiar info de depuração",
+ "dbg_all": "Exportar todo o grafo (anonimizado)",
+ "dbg_hint": "Copie e cole no chat: sem nomes, IPs, nomes de ficheiro ou valores, só tipos, regras, números de linha e estrutura das linhas.",
+ "dbg_copied": "Copiado",
+ "dbg_manual": "A cópia falhou: selecione o texto e copie",
+ "dbg_saved": "Guardado como nsviz-debug.json (anonimizado)"
 }

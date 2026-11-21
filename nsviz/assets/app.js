@@ -79,7 +79,7 @@ const SEVDARK = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: 
 const HIDDEN_KINDS = ['policy', 'action', 'policylabel']; // switched on via the object-type list
 const unlinkedSet = new Set((D.unlinked || []).map(u => u.node));
 const kindsPresent = {}; D.nodes.forEach(n => kindsPresent[n.kind] = (kindsPresent[n.kind] || 0) + 1);
-const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), onlyUnlinked: false, layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
+const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), onlyUnlinked: false, debug: false, layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
 cytoscape.use(cytoscapeDagre);
 const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id), fq: !!(n.dep && n.dep.fqdn) } }))
   .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
@@ -195,15 +195,15 @@ function computeBridges(elig) {
   const out = {}; cy.edges().forEach(e => { if (e.hasClass('virtual') || e.data('type') === 'contains') return; (out[e.data('source')] = out[e.data('source')] || []).push(e.data('target')); });
   const res = [], seen = new Set();
   elig.forEach(u => {
-    const walk = (x, via, vis) => {
+    const walk = (x, via, vis, vids) => {
       (out[x] || []).forEach(v => {
         if (vis.has(v) || via.length > 6) return;
-        if (elig.has(v)) { if (v !== u && !(out[u] || []).includes(v)) { const k = u + '>' + v; if (!seen.has(k)) { seen.add(k); res.push({ s: u, t: v, via: via.slice() }); } } return; }
+        if (elig.has(v)) { if (v !== u && !(out[u] || []).includes(v)) { const k = u + '>' + v; if (!seen.has(k)) { seen.add(k); res.push({ s: u, t: v, via: via.slice(), vids: vids.slice() }); } } return; }
         if (nodeById[v] && nodeById[v].kind === 'device') return;
-        const nv = new Set(vis); nv.add(v); walk(v, via.concat(nodeById[v] ? nodeById[v].label : v), nv);
+        const nv = new Set(vis); nv.add(v); walk(v, via.concat(nodeById[v] ? nodeById[v].label : v), nv, vids.concat(v));
       });
     };
-    walk(u, [], new Set([u]));
+    walk(u, [], new Set([u]), []);
   });
   return res;
 }
@@ -589,6 +589,7 @@ function applyStatic() {
   $('#cy').setAttribute('aria-label', t('u_canvas')); $('#mini').setAttribute('aria-label', t('minimap')); $('#minihint').textContent = '⌨ ?  ·  ' + t('u_keys');
   $$('#theme button').forEach(b => b.title = t('t_' + b.dataset.theme));
   document.title = 'NetScaler Visualizer';
+  $('#ver').textContent = D.meta.generator.replace(/^nsviz /, 'v'); $('#ver').title = 'code ' + (D.meta.code || '') + ' · ' + D.meta.created;
   $('#subtitle').textContent = t('sub', { d: D.groups.reduce((a, g) => a + g.devices.length, 0), g: D.groups.length, o: D.nodes.length, t: dateStr() }) + ' · ' + (D.meta.redacted ? t('masked') : t('unmasked'));
 }
 function renderAll() {
@@ -600,6 +601,7 @@ ls.onchange = () => { lang = ls.value; store.set('lang', lang); renderAll(); };
 
 /*__EXPORT__*/
 /*__LINKS__*/
+/*__DEBUG__*/
 
 // ---- Start ------------------------------------------------------------------------------------
 lang = detectLang(); ls.value = lang;

@@ -232,5 +232,20 @@
  "lg_via": "Via des politiques/actions masquées (nommées sur la ligne)",
  "lg_unl": "Bordure en pointillés : non relié",
  "lg_fqdn": "Halo orange : cible = FQDN (non résolu)",
- "lg_ref": "Autre référence (nom de l'option sur la ligne)"
+ "lg_ref": "Autre référence (nom de l'option sur la ligne)",
+ "dbg_mode": "Mode débogage",
+ "dbg_obj": "Objet (anonymisé)",
+ "dbg_edge": "Ligne (anonymisée)",
+ "dbg_lines": "Connexions de cet objet",
+ "dbg_conn": "Connexion",
+ "dbg_type": "Type",
+ "dbg_rule": "Règle (code)",
+ "dbg_line": "Ligne de config",
+ "dbg_drawn": "Dessinée",
+ "dbg_copy": "Copier les infos de débogage",
+ "dbg_all": "Exporter tout le graphe (anonymisé)",
+ "dbg_hint": "Copiez et collez dans le chat : aucun nom, IP, nom de fichier ni valeur, seulement types, règles, numéros de ligne et structure des lignes.",
+ "dbg_copied": "Copié",
+ "dbg_manual": "La copie a échoué : sélectionnez le texte et copiez-le",
+ "dbg_saved": "Enregistré sous nsviz-debug.json (anonymisé)"
 }

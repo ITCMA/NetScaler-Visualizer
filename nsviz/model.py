@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import sys
 from dataclasses import dataclass, field
 
 from .parser import Binding, Config, Entity, Statement, is_option
@@ -164,6 +165,16 @@ class Edge:
     label: str = ""
     port: bool = False  # label shows protocol/port (always displayed)
     plain: bool = False  # connection carries unencrypted traffic (assumption based on protocol/port, see is_plain)
+    line: int = 0  # config line that produced the edge (0 = derived, e.g. from IP matching)
+    origin: str = ""  # code location that created the edge (debug mode: "which rule drew this line?")
+
+    def __post_init__(self) -> None:
+        if not self.origin:
+            f = sys._getframe(1)
+            while f is not None and f.f_code.co_name in ("__init__", "__post_init__", "_add_edge", "_ref"):
+                f = f.f_back
+            if f is not None:
+                self.origin = f"{f.f_code.co_filename.replace(chr(92), '/').rsplit('/', 1)[-1]}:{f.f_code.co_name}:{f.f_lineno}"
 
 
 class Graph:
@@ -220,14 +231,14 @@ class Graph:
         self._fill(n)
         return nid
 
-    def _add_edge(self, s: str | None, t: str | None, typ: str, label: str = "") -> None:
+    def _add_edge(self, s: str | None, t: str | None, typ: str, label: str = "", line: int = 0) -> None:
         if not s or not t or s == t:
             return
         k = (s, t, typ, label)
         if k in self._edge_keys:
             return
         self._edge_keys.add(k)
-        self.edges.append(Edge(s, t, typ, label))
+        self.edges.append(Edge(s, t, typ, label, line=line))
 
     def _ref(self, src: str, etypes: list[str], name: str, typ: str, label: str = "",
              src_ent: tuple[str, str] | None = None, line: int = 0) -> str | None:
@@ -238,7 +249,7 @@ class Graph:
             nid = self._ensure(et, name)
             if nid:
                 self.referenced.add((et, name))
-                self._add_edge(src, nid, typ, label)
+                self._add_edge(src, nid, typ, label, line)
                 return nid
         # do not report built-in objects as missing
         if name.upper() in KEYWORD_NAMES or (len(etypes) > 5 and _builtin_policy(name)):
@@ -254,7 +265,7 @@ class Graph:
         if mid not in self.nodes:
             self.nodes[mid] = Node(mid, "missing", name, rt, name,
                                    props={"Expected type": rt}, group=self.gid)
-        self._add_edge(src, mid, typ, label)
+        self._add_edge(src, mid, typ, label, line)
         se = src_ent or ("", "")
         self.missing.append({"src_etype": se[0], "src_name": se[1], "ref_type": rt,
                              "ref_name": name, "node": src, "line": line})
@@ -941,7 +952,7 @@ class Graph:
                     src = src or subject(et, name)
                     if not src or src == tgt or frozenset((src, tgt)) in linked or near(src, tgt):
                         continue
-                    self._add_edge(src, tgt, "ref", f"-{key}")
+                    self._add_edge(src, tgt, "ref", f"-{key}", line)
                     adj.setdefault(src, set()).add(tgt)
                     self.referenced.add((self.nodes[tgt].etype, v))
                     linked.add(frozenset((src, tgt)))
