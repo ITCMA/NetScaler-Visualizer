@@ -30,23 +30,50 @@ const dbgNode = id => { const n = nodeById[id]; return n ? { id: DBG_IDX[id], na
 // config lines in anonymised form (same rules as "Anonymize configs": pseudonyms, ports and protocols kept, internal/external
 // FQDNs and private/public IPs recognizable); falls back to the bare structure if a report has no anonymised lines
 const dbgLines = n => (n.lines || []).map((l, i) => ({ line: l.line, text: (n.anon && n.anon.lines && n.anon.lines[i]) || dbgShape(l.text, n.group) }));
+// why an object or a line is not drawn (filters, folded objects, bridges, the "contains" switch)
+let dbgElig = null;
+const dbgEl = () => dbgElig || (dbgElig = eligible());
+function dbgNodeWhy(id) {
+  const n = nodeById[id], el = cy.getElementById(id);
+  if (!n) return 'unknown object';
+  if (el.length && el.visible()) return '';
+  if (state.group && n.group !== state.group) return 'other device/group selected';
+  if (!state.kinds.has(n.kind)) return 'object type hidden (Object types filter)';
+  if (state.onlyUnlinked && !unlinkedSet.has(id)) return 'filter "only not connected"';
+  if (!dbgEl().has(id)) return 'filter "only findings"';
+  const up = cy.edges().filter(x => x.data('target') === id && !x.hasClass('virtual')).map(x => x.data('source')).filter(s => state.collapsed.has(s));
+  return up.length ? 'below a folded object (' + up.map(x => DBG_IDX[x] || '?').join(', ') + '; double-click it or choose level "all")' : 'below a folded object (double-click ▸ or level "all")';
+}
+function dbgEdgeWhy(e, drawn) {
+  if (drawn) return '';
+  if (e.type === 'contains' && !state.contains) return '"contains" lines switched off';
+  const ws = dbgNodeWhy(e.source), wt = dbgNodeWhy(e.target);
+  const hiddenType = x => !state.kinds.has((nodeById[x] || {}).kind);
+  if ((hiddenType(e.source) || hiddenType(e.target)) && curBridges.some(b => b.s === e.source || b.t === e.target || (b.vids || []).includes(e.source) || (b.vids || []).includes(e.target)))
+    return 'end object type hidden; shown as a bridge line through it';
+  return [ws && 'from: ' + ws, wt && 'to: ' + wt].filter(Boolean).join('; ') || 'not drawn (unknown reason)';
+}
 function dbgEdge(e) {
-  const el = cy.getElementById(e.id);
+  const el = cy.getElementById(e.id), drawn = !!(el && el.length && el.visible());
   return { from: DBG_IDX[e.source], to: DBG_IDX[e.target], fromKind: (nodeById[e.source] || {}).kind, toKind: (nodeById[e.target] || {}).kind,
-    type: e.type, label: e.alabel || '', rule: e.origin || '', cfgLine: e.line || 0, drawn: !!(el && el.length && el.visible()) };
+    type: e.type, label: e.alabel || '', rule: e.origin || '', cfgLine: e.line || 0, drawn, whyNotDrawn: dbgEdgeWhy(e, drawn) || undefined };
 }
 function dbgView() {
-  return { layout: state.layout, kindsShown: [...state.kinds].sort(), group: state.group ? DBG_IDX[(D.nodes.find(n => n.group === state.group && n.kind === 'device') || {}).id] || 'one' : 'all',
+  dbgElig = null;
+  return { layout: state.layout, contains: !!state.contains, kindsShown: [...state.kinds].sort(), group: state.group ? DBG_IDX[(D.nodes.find(n => n.group === state.group && n.kind === 'device') || {}).id] || 'one' : 'all',
     onlyUnlinked: state.onlyUnlinked, onlyFindings: state.onlyFindings, collapsed: state.collapsed.size, pinned: state.pinned.size };
 }
+const dbgBridgeDrawn = b => { const el = cy.getElementById(`vb|${b.s}|${b.t}`); return !!(el.length && el.visible()); };
 function dbgBridges(id) {
-  return curBridges.filter(b => b.s === id || b.t === id).map(b => ({ from: DBG_IDX[b.s], to: DBG_IDX[b.t], through: (b.vids || []).map(v => dbgNode(v)) }));
+  return curBridges.filter(b => b.s === id || b.t === id).map(b => { const drawn = dbgBridgeDrawn(b);
+    return { from: DBG_IDX[b.s], to: DBG_IDX[b.t], through: (b.vids || []).map(v => dbgNode(v)), drawn, whyNotDrawn: drawn ? undefined : dbgEdgeWhy({ source: b.s, target: b.t, type: 'via' }, false) }; });
 }
 function dbgNodeInfo(id) {
   const n = nodeById[id];
   return { tool: D.meta.generator, code: D.meta.code || '', view: dbgView(),
     node: { ...dbgNode(id), dep: n.dep || {}, unlinked: unlinkedSet.has(id), findings: n.findings.map(f => (findingsById[f] || {}).rule).filter(Boolean),
       addressing: (n.props || {}).Addressing || '', fqdnTarget: !!(n.dep && n.dep.fqdn), drawn: cy.getElementById(id).visible(),
+      folded: state.collapsed.has(id), whyNotDrawn: dbgNodeWhy(id) || undefined,
       lines: dbgLines(n) },
     outgoing: D.edges.filter(e => e.source === id).map(dbgEdge), incoming: D.edges.filter(e => e.target === id).map(dbgEdge),
     bridges: dbgBridges(id) };
@@ -62,8 +89,8 @@ function dbgEdgeInfo(edgeEl) {
 function dbgAll() {
   return { tool: D.meta.generator, code: D.meta.code || '', view: dbgView(),
     nodes: D.nodes.map(n => ({ id: DBG_IDX[n.id], name: (n.anon || {}).label || '', group: 'G' + D.groups.findIndex(g => g.id === n.group), kind: n.kind, etype: n.etype, dep: n.dep || {}, unlinked: unlinkedSet.has(n.id),
-      lines: dbgLines(n) })),
-    edges: D.edges.map(dbgEdge), bridges: curBridges.map(b => ({ from: DBG_IDX[b.s], to: DBG_IDX[b.t], through: (b.vids || []).map(v => DBG_IDX[v]) })) };
+      drawn: cy.getElementById(n.id).visible(), folded: state.collapsed.has(n.id), whyNotDrawn: dbgNodeWhy(n.id) || undefined, lines: dbgLines(n) })),
+    edges: D.edges.map(dbgEdge), bridges: curBridges.map(b => ({ from: DBG_IDX[b.s], to: DBG_IDX[b.t], through: (b.vids || []).map(v => DBG_IDX[v]), drawn: dbgBridgeDrawn(b) })) };
 }
 function dbgBox(obj, title) {
   const txt = JSON.stringify(obj, null, 1);
@@ -86,8 +113,8 @@ renderDetail = function (d) {
   dbgRenderDetail(d);
   if (!state.debug || !d) return;
   const info = dbgNodeInfo(d.id);
-  const rows = info.outgoing.concat(info.incoming).map(e => `<tr><td>${esc(e.from)} → ${esc(e.to)}</td><td>${esc(e.type)}${e.label ? '<br><span class="muted">' + esc(e.label) + '</span>' : ''}</td><td><code>${esc(e.rule)}</code></td><td>${e.cfgLine || '–'}</td><td>${e.drawn ? '✓' : '–'}</td></tr>`).join('');
-  $('#detail').insertAdjacentHTML('beforeend', `<section class="dbg"><h4>🐞 ${esc(t('dbg_lines'))}</h4><p class="small">${esc(DBG_IDX[d.id])} · entry=${!!(d.dep || {}).entry} · reach=${!!(d.dep || {}).reach}</p>
+  const rows = info.outgoing.concat(info.incoming).map(e => `<tr><td>${esc(e.from)} → ${esc(e.to)}</td><td>${esc(e.type)}${e.label ? '<br><span class="muted">' + esc(e.label) + '</span>' : ''}</td><td><code>${esc(e.rule)}</code></td><td>${e.cfgLine || '–'}</td><td>${e.drawn ? '✓' : `<span title="${esc(e.whyNotDrawn || '')}">– ${esc(e.whyNotDrawn || '')}</span>`}</td></tr>`).join('');
+  $('#detail').insertAdjacentHTML('beforeend', `<section class="dbg"><h4>🐞 ${esc(t('dbg_lines'))}</h4><p class="small">${esc(DBG_IDX[d.id])} · entry=${!!(d.dep || {}).entry} · reach=${!!(d.dep || {}).reach}${state.collapsed.has(d.id) ? ' · folded ▸ (double-click)' : ''}</p>
     <div class="tablewrap"><table class="small"><thead><tr><th>${esc(t('dbg_conn'))}</th><th>${esc(t('dbg_type'))}</th><th>${esc(t('dbg_rule'))}</th><th>${esc(t('dbg_line'))}</th><th>${esc(t('dbg_drawn'))}</th></tr></thead><tbody>${rows}</tbody></table></div></section>` + dbgBox(info, t('dbg_obj')));
   dbgWire();
 };

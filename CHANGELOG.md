@@ -3,6 +3,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-21
+### Fixed
+- Topology: with more than 120 objects the graph starts at level 2, which folded every entry vServer (its objects counted one level below the device), so a CS vServer showed no lines to its LB vServers. Entry vServers now count as the first level together with the device; level 2 shows them with their first hop.
+### Added
+- Debug output: every object, line and bridge states whether it is drawn and, if not, why (folded object, object type filter, device/group filter, "only findings"/"only not connected", "contains" lines off, replaced by a bridge line); objects show whether they are folded.
+
 ## [0.2.3] - 2026-11-21
 ### Added
 - Debug mode: 🐞 button in the report header (switches to the topology); Shift, Ctrl or Cmd + click selects several objects and lines, "Copy debug info" then contains all of them (anonymized).

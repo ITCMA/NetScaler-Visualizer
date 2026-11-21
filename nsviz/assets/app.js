@@ -212,7 +212,7 @@ function computeVisible(elig) {
   cy.edges().forEach(e => { if (e.hasClass('virtual')) return; const s = e.data('source'), tg = e.data('target'); if (elig.has(s) && elig.has(tg)) { succ[s].push(tg); pred[tg]++; } });
   curBridges = computeBridges(elig); curBridges.forEach(b => { succ[b.s].push(b.t); pred[b.t]++; });
   roots = []; const mark = new Set(); depth = {};
-  const bfs = starts => { let q = starts.slice(); starts.forEach(s => { if (!(s in depth)) depth[s] = 0; mark.add(s); }); while (q.length) { const nq = []; q.forEach(u => succ[u].forEach(v => { if (!mark.has(v)) { mark.add(v); depth[v] = depth[u] + 1; nq.push(v); } })); q = nq; } };
+  const bfs = starts => { let q = starts.slice(); starts.forEach(s => { if (!(s in depth)) depth[s] = 0; mark.add(s); }); while (q.length) { const nq = []; q.forEach(u => succ[u].forEach(v => { if (!mark.has(v)) { mark.add(v); depth[v] = depth[u] + ((nodeById[u] || {}).kind === 'device' ? 0 : 1); nq.push(v); } })); q = nq; } };
   const r0 = [...elig].filter(id => pred[id] === 0); roots = r0.slice(); bfs(r0);
   elig.forEach(id => { if (!mark.has(id)) { roots.push(id); bfs([id]); } });
   const vis = new Set(roots); let q = roots.slice();
