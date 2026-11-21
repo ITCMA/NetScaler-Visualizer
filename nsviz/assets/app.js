@@ -651,6 +651,37 @@ function renderAll() {
 const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');
 ls.onchange = () => { lang = ls.value; store.set('lang', lang); renderAll(); };
 
+// ---- Info button: longer explanations in a popover instead of text under the controls --------------------
+// Opens on hover (mouse), on click/tap and with Enter/Space; Escape, a click outside or leaving with the mouse closes it.
+let infoSeq = 0;
+function infoBtn(html, label) {
+  const id = 'pop' + (++infoSeq);
+  return `<span class="ib"><button type="button" class="info" aria-expanded="false" aria-controls="${id}" aria-label="${esc(label || t('u_info'))}" title="${esc(label || t('u_info'))}">i</button><span class="pop" id="${id}" role="tooltip">${html}</span></span>`;
+}
+function infoClose(except) { $$('.ib.open').forEach(b => { if (b !== except) { b.classList.remove('open'); b.querySelector('.info').setAttribute('aria-expanded', 'false'); } }); }
+function infoOpen(ib, on) {
+  infoClose(on ? ib : null); ib.classList.toggle('open', on); ib.querySelector('.info').setAttribute('aria-expanded', String(on));
+  if (on) infoPlace(ib);
+}
+// fixed position next to the button, kept inside the window (dialogs and side panels clip absolute popovers)
+function infoPlace(ib) {
+  const p = ib.querySelector('.pop'), b = ib.querySelector('.info').getBoundingClientRect(), m = 8;
+  p.style.left = '0px'; p.style.top = '0px'; const w = p.offsetWidth, h = p.offsetHeight;
+  const left = Math.max(m, Math.min(innerWidth - w - m, b.left - 12));
+  const below = b.bottom + 8, top = below + h > innerHeight - m && b.top - 8 - h > m ? b.top - 8 - h : Math.max(m, Math.min(below, innerHeight - h - m));
+  p.style.left = left + 'px'; p.style.top = top + 'px'; p.style.maxHeight = (innerHeight - 2 * m) + 'px';
+}
+addEventListener('resize', () => { const ib = $('.ib.open'); if (ib) infoPlace(ib); });
+addEventListener('scroll', () => infoClose(), true);
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.info');
+  if (b) { e.preventDefault(); const ib = b.parentElement; infoOpen(ib, !ib.classList.contains('open') || ib.dataset.hover === '1'); ib.dataset.hover = ''; return; }
+  if (!(e.target.closest && e.target.closest('.pop'))) infoClose();
+});
+document.addEventListener('pointerover', e => { const ib = e.pointerType === 'mouse' && e.target.closest && e.target.closest('.ib'); if (ib && !ib.classList.contains('open')) { infoOpen(ib, true); ib.dataset.hover = '1'; } });
+document.addEventListener('pointerout', e => { const ib = e.pointerType === 'mouse' && e.target.closest && e.target.closest('.ib'); if (ib && ib.dataset.hover === '1' && !ib.contains(e.relatedTarget)) { infoOpen(ib, false); ib.dataset.hover = ''; } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('.ib.open')) { const b = $('.ib.open .info'); infoClose(); if (b) b.focus(); e.stopPropagation(); e.preventDefault(); } }, true);
+
 /*__EXPORT__*/
 /*__LINKS__*/
 /*__DEBUG__*/

@@ -298,5 +298,14 @@
  "ex_ncfg_hint": "Order as in the source config (add before bind). Certificate/key files, system and global settings are not included; references outside the export are listed as warnings at the top of the file.",
  "ncfg_done": "Config extract saved: {o} object(s), {n} statement(s), {w} warning(s)",
  "sc_multi": "add an object to the selection or remove it",
- "sc_box": "drag a frame on the background to select several objects"
+ "sc_box": "drag a frame on the background to select several objects",
+ "u_info": "More information",
+ "ms_more": "How to select several objects",
+ "ex_sel_multi": "Selected objects ({n})",
+ "ex_dep_only_t": "Only the selection",
+ "ex_dep_all_t": "Selection with everything it needs",
+ "ex_dep_cnt": "{o} object(s) · {n} statement(s) · {w} warning(s)",
+ "ex_cmp_intro": "Example: you select a CS vServer.",
+ "ex_cmp_only": "only its own statements (add cs vserver, its bindings and SSL settings). The LB vServers, policies, certificates etc. it points to are missing and are listed as warnings. Useful to compare or to change one object.",
+ "ex_cmp_all": "additionally everything the CS uses directly or through other objects: policies and actions, LB vServers, services, servers, monitors, certificates, profiles. This is what you need to rebuild it on another NetScaler."
 }

@@ -175,16 +175,21 @@ function openExport(fmt) {
   if (fmt === 'ncfg') { exp.fmt = 'ncfg'; if (selOk) exp.scope = 'sel'; }
   if (exp.scope === 'sel' && !selOk) exp.scope = 'view';
   const radio = (name, items, cur) => items.map(([v, label, dis]) => `<label class="opt${dis ? ' off' : ''}"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''} ${dis ? 'disabled' : ''}> ${esc(label)}</label>`).join('');
-  $('#ex-body').innerHTML = `<fieldset><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', t('ex_sel') + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
+  const selLabel = state.multi.length > 1 ? t('ex_sel_multi', { n: state.multi.length }) : t('ex_sel');
+  const card = (name, v, cur, title, fig) => `<label class="card-opt"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''}><span><b>${esc(title)}</b><span class="fig" id="fig-${name}-${v}">${esc(fig || '')}</span></span></label>`;
+  const cmp = `<p>${esc(t('ex_cmp_intro'))}</p><p><b>${esc(t('ex_dep_only_t'))}:</b> ${esc(t('ex_cmp_only'))}</p><p><b>${esc(t('ex_dep_all_t'))}:</b> ${esc(t('ex_cmp_all'))}</p><p>${esc(t('ex_ncfg_hint'))}</p>`;
+  $('#ex-body').innerHTML = `<fieldset><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', selLabel + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
     <fieldset><legend>${esc(t('ex_format'))}</legend>${radio('fmt', [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF (' + t('ex_pdf_hint') + ')'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')]], exp.fmt)}</fieldset>
-    <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}</legend>${radio('deps', [['1', t('ex_dep_all')], ['0', t('ex_dep_only')]], exp.deps ? '1' : '0')}<p class="muted small">${esc(t('ex_ncfg_hint'))}</p></fieldset>
-    <fieldset><legend>${esc(t('ex_data'))}</legend>${radio('anon', [['0', t('ex_orig')], ['1', t('ex_anon')]], '')}
-    <p class="muted small">${esc(t('ex_anon_hint'))}</p><p class="warn small" role="note">${esc(t('ex_warn'))}</p></fieldset>`;
-  $$('#ex-body input[name=scope]').forEach(i => i.onchange = () => exp.scope = i.value);
-  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => { exp.fmt = i.value; $('#ex-deps').hidden = exp.fmt !== 'ncfg'; });
+    <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}${infoBtn(cmp)}</legend><div class="cards">${card('deps', '0', exp.deps ? '1' : '0', t('ex_dep_only_t'))}${card('deps', '1', exp.deps ? '1' : '0', t('ex_dep_all_t'))}</div></fieldset>
+    <fieldset><legend>${esc(t('ex_data'))}${infoBtn(`<p>${esc(t('ex_anon_hint'))}</p><p>${esc(t('ex_warn'))}</p>`)}</legend>${radio('anon', [['0', t('ex_orig')], ['1', t('ex_anon')]], '')}
+    <p class="warn small" role="note" id="ex-warn" hidden>${esc(t('ex_warn'))}</p></fieldset>`;
+  const figs = () => { if (exp.fmt !== 'ncfg') return; [['0', false], ['1', true]].forEach(([v, d]) => { const r = buildNcfg(false, d); const el = $('#fig-deps-' + v); if (el) el.textContent = t('ex_dep_cnt', { o: r.objects, n: r.lines, w: r.warnings }); }); };
+  figs();
+  $$('#ex-body input[name=scope]').forEach(i => i.onchange = () => { exp.scope = i.value; figs(); });
+  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => { exp.fmt = i.value; $('#ex-deps').hidden = exp.fmt !== 'ncfg'; figs(); });
   $$('#ex-body input[name=deps]').forEach(i => i.onchange = () => exp.deps = i.value === '1');
   exp.anon = null; $('#ex-go').disabled = true;  // the data variant is chosen explicitly every time
-  $$('#ex-body input[name=anon]').forEach(i => i.onchange = () => { exp.anon = i.value === '1'; $('#ex-go').disabled = false; });
+  $$('#ex-body input[name=anon]').forEach(i => i.onchange = () => { exp.anon = i.value === '1'; $('#ex-go').disabled = false; $('#ex-warn').hidden = exp.anon; });
   dlgx.showModal ? dlgx.showModal() : dlgx.setAttribute('open', '');
 }
 $('#export').onclick = () => openExport(); $('#ex-go').onclick = runExport; $('#ex-x').onclick = () => dlgx.close();
@@ -232,7 +237,7 @@ function msLabel(id) {
 function renderMulti() {
   cy.elements().removeClass('dim onpath'); cy.$(':selected').unselect();
   const nodes = state.multi.filter(id => nodeById[id]);
-  $('#detail').innerHTML = `<h3>${esc(t('ms_count', { n: state.multi.length }))}</h3><p class="muted small">${esc(t('ms_hint'))}</p>
+  $('#detail').innerHTML = `<h3>${esc(t('ms_count', { n: state.multi.length }))}${infoBtn(esc(t('ms_hint')))}</h3>
     <ul class="mslist small">${state.multi.map(id => `<li><a href="#" data-ms="${esc(id)}">${esc(msLabel(id))}</a> <button class="icon sm" data-msx="${esc(id)}" aria-label="${esc(t('ms_remove'))}" title="${esc(t('ms_remove'))}">×</button></li>`).join('')}</ul>
     <div class="row wrap"><button id="ms-ncfg" ${nodes.length ? '' : 'disabled'}>${esc(t('ms_ncfg'))}</button><button id="ms-clear">${esc(t('dbg_clear'))}</button></div>` + (state.debug ? dbgMultiHtml(state.multi) : '');
   $$('#detail [data-ms]').forEach(a => a.onclick = e => { e.preventDefault(); const el = cy.getElementById(a.dataset.ms); if (el.length) cy.animate({ center: { eles: el } }, { duration: reduceMotion ? 0 : 250 }); });
@@ -246,7 +251,7 @@ const msRender0 = renderDetail;
 renderDetail = function (d) {
   msRender0(d);
   if (d && d.kind !== 'missing' && d.kind !== 'device' && (d.lines || []).length) {
-    $('#detail').insertAdjacentHTML('beforeend', `<div class="row wrap ms-one"><button id="ms-ncfg1">${esc(t('ms_ncfg'))}</button></div><p class="muted small">${esc(t('ms_hint'))}</p>`);
+    $('#detail').insertAdjacentHTML('beforeend', `<div class="row wrap ms-one"><button id="ms-ncfg1">${esc(t('ms_ncfg'))}</button>${infoBtn(esc(t('ms_hint')), t('ms_more'))}</div>`);
     $('#ms-ncfg1').onclick = () => openExport('ncfg');
   }
 };

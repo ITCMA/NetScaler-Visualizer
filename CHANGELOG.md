@@ -3,6 +3,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-11-21
+### Added
+- Info button (i) with a popover for longer explanations: opens on hover, click/tap and Enter/Space, closes with Escape, a click outside or when the mouse leaves; stays inside the window. Used in the export dialog and for the multi-selection.
+### Changed
+- Config export: the two variants are option cards with live figures (objects, statements, warnings) for the current selection; the info button compares both with an example (a CS vServer: only its own statements vs. everything it needs to be rebuilt).
+- Export dialog: notes on anonymization and on passing on original data moved into the info button; the warning about original data only appears when "original" is chosen.
+
 ## [0.2.6] - 2026-11-21
 ### Added
 - Multi-selection in the topology for everyone (not only in debug mode): Shift, Cmd or Option + click adds or removes an object, Ctrl + click too (a right click on macOS), Shift + drag on the background draws a selection frame. Selected objects are highlighted and listed in the side panel.

@@ -325,5 +325,14 @@
  "ex_ncfg_hint": "Reihenfolge wie in der Quell-Config (add vor bind). Zertifikats-/Schlüsseldateien, System- und globale Einstellungen sind nicht enthalten; Verweise auf Objekte außerhalb des Exports stehen als Warnung oben in der Datei.",
  "ncfg_done": "Config-Auszug gespeichert: {o} Objekt(e), {n} Befehl(e), {w} Warnung(en)",
  "sc_multi": "Objekt zur Auswahl hinzufügen oder entfernen",
- "sc_box": "auf dem Hintergrund einen Rahmen ziehen, um mehrere Objekte zu wählen"
+ "sc_box": "auf dem Hintergrund einen Rahmen ziehen, um mehrere Objekte zu wählen",
+ "u_info": "Weitere Informationen",
+ "ms_more": "So wählst du mehrere Objekte",
+ "ex_sel_multi": "Ausgewählte Objekte ({n})",
+ "ex_dep_only_t": "Nur die Auswahl",
+ "ex_dep_all_t": "Auswahl mit allem, was sie braucht",
+ "ex_dep_cnt": "{o} Objekt(e) · {n} Befehl(e) · {w} Warnung(en)",
+ "ex_cmp_intro": "Beispiel: Du wählst einen CS vServer.",
+ "ex_cmp_only": "nur seine eigenen Befehle (add cs vserver, seine Bindings und SSL-Einstellungen). Die LB vServer, Policies, Zertifikate usw., auf die er zeigt, fehlen und werden als Warnung aufgeführt. Gut zum Vergleichen oder um ein einzelnes Objekt anzupassen.",
+ "ex_cmp_all": "zusätzlich alles, was der CS direkt oder über andere Objekte nutzt: Policies und Actions, LB vServer, Services, Server, Monitore, Zertifikate, Profile. Das brauchst du, um ihn auf einem anderen NetScaler neu aufzubauen."
 }

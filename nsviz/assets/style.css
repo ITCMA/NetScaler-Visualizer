@@ -96,6 +96,21 @@ kbd{font:12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-b
 @media print{header,#side,#detail,.toolbar{display:none}.tab{position:static;display:block!important}}
 .legal{padding:6px 14px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);text-align:center}
 
+/* info button + popover (one pattern for all explanations) */
+.ib{position:relative;display:inline-flex;vertical-align:middle;margin-inline-start:6px}
+button.info{width:18px;height:18px;min-height:0;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel2,var(--panel));color:var(--muted);font:italic 600 11px/1 Georgia,serif;cursor:help;display:inline-grid;place-items:center}
+button.info:hover,.ib.open button.info{color:var(--accent);border-color:var(--accent)}
+.ib .pop{display:none;position:fixed;z-index:1000;overflow:auto;width:max-content;max-width:min(360px,calc(100vw - 16px));padding:10px 12px;border-radius:12px;background:var(--panel);color:var(--fg);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.18);font-size:12.5px;font-weight:400;line-height:1.45;letter-spacing:normal;text-transform:none;text-align:start;white-space:normal}
+.ib.open .pop{display:block;animation:fade .15s ease}
+.ib .pop b{font-weight:650}.ib .pop ul{margin:4px 0 0;padding-inline-start:18px}.ib .pop p{margin:0 0 6px}
+@media (prefers-contrast:more){.ib .pop{border:2px solid CanvasText}button.info{border-color:CanvasText;color:CanvasText}}
+/* option cards (choice with a short title and live figures) */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.card-opt{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:9px 11px;cursor:pointer}
+.card-opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.card-opt b{display:block;font-weight:600}.card-opt .fig{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.card-opt input{margin-top:3px}
+legend{display:flex;align-items:center}
 /* export dialog */
 #dlgx{max-width:560px;width:92vw}
 #dlgx fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:8px 12px}

@@ -267,5 +267,14 @@
  "ex_ncfg_hint": "Orden de la config original (add antes de bind). No incluye archivos de certificados/claves ni ajustes de sistema y globales; las referencias fuera de la exportación aparecen como avisos al principio del archivo.",
  "ncfg_done": "Extracto guardado: {o} objeto(s), {n} comando(s), {w} aviso(s)",
  "sc_multi": "añadir o quitar un objeto de la selección",
- "sc_box": "arrastrar un marco en el fondo para elegir varios objetos"
+ "sc_box": "arrastrar un marco en el fondo para elegir varios objetos",
+ "u_info": "Más información",
+ "ms_more": "Cómo seleccionar varios objetos",
+ "ex_sel_multi": "Objetos seleccionados ({n})",
+ "ex_dep_only_t": "Solo la selección",
+ "ex_dep_all_t": "Selección con todo lo que necesita",
+ "ex_dep_cnt": "{o} objetos · {n} comandos · {w} avisos",
+ "ex_cmp_intro": "Ejemplo: selecciona un vServer CS.",
+ "ex_cmp_only": "solo sus propios comandos (add cs vserver, sus vínculos y ajustes SSL). Faltan los vServers LB, políticas, certificados, etc. que usa; se indican como avisos.",
+ "ex_cmp_all": "además todo lo que el CS usa directamente o a través de otros objetos: políticas y acciones, vServers LB, servicios, servidores, monitores, certificados, perfiles. Es lo necesario para recrearlo en otro NetScaler."
 }
