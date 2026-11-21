@@ -36,27 +36,29 @@
 
   <section id="tab-topo" class="tab" role="tabpanel">
     <aside id="side" aria-label="Filters">
-      <div class="card"><label for="search" data-i18n="search">Search</label>
-        <div class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg><input id="search" type="search" autocomplete="off" data-i18n-ph="search_ph"></div>
-        <div class="row"><span id="hits" class="muted" aria-live="polite"></span><button id="hit-prev" class="icon sm" data-i18n-aria="prev" data-i18n-title="prev">◀</button><button id="hit-next" class="icon sm" data-i18n-aria="next" data-i18n-title="next">▶</button></div></div>
-      <div class="card"><label for="group" data-i18n="group">Group</label><select id="group"></select></div>
-      <div class="card"><label data-i18n="levels">Levels</label>
-        <div class="row wrap" id="levels"><button data-level="1">1</button><button data-level="2">2</button><button data-level="3">3</button><button data-level="4">4</button><button id="expand-all" data-i18n="lv_all">all</button></div>
-        <p class="muted small" data-i18n="lv_hint"></p></div>
-      <div class="card"><details open><summary data-i18n="kinds">Object types</summary><p class="muted small" data-i18n="kinds_hint"></p><div id="kinds"></div></details></div>
-      <div class="card"><label data-i18n="view">View</label>
-        <label for="layout-sel" class="small" data-i18n="lay">Layout</label><select id="layout-sel"><option value="tiers" data-i18n="lay_tiers"></option><option value="flow" data-i18n="lay_flow"></option><option value="down" data-i18n="lay_down"></option><option value="radial" data-i18n="lay_radial"></option></select>
-        <label class="chk"><input type="checkbox" id="only-findings"><span data-i18n="only_findings"></span></label>
-        <label class="chk"><input type="checkbox" id="only-unlinked"><span data-i18n="only_unlinked"></span></label>
-        <label class="chk"><input type="checkbox" id="contains"><span data-i18n="contains"></span></label>
-        <label class="chk"><input type="checkbox" id="edge-labels"><span data-i18n="edge_labels"></span></label>
-        <label class="chk"><input type="checkbox" id="focus" checked><span data-i18n="focus"></span></label>
-        <label class="chk"><input type="checkbox" id="debug-mode"><span data-i18n="dbg_mode"></span></label>
-        <label class="chk"><button id="connect" aria-pressed="false" data-i18n="connect">Connect</button></label>
-        <div class="row wrap"><button id="fit" data-i18n="fit">Fit</button><button id="relayout" data-i18n="relayout">Re-layout</button><button id="png">PNG</button></div>
-        <div class="row wrap"><button id="reset-graph" data-i18n="reset_graph">Reset graph</button><button id="reset-all" data-i18n="reset_all">Reset all settings</button></div></div>
-      <div class="card" id="unlinked"></div>
-      <div class="card legend" id="legend"></div>
+      <div class="sb-search">
+        <div class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg><input id="search" type="search" autocomplete="off" data-i18n-ph="search_ph" data-i18n-aria="search"><span id="hits" class="hits muted" aria-live="polite"></span></div>
+        <div class="hitnav"><button id="hit-prev" class="icon sm" data-i18n-aria="prev" data-i18n-title="prev">‹</button><button id="hit-next" class="icon sm" data-i18n-aria="next" data-i18n-title="next">›</button></div>
+      </div>
+      <section class="sb"><h5><label for="group" data-i18n="group">Group</label></h5><select id="group"></select></section>
+      <section class="sb"><h5><span data-i18n="levels">Levels</span><span class="ib"><button type="button" class="info" aria-expanded="false" aria-controls="pop-lv" data-i18n-aria="u_info" data-i18n-title="u_info">i</button><span class="pop" id="pop-lv" role="tooltip" data-i18n="lv_hint"></span></span></h5>
+        <div class="segc" id="levels" role="group" data-i18n-aria="levels"><button data-level="1">1</button><button data-level="2">2</button><button data-level="3">3</button><button data-level="4">4</button><button id="expand-all" data-i18n="lv_all">all</button></div></section>
+      <details class="sb" open><summary><span data-i18n="kinds">Object types</span><span class="ib"><button type="button" class="info" aria-expanded="false" aria-controls="pop-kinds" data-i18n-aria="u_info" data-i18n-title="u_info">i</button><span class="pop" id="pop-kinds" role="tooltip" data-i18n="kinds_hint"></span></span></summary><div id="kinds"></div></details>
+      <details class="sb" open><summary data-i18n="view">View</summary>
+        <div class="field"><label for="layout-sel" data-i18n="lay">Layout</label><select id="layout-sel"><option value="tiers" data-i18n="lay_tiers"></option><option value="flow" data-i18n="lay_flow"></option><option value="down" data-i18n="lay_down"></option><option value="radial" data-i18n="lay_radial"></option></select></div>
+        <label class="chk"><span data-i18n="only_findings"></span><input type="checkbox" role="switch" id="only-findings"></label>
+        <label class="chk"><span data-i18n="only_unlinked"></span><input type="checkbox" role="switch" id="only-unlinked"></label>
+        <label class="chk"><span data-i18n="contains"></span><input type="checkbox" role="switch" id="contains"></label>
+        <label class="chk"><span data-i18n="edge_labels"></span><input type="checkbox" role="switch" id="edge-labels"></label>
+        <label class="chk"><span data-i18n="focus"></span><input type="checkbox" role="switch" id="focus" checked></label>
+        <label class="chk"><span data-i18n="dbg_mode"></span><input type="checkbox" role="switch" id="debug-mode"></label>
+      </details>
+      <details class="sb" open><summary data-i18n="u_tools">Tools</summary>
+        <div class="tgrid"><button id="fit" data-i18n="fit">Fit</button><button id="relayout" data-i18n="relayout">Re-layout</button><button id="connect" aria-pressed="false" data-i18n="connect">Connect</button><button id="png">PNG</button></div>
+        <div class="tgrid"><button id="reset-graph" data-i18n="reset_graph">Reset graph</button><button id="reset-all" data-i18n="reset_all">Reset all settings</button></div>
+      </details>
+      <div class="sb sbx" id="unlinked"></div>
+      <div class="sb sbx legend" id="legend"></div>
     </aside>
     <div id="cywrap"><div id="lanes" aria-hidden="true"></div><div id="cy" tabindex="0" role="application"></div><canvas id="mini" width="360" height="240" role="img"></canvas><div id="minihint" class="hint" aria-hidden="true"></div></div>
     <aside id="detail" aria-live="polite" aria-label="Details"></aside>

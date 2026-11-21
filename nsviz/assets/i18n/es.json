@@ -276,5 +276,6 @@
  "ex_dep_cnt": "{o} objetos · {n} comandos · {w} avisos",
  "ex_cmp_intro": "Ejemplo: selecciona un vServer CS.",
  "ex_cmp_only": "solo sus propios comandos (add cs vserver, sus vínculos y ajustes SSL). Faltan los vServers LB, políticas, certificados, etc. que usa; se indican como avisos.",
- "ex_cmp_all": "además todo lo que el CS usa directamente o a través de otros objetos: políticas y acciones, vServers LB, servicios, servidores, monitores, certificados, perfiles. Es lo necesario para recrearlo en otro NetScaler."
+ "ex_cmp_all": "además todo lo que el CS usa directamente o a través de otros objetos: políticas y acciones, vServers LB, servicios, servidores, monitores, certificados, perfiles. Es lo necesario para recrearlo en otro NetScaler.",
+ "u_tools": "Herramientas"
 }

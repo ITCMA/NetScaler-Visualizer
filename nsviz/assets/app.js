@@ -374,7 +374,7 @@ if (mini) {
   let down = false; mini.addEventListener('pointerdown', e => { down = true; mini.setPointerCapture(e.pointerId); jump(e); });
   mini.addEventListener('pointermove', e => { if (down) jump(e); }); mini.addEventListener('pointerup', () => down = false);
 }
-function initialLayout() { refresh(false); if (cy.nodes().length > 120) setLevel(2); else layout(); }
+function initialLayout() { refresh(false); if (cy.nodes().length > 120) { setLevel(2); markLv(2); } else { layout(); markLv('all'); } }
 function setLevel(n) { state.collapsed = new Set(); computeVisible(eligible()); Object.keys(depth).forEach(id => { if (depth[id] >= n - 1 && (succ[id] || []).length) state.collapsed.add(id); }); refresh(true); }
 function toggleCollapse(id) { if (!(succ[id] || []).length) return; state.collapsed.has(id) ? state.collapsed.delete(id) : state.collapsed.add(id); refresh(true); }
 cy.on('dbltap', 'node', ev => toggleCollapse(ev.target.id()));
@@ -422,8 +422,9 @@ $('#cy').addEventListener('keydown', e => {
 });
 
 // ---- Seitenleiste -----------------------------------------------------------------------------
-$$('[data-level]').forEach(b => b.onclick = () => setLevel(+b.dataset.level));
-$('#expand-all').onclick = () => { state.collapsed = new Set(); refresh(true); };
+function markLv(n) { $$('#levels button').forEach(x => x.classList.toggle('on', n === 'all' ? x.id === 'expand-all' : x.dataset.level === String(n))); }
+$$('[data-level]').forEach(b => b.onclick = () => { setLevel(+b.dataset.level); markLv(+b.dataset.level); });
+$('#expand-all').onclick = () => { state.collapsed = new Set(); refresh(true); markLv('all'); };
 $('#fit').onclick = () => cy.fit(cy.elements(':visible'), 30);
 $('#relayout').onclick = () => layout(true);
 function resetGraph() {
@@ -455,7 +456,7 @@ function renderKinds() {
   const dark = resolved() === 'dark';
   Object.keys(kindsPresent).sort((a, b) => tierOf(a) - tierOf(b) || kindLabel(a).localeCompare(kindLabel(b), lang)).forEach(k => {
     const on = state.kinds.has(k), c = kindStroke(k, dark), l = document.createElement('label'); l.className = 'chk kind' + (on ? '' : ' off');
-    l.innerHTML = `<input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}><span class="ico" style="border-color:${c};background:${kindFill(k, dark)}">${iconSvg(k, 16, c)}</span><span class="nm">${esc(kindLabel(k))}</span><span class="muted cnt">${kindsPresent[k]}</span>`;
+    l.innerHTML = `<span class="ico" style="border-color:${c};background:${kindFill(k, dark)}">${iconSvg(k, 16, c)}</span><span class="nm">${esc(kindLabel(k))}</span><span class="muted cnt">${kindsPresent[k]}</span><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}>`;
     l.querySelector('input').onchange = e => { e.target.checked ? state.kinds.add(k) : state.kinds.delete(k); refresh(true); };
     box.appendChild(l);
   });

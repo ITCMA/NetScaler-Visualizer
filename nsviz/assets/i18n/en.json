@@ -307,5 +307,6 @@
  "ex_dep_cnt": "{o} object(s) · {n} statement(s) · {w} warning(s)",
  "ex_cmp_intro": "Example: you select a CS vServer.",
  "ex_cmp_only": "only its own statements (add cs vserver, its bindings and SSL settings). The LB vServers, policies, certificates etc. it points to are missing and are listed as warnings. Useful to compare or to change one object.",
- "ex_cmp_all": "additionally everything the CS uses directly or through other objects: policies and actions, LB vServers, services, servers, monitors, certificates, profiles. This is what you need to rebuild it on another NetScaler."
+ "ex_cmp_all": "additionally everything the CS uses directly or through other objects: policies and actions, LB vServers, services, servers, monitors, certificates, profiles. This is what you need to rebuild it on another NetScaler.",
+ "u_tools": "Tools"
 }
