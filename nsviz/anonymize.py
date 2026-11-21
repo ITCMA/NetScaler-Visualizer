@@ -23,7 +23,7 @@ from collections import Counter
 from pathlib import Path
 
 from .model import BUILTIN_CERTS, BUILTIN_MONITORS, KEYWORD_NAMES, SECRET_OPTS, Graph, is_ip
-from .parser import Config, FAMILIES, ONE_WORD, Token, is_option, tokenize
+from .parser import Config, FAMILIES, ONE_WORD, Token, is_option, quote, tokenize
 
 # ---- categories ---------------------------------------------------------------------------------
 OPTIONS = {  # key: (English label, German label). "secrets" cannot be switched off; see DEFAULT_OPTIONS for the preselection.
@@ -618,7 +618,7 @@ class Anonymizer:
     def _quote(s: str, was_quoted: bool) -> str:
         if not was_quoted and s and not re.search(r"\s|\"", s):
             return s
-        return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+        return quote(s)
 
     def text(self, raw: str) -> str:
         out = []

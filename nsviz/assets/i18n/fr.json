@@ -255,5 +255,17 @@
  "dbg_multi": "Sélection de débogage : {n} élément(s)",
  "dbg_add": "Maj, Ctrl ou Cmd + clic ajoute d'autres objets ou lignes ; un clic normal commence une nouvelle sélection.",
  "dbg_clear": "Vider la sélection",
- "dbg_on": "Mode débogage actif : cliquez sur des objets ou lignes, Maj/Ctrl/Cmd + clic pour en choisir plusieurs"
+ "dbg_on": "Mode débogage actif : cliquez sur des objets ou lignes, Maj/Ctrl/Cmd + clic pour en choisir plusieurs",
+ "ms_count": "{n} élément(s) sélectionné(s)",
+ "ms_hint": "Plusieurs à la fois : maintenez Maj, Cmd ou Option et cliquez, ou maintenez Maj et tracez un cadre sur le fond.",
+ "ms_ncfg": "Exporter en config NetScaler",
+ "ms_remove": "Retirer de la sélection",
+ "ex_ncfg": "Config NetScaler (fichier batch des objets choisis)",
+ "ex_depth": "Contenu de la config",
+ "ex_dep_all": "Objets choisis avec tout ce qu'ils utilisent (directement ou indirectement)",
+ "ex_dep_only": "Seulement les objets choisis",
+ "ex_ncfg_hint": "Ordre de la config source (add avant bind). Fichiers de certificats/clés, paramètres système et globaux non inclus ; les références hors export sont listées en avertissement en tête du fichier.",
+ "ncfg_done": "Extrait enregistré : {o} objet(s), {n} commande(s), {w} avertissement(s)",
+ "sc_multi": "ajouter ou retirer un objet de la sélection",
+ "sc_box": "tracer un cadre sur le fond pour choisir plusieurs objets"
 }

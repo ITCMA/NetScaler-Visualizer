@@ -225,6 +225,34 @@ class AnonymizeTests(unittest.TestCase):
             self.assertFalse(g.missing)  # references still resolve
 
 
+class ConfigLineTests(unittest.TestCase):
+    """Config lines in the report are exact (usable for the config export) and carry the statements they need."""
+    SRC = (
+        'add lb vserver lb1 HTTP 0.0.0.0 0\n'
+        'add policy patset ps_hosts\n'
+        'bind policy patset ps_hosts "a.example.com" -index 1\n'
+        'add cs action act1 -targetLBVserver lb1\n'
+        'add cs policy pol1 -rule "HTTP.REQ.HOSTNAME.CONTAINS_ANY(\\"ps_hosts\\")" -action act1\n'
+        'add responder action ra1 respondwith "\\"HTTP/1.1 503 x\\r\\n\\r\\n\\""\n'
+        'add system user admin2 secretpw -timeout 900\n'
+    )
+
+    def test_lines(self):
+        g = Graph(Config.parse_text(self.SRC), "g1")
+        by = {(n.etype, n.name): n for n in g.nodes.values()}
+        pol = [l["text"] for l in by[("cs policy", "pol1")].lines]
+        self.assertIn('add cs policy pol1 -rule "HTTP.REQ.HOSTNAME.CONTAINS_ANY(\\"ps_hosts\\")" -action act1', pol)  # escapes kept
+        self.assertIn("add cs action act1 -targetLBVserver lb1", pol)          # the action belongs to the policy
+        self.assertIn("add policy patset ps_hosts", pol)                       # objects named in the expression
+        self.assertTrue(any(x.startswith("bind policy patset ps_hosts") for x in pol))
+        ra = [n for n in g.nodes.values() if n.name == "ra1"]
+        if ra:
+            self.assertIn("\\r\\n", ra[0].lines[0]["text"])
+        users = [n for n in g.nodes.values() if n.name == "admin2"]
+        if users and users[0].lines:
+            self.assertNotIn("secretpw", users[0].lines[0]["text"])
+
+
 class DebugAnonTests(unittest.TestCase):
     def test_debug_data_has_no_originals(self):
         p = Project.load([str(DEMO)])

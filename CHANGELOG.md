@@ -3,6 +3,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-11-21
+### Added
+- Multi-selection in the topology for everyone (not only in debug mode): Shift, Cmd or Option + click adds or removes an object, Ctrl + click too (a right click on macOS), Shift + drag on the background draws a selection frame. Selected objects are highlighted and listed in the side panel.
+- Export as NetScaler config: the chosen objects (or the current view / everything) as a batch file, optionally with everything they use directly or indirectly; statements in the order of the source config (add before set/bind), `-devno` removed, header with what is not included (certificate/key files, system/HA/global settings), masked or encrypted secrets, and warnings for references outside the export. Available in the export dialog, in the details of an object and for a multi-selection; original or anonymized.
+### Fixed
+- Config lines in the report are now exact: quotes and escapes (`\"`, `\r\n`) stay as in ns.conf (before, lines with quoted expressions lost their escapes); only lines with secrets are rebuilt. Objects list up to 1000 statements (was 60).
+- An object's config lines include what is needed to recreate it: the CS action of a CS policy and pattern sets, data sets, string maps, callouts, named expressions and variables used in its expressions.
+
 ## [0.2.5] - 2026-11-21
 ### Changed
 - Topology: smooth zoom towards the pointer. Mouse wheel and two-finger scroll glide to the new zoom level (eased, faster than before); a trackpad pinch follows the fingers directly; a quick drag of the background keeps moving and slows down. Reduced-motion settings switch easing and inertia off.

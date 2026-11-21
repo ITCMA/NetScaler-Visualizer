@@ -2,7 +2,7 @@
 // Offline export of the report data: images (PNG/SVG), PDF (print view), CSV, JSON, Markdown.
 // Scopes: all = full model, view = what is visible/filtered now, sel = selected object with neighbourhood.
 // Optional pseudonymization of names, IPs, hosts and e-mails (config lines and free text are dropped).
-const exp = { scope: 'view', fmt: 'png', anon: null };  // anon is asked on every export (no silent default)
+const exp = { scope: 'view', fmt: 'png', anon: null, deps: true };  // anon is asked on every export (no silent default)
 
 function pseudonymizer(on) {
   if (!on) return { s: x => String(x == null ? '' : x), on: false };
@@ -160,24 +160,146 @@ function runExport() {
     }
     else if (exp.fmt === 'json') download(n + '-model.json', new Blob([buildJson(P)], { type: 'application/json' }));
     else if (exp.fmt === 'md') download(n + '-summary.md', new Blob([buildMarkdown(P)], { type: 'text/markdown' }));
+    else if (exp.fmt === 'ncfg') {
+      const r = buildNcfg(exp.anon, exp.deps); if (!r.lines) return toast(t('ex_empty'));
+      download(n + (exp.anon ? '-anonymized' : '') + '-extract.conf', new Blob([r.text], { type: 'text/plain' }));
+      dlgx.close(); return toast(t('ncfg_done', { o: r.objects, n: r.lines, w: r.warnings }));
+    }
     toast(t('ex_done'));
   } catch (err) { toast(String(err.message || err)); }
 }
 
 const dlgx = $('#dlgx');
-function openExport() {
-  const selOk = !!state.selected;
+function openExport(fmt) {
+  const selOk = !!state.selected || state.multi.length > 0;
+  if (fmt === 'ncfg') { exp.fmt = 'ncfg'; if (selOk) exp.scope = 'sel'; }
   if (exp.scope === 'sel' && !selOk) exp.scope = 'view';
   const radio = (name, items, cur) => items.map(([v, label, dis]) => `<label class="opt${dis ? ' off' : ''}"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''} ${dis ? 'disabled' : ''}> ${esc(label)}</label>`).join('');
   $('#ex-body').innerHTML = `<fieldset><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', t('ex_sel') + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
-    <fieldset><legend>${esc(t('ex_format'))}</legend>${radio('fmt', [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF (' + t('ex_pdf_hint') + ')'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown']], exp.fmt)}</fieldset>
+    <fieldset><legend>${esc(t('ex_format'))}</legend>${radio('fmt', [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF (' + t('ex_pdf_hint') + ')'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')]], exp.fmt)}</fieldset>
+    <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}</legend>${radio('deps', [['1', t('ex_dep_all')], ['0', t('ex_dep_only')]], exp.deps ? '1' : '0')}<p class="muted small">${esc(t('ex_ncfg_hint'))}</p></fieldset>
     <fieldset><legend>${esc(t('ex_data'))}</legend>${radio('anon', [['0', t('ex_orig')], ['1', t('ex_anon')]], '')}
     <p class="muted small">${esc(t('ex_anon_hint'))}</p><p class="warn small" role="note">${esc(t('ex_warn'))}</p></fieldset>`;
   $$('#ex-body input[name=scope]').forEach(i => i.onchange = () => exp.scope = i.value);
-  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => exp.fmt = i.value);
+  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => { exp.fmt = i.value; $('#ex-deps').hidden = exp.fmt !== 'ncfg'; });
+  $$('#ex-body input[name=deps]').forEach(i => i.onchange = () => exp.deps = i.value === '1');
   exp.anon = null; $('#ex-go').disabled = true;  // the data variant is chosen explicitly every time
   $$('#ex-body input[name=anon]').forEach(i => i.onchange = () => { exp.anon = i.value === '1'; $('#ex-go').disabled = false; });
   dlgx.showModal ? dlgx.showModal() : dlgx.setAttribute('open', '');
 }
-$('#export').onclick = openExport; $('#ex-go').onclick = runExport; $('#ex-x').onclick = () => dlgx.close();
+$('#export').onclick = () => openExport(); $('#ex-go').onclick = runExport; $('#ex-x').onclick = () => dlgx.close();
 dlgx.addEventListener('click', e => { if (e.target === dlgx) dlgx.close(); });
+// ---- Multi-selection ------------------------------------------------------------------------------
+// Shift, Cmd or Option + click adds or removes an object (Ctrl + click too: on macOS it arrives as a right click);
+// Shift + drag on the background draws a frame. A normal click starts a new selection. Used by the debug output and the
+// NetScaler config export.
+state.multi = [];
+cy.style().selector('.msel').style({ 'overlay-color': '#6366f1', 'overlay-opacity': 0.3, 'overlay-padding': 7 }).update();
+function msAdd(oe) { return !!(oe && (oe.shiftKey || oe.metaKey || oe.altKey || oe.ctrlKey)); }
+function msMarks() { cy.elements('.msel').removeClass('msel'); if (state.multi.length > 1) state.multi.forEach(id => cy.getElementById(id).addClass('msel')); }
+const msSelect0 = select; select = function (id, center) { state.multi = [id]; msMarks(); return msSelect0(id, center); };
+const msClear0 = clearSelection; clearSelection = function () { state.multi = []; msMarks(); return msClear0(); };
+function msShow() {
+  msMarks();
+  if (state.multi.length > 1) renderMulti();
+  else if (state.multi.length === 1 && cy.getElementById(state.multi[0]).isNode()) msSelect0(state.multi[0]);
+  else if (state.multi.length === 1 && state.debug) { cy.$(':selected').unselect(); state.selected = null; dbgShowEdge(cy.getElementById(state.multi[0])); }
+  else clearSelection();
+}
+function msToggle(id) {
+  if (!state.multi.length && state.selected) state.multi = [state.selected];
+  const i = state.multi.indexOf(id); i >= 0 ? state.multi.splice(i, 1) : state.multi.push(id);
+  msShow(); announce(t('ms_count', { n: state.multi.length }));
+}
+cy.on('tap', 'node, edge', ev => {
+  const id = ev.target.id(), edge = ev.target.isEdge();
+  if (msAdd(ev.originalEvent)) { if (!edge || state.debug) msToggle(id); return; }
+  if (edge && state.debug) { state.multi = [id]; msShow(); }
+});
+cy.on('cxttap', 'node, edge', ev => { const oe = ev.originalEvent; if (oe && oe.ctrlKey && (ev.target.isNode() || state.debug)) msToggle(ev.target.id()); });
+let msBoxRaf = 0;
+cy.on('boxselect', 'node', ev => {
+  const id = ev.target.id();
+  if (!state.multi.length && state.selected) state.multi = [state.selected];
+  if (!state.multi.includes(id)) state.multi.push(id);
+  if (!msBoxRaf) msBoxRaf = requestAnimationFrame(() => { msBoxRaf = 0; msShow(); announce(t('ms_count', { n: state.multi.length })); });
+});
+function msLabel(id) {
+  const el = cy.getElementById(id);
+  if (el.length && el.isEdge()) return `${(nodeById[el.data('source')] || {}).label || '?'} → ${(nodeById[el.data('target')] || {}).label || '?'}`;
+  const n = nodeById[id]; return n ? `${n.label} · ${kindLabel(n.kind)}` : id;
+}
+function renderMulti() {
+  cy.elements().removeClass('dim onpath'); cy.$(':selected').unselect();
+  const nodes = state.multi.filter(id => nodeById[id]);
+  $('#detail').innerHTML = `<h3>${esc(t('ms_count', { n: state.multi.length }))}</h3><p class="muted small">${esc(t('ms_hint'))}</p>
+    <ul class="mslist small">${state.multi.map(id => `<li><a href="#" data-ms="${esc(id)}">${esc(msLabel(id))}</a> <button class="icon sm" data-msx="${esc(id)}" aria-label="${esc(t('ms_remove'))}" title="${esc(t('ms_remove'))}">×</button></li>`).join('')}</ul>
+    <div class="row wrap"><button id="ms-ncfg" ${nodes.length ? '' : 'disabled'}>${esc(t('ms_ncfg'))}</button><button id="ms-clear">${esc(t('dbg_clear'))}</button></div>` + (state.debug ? dbgMultiHtml(state.multi) : '');
+  $$('#detail [data-ms]').forEach(a => a.onclick = e => { e.preventDefault(); const el = cy.getElementById(a.dataset.ms); if (el.length) cy.animate({ center: { eles: el } }, { duration: reduceMotion ? 0 : 250 }); });
+  $$('#detail [data-msx]').forEach(b => b.onclick = () => msToggle(b.dataset.msx));
+  $('#ms-ncfg').onclick = () => openExport('ncfg');
+  $('#ms-clear').onclick = () => clearSelection();
+  if (state.debug) dbgWire();
+}
+// single object: offer the config export below the details as well
+const msRender0 = renderDetail;
+renderDetail = function (d) {
+  msRender0(d);
+  if (d && d.kind !== 'missing' && d.kind !== 'device' && (d.lines || []).length) {
+    $('#detail').insertAdjacentHTML('beforeend', `<div class="row wrap ms-one"><button id="ms-ncfg1">${esc(t('ms_ncfg'))}</button></div><p class="muted small">${esc(t('ms_hint'))}</p>`);
+    $('#ms-ncfg1').onclick = () => openExport('ncfg');
+  }
+};
+
+// ---- NetScaler config export (batch file) ----------------------------------------------------------------
+// Statements of the chosen objects, optionally with everything they use (directly or indirectly), in the order of the
+// source config (ns.conf is saved add-before-bind, so that order also works as a batch). -devno is removed (appliance
+// internal). Lines are taken from one source file per object (HA partners hold the same lines).
+const NCFG_SKIP = new Set(['contains', 'doublehop']);
+function ncfgStart() {
+  if (exp.scope === 'sel') { const ids = state.multi.length ? state.multi : (state.selected ? [state.selected] : []); return ids.filter(id => nodeById[id]); }
+  return sc().map(n => n.id());
+}
+function buildNcfg(anon, deps) {
+  const start = ncfgStart(), inc = new Set(start), out = {};
+  D.edges.forEach(e => { if (NCFG_SKIP.has(e.type)) return; const a = nodeById[e.source], b = nodeById[e.target]; if (!a || !b || a.group !== b.group || b.kind === 'device') return; (out[e.source] = out[e.source] || []).push(e.target); });
+  if (deps) { const q = [...inc]; while (q.length) { const u = q.pop(); (out[u] || []).forEach(v => { if (!inc.has(v)) { inc.add(v); q.push(v); } }); } }
+  const lab = n => (anon ? ((n.anon || {}).label || '?') : n.label) + ' (' + n.etype + ')';
+  const files = {}, warn = [], seen = new Set(), rows = [];
+  let masked = false, enc = false, certs = false;
+  const fileName = f => { if (!anon) return f; if (!(f in files)) files[f] = 'device-' + (Object.keys(files).length + 1); return files[f]; };
+  inc.forEach(id => {
+    const nd = nodeById[id];
+    if (nd.kind === 'missing') { warn.push('referenced but not defined in the source config: ' + lab(nd)); return; }
+    const f0 = ((nd.lines || [])[0] || {}).file;
+    (nd.lines || []).forEach((l, i) => {
+      if (l.file !== f0) return;
+      const k = l.file + ':' + l.line; if (seen.has(k)) return; seen.add(k);
+      let txt = anon ? ((nd.anon || {}).lines || [])[i] : l.text; if (!txt) return;
+      txt = txt.replace(/\s+-devno\s+\d+/g, '');
+      if (/\*\*\*/.test(txt)) masked = true;
+      if (/\s-encrypted\b|\s-kek\b/.test(txt)) enc = true;
+      if (/^add ssl certkey\b/i.test(txt)) certs = true;
+      rows.push({ g: nd.group, f: l.file, line: l.line, txt });
+    });
+    if ((nd.lines || []).length >= 1000) warn.push('very many statements, the list may be incomplete: ' + lab(nd));
+  });
+  inc.forEach(id => (out[id] || []).forEach(v => { if (!inc.has(v)) warn.push(lab(nodeById[id]) + ' uses ' + lab(nodeById[v]) + ', which is not part of this export'); }));
+  rows.sort((a, b) => a.g.localeCompare(b.g) || a.f.localeCompare(b.f) || a.line - b.line);
+  const W = [...new Set(warn)];
+  const L = [`# NetScaler config extract - ${D.meta.generator} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    `# ${start.length} object(s) chosen, ${inc.size} exported (${deps ? 'with all direct and indirect dependencies' : 'only the chosen objects'}), ${rows.length} statement(s)${anon ? ', anonymized' : ''}`,
+    '# Order as in the source config (add before set/bind). Import on the target appliance, for example:',
+    '#   batch -fileName /var/tmp/<this file> -outfile /var/tmp/<this file>.log',
+    '# Not included: certificate and key files (copy them to /nsconfig/ssl/ first), NSIP/SNIP/VLAN/routes and features',
+    '#   unless chosen, system, HA and global settings, global policy bindings. -devno values were removed.'];
+  if (masked) L.push('# Masked secrets (***) must be replaced before the import.');
+  if (enc) L.push('# Encrypted values (-encrypted, -kek) only work on the source appliance: enter these passwords again.');
+  if (certs) L.push('# Certificates: the referenced files must exist on the target before the add ssl certKey lines run.');
+  if (anon) L.push('# Anonymized: names, addresses and hosts are pseudonyms; this file is for review, not for a real import.');
+  W.forEach(w => L.push('# WARNING: ' + w));
+  L.push('# Review the file and test it on a non-production appliance first.');
+  let cur = '';
+  rows.forEach(r => { const k = r.g + '|' + r.f; if (k !== cur) { cur = k; L.push('', '# --- source: ' + fileName(r.f)); } L.push(r.txt); });
+  return { text: L.join('\n') + '\n', lines: rows.length, warnings: W.length, objects: inc.size };
+}

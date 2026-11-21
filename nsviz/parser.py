@@ -72,7 +72,8 @@ def tokenize(line: str) -> list[Token]:
             while i < n:
                 c = line[i]
                 if c == "\\" and i + 1 < n:
-                    buf.append(line[i + 1])
+                    # \" and \\ stand for the character itself; other escapes (\r, \n, \t) stay as written
+                    buf.append(line[i + 1] if line[i + 1] in '"\\' else line[i:i + 2])
                     i += 2
                 elif c == '"':
                     i += 1
@@ -349,3 +350,16 @@ class Config:
         p = Path(path)
         text = p.read_text(encoding="utf-8", errors="replace")
         return cls.parse_text(text, name=p.name, path=str(p))
+
+
+def quote(text: str) -> str:
+    """Quote a token value for a config line (inverse of tokenize for quoted values)."""
+    out = []
+    for i, ch in enumerate(text):
+        if ch == '"':
+            out.append('\\"')
+        elif ch == "\\" and (i + 1 == len(text) or text[i + 1] in '"\\'):
+            out.append("\\\\")
+        else:
+            out.append(ch)
+    return '"' + "".join(out) + '"'

@@ -255,5 +255,17 @@
  "dbg_multi": "调试选择：{n} 个元素",
  "dbg_add": "Shift、Ctrl 或 Cmd + 单击可添加更多对象或连线；普通单击开始新的选择。",
  "dbg_clear": "清除选择",
- "dbg_on": "调试模式已开启：单击对象或连线，Shift/Ctrl/Cmd + 单击可多选"
+ "dbg_on": "调试模式已开启：单击对象或连线，Shift/Ctrl/Cmd + 单击可多选",
+ "ms_count": "已选择 {n} 个元素",
+ "ms_hint": "多选：按住 Shift、Cmd 或 Option 单击，或按住 Shift 在背景上拖出选框。",
+ "ms_ncfg": "导出为 NetScaler 配置",
+ "ms_remove": "从选择中移除",
+ "ex_ncfg": "NetScaler 配置（所选对象的批处理文件）",
+ "ex_depth": "配置内容",
+ "ex_dep_all": "所选对象及其直接或间接使用的全部内容",
+ "ex_dep_only": "仅所选对象",
+ "ex_ncfg_hint": "顺序与源配置相同（先 add 后 bind）。不包含证书/密钥文件、系统和全局设置；指向导出范围之外的引用会作为警告列在文件开头。",
+ "ncfg_done": "已保存配置摘录：{o} 个对象，{n} 条命令，{w} 条警告",
+ "sc_multi": "将对象加入或移出选择",
+ "sc_box": "在背景上拖出选框以选择多个对象"
 }

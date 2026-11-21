@@ -313,5 +313,17 @@
  "dbg_multi": "Debug-Auswahl: {n} Element(e)",
  "dbg_add": "Umschalt-, Strg- oder Cmd-Klick fügt weitere Objekte oder Linien hinzu; ein normaler Klick beginnt eine neue Auswahl.",
  "dbg_clear": "Auswahl leeren",
- "dbg_on": "Debug-Modus an: Objekte oder Linien anklicken, mit Umschalt/Strg/Cmd + Klick mehrere wählen"
+ "dbg_on": "Debug-Modus an: Objekte oder Linien anklicken, mit Umschalt/Strg/Cmd + Klick mehrere wählen",
+ "ms_count": "{n} Element(e) ausgewählt",
+ "ms_hint": "Mehrere auf einmal: Umschalt-, Cmd- oder Wahltaste halten und klicken, oder Umschalttaste halten und auf dem Hintergrund einen Rahmen ziehen.",
+ "ms_ncfg": "Als NetScaler-Config exportieren",
+ "ms_remove": "Aus der Auswahl entfernen",
+ "ex_ncfg": "NetScaler-Config (Batch-Datei der gewählten Objekte)",
+ "ex_depth": "Inhalt der Config",
+ "ex_dep_all": "Gewählte Objekte mit allem, was sie nutzen (direkt oder indirekt)",
+ "ex_dep_only": "Nur die gewählten Objekte",
+ "ex_ncfg_hint": "Reihenfolge wie in der Quell-Config (add vor bind). Zertifikats-/Schlüsseldateien, System- und globale Einstellungen sind nicht enthalten; Verweise auf Objekte außerhalb des Exports stehen als Warnung oben in der Datei.",
+ "ncfg_done": "Config-Auszug gespeichert: {o} Objekt(e), {n} Befehl(e), {w} Warnung(en)",
+ "sc_multi": "Objekt zur Auswahl hinzufügen oder entfernen",
+ "sc_box": "auf dem Hintergrund einen Rahmen ziehen, um mehrere Objekte zu wählen"
 }

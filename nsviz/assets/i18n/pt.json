@@ -255,5 +255,17 @@
  "dbg_multi": "Seleção de depuração: {n} elemento(s)",
  "dbg_add": "Shift, Ctrl ou Cmd + clique adiciona mais objetos ou linhas; um clique normal inicia uma nova seleção.",
  "dbg_clear": "Limpar seleção",
- "dbg_on": "Modo de depuração ativo: clique em objetos ou linhas, Shift/Ctrl/Cmd + clique para escolher vários"
+ "dbg_on": "Modo de depuração ativo: clique em objetos ou linhas, Shift/Ctrl/Cmd + clique para escolher vários",
+ "ms_count": "{n} elemento(s) selecionado(s)",
+ "ms_hint": "Vários de uma vez: segure Shift, Cmd ou Option e clique, ou segure Shift e arraste um quadro no fundo.",
+ "ms_ncfg": "Exportar como config NetScaler",
+ "ms_remove": "Remover da seleção",
+ "ex_ncfg": "Config NetScaler (arquivo batch dos objetos escolhidos)",
+ "ex_depth": "Conteúdo da config",
+ "ex_dep_all": "Objetos escolhidos com tudo o que usam (direta ou indiretamente)",
+ "ex_dep_only": "Somente os objetos escolhidos",
+ "ex_ncfg_hint": "Ordem da config de origem (add antes de bind). Arquivos de certificado/chave e configurações de sistema e globais não estão incluídos; referências fora da exportação aparecem como avisos no início do arquivo.",
+ "ncfg_done": "Extrato salvo: {o} objeto(s), {n} comando(s), {w} aviso(s)",
+ "sc_multi": "adicionar ou remover um objeto da seleção",
+ "sc_box": "arrastar um quadro no fundo para escolher vários objetos"
 }

@@ -11,7 +11,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 
-from .parser import Binding, Config, Entity, Statement, is_option
+from .parser import quote, Binding, Config, Entity, Statement, is_option
 
 VSERVER_TYPES = ["lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"]
 
@@ -123,11 +123,14 @@ def redact(st: Statement | Binding, enabled: bool = True) -> str:
     if isinstance(st, Binding):
         return st.raw
     toks = st.tokens
+    secret_opt = any(is_option(t) and t.text[1:].lower() in SECRET_OPTS for t in toks)
+    if not secret_opt and not (st.etype == "system user" and st.verb in ("add", "set") and len(st.args) > 1):
+        return st.raw  # nothing to mask: the line exactly as in the config (escapes kept, usable for a batch import)
     out: list[str] = []
     mask_next = False
     pos = 0
     for i, t in enumerate(toks):
-        txt = f'"{t.text}"' if t.quoted else t.text
+        txt = quote(t.text) if t.quoted else t.text
         if is_option(t):
             mask_next = t.text[1:].lower() in SECRET_OPTS
             out.append(txt)
@@ -191,6 +194,7 @@ class Graph:
         self.frontends: list[dict] = []  # vServers with ip/port
         self.backends: list[dict] = []  # service/service group targets with ip/port
         self._stmt_idx: dict[tuple[str, str], list[Statement | Binding]] = {}
+        self._expr_names: dict[str, list[str]] | None = None
         self._server_ip: dict[str, str] = {}
         self._build()
 
@@ -446,14 +450,43 @@ class Graph:
                "service": ["ssl service"], "servicegroup": ["ssl servicegroup"], "ssl profile": []}
         out: list[dict] = []
         seen: set[int] = set()
-        for et in [e.etype] + rel.get(e.etype, []):
-            for st in self._stmt_idx.get((et, e.name), []):
+        keys = [(et, e.name) for et in [e.etype] + rel.get(e.etype, [])]
+        done: set[tuple[str, str]] = set()
+        while keys:  # own statements, then supporting ones (cs action of a cs policy, objects used in expressions)
+            key = keys.pop(0)
+            if key in done:
+                continue
+            done.add(key)
+            for st in self._stmt_idx.get(key, []):
                 if id(st) in seen:
                     continue
                 seen.add(id(st))
                 out.append({"file": st.file, "line": st.line, "text": redact(st, self.redact)})
+                keys.extend(k for k in self._supporting(st) if k not in done)
         out.sort(key=lambda x: x["line"])
-        return out[:60]
+        return out[:1000]  # complete for the config export; the details panel shows them in a scroll box
+
+    # objects that are no nodes of their own but are needed to recreate a statement elsewhere (config export)
+    EXPR_ETYPES = ("policy patset", "policy dataset", "policy stringmap", "policy httpcallout", "policy expression",
+                   "ns variable", "ns assignment", "policy map", "ns limitidentifier", "stream identifier", "audit messageaction")
+
+    def _supporting(self, st) -> list[tuple[str, str]]:
+        out: list[tuple[str, str]] = []
+        if st.etype == "cs policy" and st.verb == "add":
+            act = st.opt("action")
+            if act and ("cs action", act) in self._stmt_idx:
+                out.append(("cs action", act))
+        exprs = [t.text for t in getattr(st, "tokens", []) if t.quoted and ("(" in t.text or "." in t.text or "$" in t.text)]
+        if exprs and self._expr_names is None:
+            self._expr_names = {}
+            for (et, nm) in self._stmt_idx:
+                if et in self.EXPR_ETYPES and len(nm) >= 2:
+                    self._expr_names.setdefault(nm, []).append(et)
+        for txt in exprs:
+            for tok in set(re.findall(r"[$\w.-]+", txt)):
+                for et in (self._expr_names or {}).get(tok.lstrip("$"), []) + (self._expr_names or {}).get(tok, []):
+                    out.append((et, tok.lstrip("$") if (et, tok.lstrip("$")) in self._stmt_idx else tok))
+        return out
 
     # ---- Bindungen ------------------------------------------------------------------------
     def _vs_node(self, name: str, types: list[str] | None = None) -> tuple[str | None, str]:

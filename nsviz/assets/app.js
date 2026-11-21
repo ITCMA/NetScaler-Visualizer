@@ -83,7 +83,7 @@ const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kind
 cytoscape.use(cytoscapeDagre);
 const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id), fq: !!(n.dep && n.dep.fqdn) } }))
   .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
-const cy = cytoscape({ container: $('#cy'), elements, minZoom: 0.03, maxZoom: 3, boxSelectionEnabled: false, textureOnViewport: false });
+const cy = cytoscape({ container: $('#cy'), elements, minZoom: 0.03, maxZoom: 3, boxSelectionEnabled: true, textureOnViewport: false });
 window.cy = cy;
 // ---- Icons (own simple line symbols, 24x24 grid; no third-party artwork) -------------------------
 const ICONS = {
@@ -378,7 +378,7 @@ function initialLayout() { refresh(false); if (cy.nodes().length > 120) setLevel
 function setLevel(n) { state.collapsed = new Set(); computeVisible(eligible()); Object.keys(depth).forEach(id => { if (depth[id] >= n - 1 && (succ[id] || []).length) state.collapsed.add(id); }); refresh(true); }
 function toggleCollapse(id) { if (!(succ[id] || []).length) return; state.collapsed.has(id) ? state.collapsed.delete(id) : state.collapsed.add(id); refresh(true); }
 cy.on('dbltap', 'node', ev => toggleCollapse(ev.target.id()));
-cy.on('tap', 'node', ev => select(ev.target.id()));
+cy.on('tap', 'node', ev => { if (!msAdd(ev.originalEvent)) select(ev.target.id()); });  // with a modifier: multi-selection (export.js)
 cy.on('tap', ev => { if (ev.target === cy) clearSelection(); });
 function clearSelection() { cy.elements().removeClass('dim onpath'); cy.$(':selected').unselect(); state.selected = null; renderDetail(null); }
 
@@ -505,7 +505,7 @@ function renderDetail(d) {
   <section><h4>${esc(t('d_findings', { n: f.length }))}</h4>${f.map(findingHtml).join('') || `<span class="muted">${esc(t('none'))}</span>`}</section>
   <section><h4>${esc(t('d_to', { n: out.length }))}</h4>${lst(out)}</section>
   <section><h4>${esc(t('d_from', { n: inc.length }))}</h4>${lst(inc)}</section>
-  <section><h4>${esc(t('d_cfg', { n: d.lines.length }))}</h4>${d.lines.map(l => `<pre data-copy="${esc(l.text)}" title="⧉"><span class="ln">${esc(l.file)}:${l.line}</span>\n${esc(l.text)}</pre>`).join('') || `<span class="muted">${esc(t('d_nolines'))}</span>`}</section>`;
+  <section><h4>${esc(t('d_cfg', { n: d.lines.length }))}</h4>${d.lines.slice(0, 150).map(l => `<pre data-copy="${esc(l.text)}" title="⧉"><span class="ln">${esc(l.file)}:${l.line}</span>\n${esc(l.text)}</pre>`).join('') || `<span class="muted">${esc(t('d_nolines'))}</span>`}${d.lines.length > 150 ? `<p class="muted small">+ ${d.lines.length - 150} …</p>` : ''}</section>`;
   $$('#detail [data-go]').forEach(a => a.onclick = e => { e.preventDefault(); goTo(a.dataset.go); });
   $$('#detail pre[data-copy]').forEach(p => p.onclick = () => { if (getSelection().toString()) return; (navigator.clipboard ? navigator.clipboard.writeText(p.dataset.copy) : Promise.reject()).then(() => toast('✓')).catch(() => { }); });
 }
@@ -618,7 +618,7 @@ function renderOverview() {
 // ---- Dialog / shortcuts --------------------------------------------------------------------------
 const dlg = $('#dlg');
 function openHelp() {
-  const k = [['/', 'sc_search'], ['←↑↓→', 'sc_arrows'], ['Enter / Space', 'sc_enter'], ['+ / −', 'sc_zoom'], ['0', 'sc_fit'], ['1 – 6', 'sc_tabs'], ['?', 'sc_help']];
+  const k = [['⇧ / ⌘ / ⌥ + 🖱', 'sc_multi'], ['⇧ + 🖱 ⇲', 'sc_box'], ['/', 'sc_search'], ['←↑↓→', 'sc_arrows'], ['Enter / Space', 'sc_enter'], ['+ / −', 'sc_zoom'], ['0', 'sc_fit'], ['1 – 6', 'sc_tabs'], ['?', 'sc_help']];
   $('#keys').innerHTML = k.map(x => `<dt><kbd>${esc(x[0])}</kbd></dt><dd>${esc(t(x[1]))}</dd>`).join('');
   dlg.showModal ? dlg.showModal() : dlg.setAttribute('open', '');
 }

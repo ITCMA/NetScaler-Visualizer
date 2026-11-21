@@ -118,10 +118,7 @@ renderDetail = function (d) {
     <div class="tablewrap"><table class="small"><thead><tr><th>${esc(t('dbg_conn'))}</th><th>${esc(t('dbg_type'))}</th><th>${esc(t('dbg_rule'))}</th><th>${esc(t('dbg_line'))}</th><th>${esc(t('dbg_drawn'))}</th></tr></thead><tbody>${rows}</tbody></table></div></section>` + dbgBox(info, t('dbg_obj')));
   dbgWire();
 };
-// several elements at once: Shift, Ctrl or Cmd + click adds or removes an object or line, a normal click starts anew
-state.dbgSel = [];
-cy.style().selector('.dbgsel').style({ 'overlay-color': '#6366f1', 'overlay-opacity': 0.28, 'overlay-padding': 6 }).update();
-function dbgMarks() { cy.elements('.dbgsel').removeClass('dbgsel'); state.dbgSel.forEach(id => cy.getElementById(id).addClass('dbgsel')); }
+// several elements at once: the common multi-selection (state.multi, see export.js) also feeds the debug output
 function dbgItem(id) {
   const el = cy.getElementById(id); if (!el.length) return null;
   const { tool, code, view, ...rest } = el.isNode() ? dbgNodeInfo(id) : dbgEdgeInfo(el);
@@ -132,34 +129,21 @@ function dbgItemLabel(id) {
   if (el.isNode()) { const n = dbgNode(id); return `${n.id} · ${n.kind}`; }
   return `${DBG_IDX[el.data('source')] || '?'} → ${DBG_IDX[el.data('target')] || '?'} · ${el.data('type') || ''}`;
 }
-function dbgShowMulti() {
-  const info = { tool: D.meta.generator, code: D.meta.code || '', view: dbgView(), items: state.dbgSel.map(dbgItem).filter(Boolean) };
-  $('#detail').innerHTML = `<h3>🐞 ${esc(t('dbg_multi', { n: state.dbgSel.length }))}</h3><ul class="small">${state.dbgSel.map(id => `<li>${esc(dbgItemLabel(id))}</li>`).join('')}</ul>
-    <button id="dbg-clear">${esc(t('dbg_clear'))}</button>` + dbgBox(info, t('dbg_multi', { n: state.dbgSel.length }));
-  $('#dbg-clear').onclick = () => { state.dbgSel = []; dbgMarks(); clearSelection(); };
-  dbgWire();
+function dbgMultiHtml(ids) {
+  const info = { tool: D.meta.generator, code: D.meta.code || '', view: dbgView(), items: ids.map(dbgItem).filter(Boolean) };
+  return dbgBox(info, t('dbg_multi', { n: ids.length }));
 }
 function dbgShowEdge(el) {
   const info = dbgEdgeInfo(el);
   $('#detail').innerHTML = `<h3>🐞 ${esc(t('dbg_edge'))}</h3><dl><dt>${esc(t('dbg_type'))}</dt><dd>${esc(String(info.edge.type))}</dd><dt>${esc(t('dbg_rule'))}</dt><dd><code>${esc(info.edge.rule || '–')}</code></dd><dt>${esc(t('dbg_line'))}</dt><dd>${esc(String(info.edge.cfgLine || '–'))}</dd></dl>` + dbgBox(info, t('dbg_edge'));
   dbgWire();
 }
-cy.on('tap', 'node, edge', ev => {
-  if (!state.debug) return;
-  const oe = ev.originalEvent || {}, id = ev.target.id();
-  if (oe.shiftKey || oe.ctrlKey || oe.metaKey) { const i = state.dbgSel.indexOf(id); i >= 0 ? state.dbgSel.splice(i, 1) : state.dbgSel.push(id); }
-  else state.dbgSel = [id];
-  dbgMarks();
-  if (state.dbgSel.length > 1) dbgShowMulti();
-  else if (state.dbgSel.length === 1 && cy.getElementById(state.dbgSel[0]).isEdge()) dbgShowEdge(cy.getElementById(state.dbgSel[0]));
-  else if (state.dbgSel.length === 1 && state.dbgSel[0] !== state.selected) select(state.dbgSel[0]);
-});
-cy.on('tap', ev => { if (ev.target === cy && state.debug) { state.dbgSel = []; dbgMarks(); } });
 function dbgSet(on) {
   state.debug = on; $('#debug-mode').checked = on; $('#dbg-btn').setAttribute('aria-pressed', String(on)); document.body.classList.toggle('debug', on);
-  if (!on) { state.dbgSel = []; dbgMarks(); }
+  if (!on) state.multi = state.multi.filter(id => cy.getElementById(id).isNode()), msMarks();
   if (on) { showTab('topo'); toast(t('dbg_on')); }
-  if (state.selected) renderDetail(nodeById[state.selected]);
+  if (state.multi.length > 1) renderMulti();
+  else if (state.selected) renderDetail(nodeById[state.selected]);
   else if (on) { $('#detail').innerHTML = dbgBox({ tool: D.meta.generator, code: D.meta.code || '', view: dbgView(), hint: 'select an object or a line' }, t('dbg_mode')); dbgWire(); }
   else renderDetail(null);
 }

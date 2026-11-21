@@ -286,5 +286,17 @@
  "dbg_multi": "Debug selection: {n} element(s)",
  "dbg_add": "Shift, Ctrl or Cmd + click adds further objects or lines; a normal click starts a new selection.",
  "dbg_clear": "Clear selection",
- "dbg_on": "Debug mode on: click objects or lines, Shift/Ctrl/Cmd + click to select several"
+ "dbg_on": "Debug mode on: click objects or lines, Shift/Ctrl/Cmd + click to select several",
+ "ms_count": "{n} element(s) selected",
+ "ms_hint": "Several at once: hold Shift, Cmd or Option and click, or hold Shift and drag a frame on the background.",
+ "ms_ncfg": "Export as NetScaler config",
+ "ms_remove": "Remove from selection",
+ "ex_ncfg": "NetScaler config (batch file of the chosen objects)",
+ "ex_depth": "Content of the config",
+ "ex_dep_all": "Chosen objects with everything they use (directly or indirectly)",
+ "ex_dep_only": "Only the chosen objects",
+ "ex_ncfg_hint": "Order as in the source config (add before bind). Certificate/key files, system and global settings are not included; references outside the export are listed as warnings at the top of the file.",
+ "ncfg_done": "Config extract saved: {o} object(s), {n} statement(s), {w} warning(s)",
+ "sc_multi": "add an object to the selection or remove it",
+ "sc_box": "drag a frame on the background to select several objects"
 }
