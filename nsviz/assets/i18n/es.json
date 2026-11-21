@@ -140,7 +140,7 @@
  "ex_scope": "Qué exportar",
  "ex_all": "Todo (modelo completo)",
  "ex_view": "Vista actual (objetos visibles y filtros)",
- "ex_sel": "Objeto seleccionado con su entorno",
+ "ex_sel": "Objeto seleccionado (imágenes: con su entorno)",
  "ex_sel_none": "seleccione primero un objeto",
  "ex_format": "Formato",
  "ex_pdf_hint": "abre el diálogo de impresión: elija «Guardar como PDF»",
@@ -271,8 +271,8 @@
  "u_info": "Más información",
  "ms_more": "Cómo seleccionar varios objetos",
  "ex_sel_multi": "Objetos seleccionados ({n})",
- "ex_dep_only_t": "Solo la selección",
- "ex_dep_all_t": "Selección con todo lo que necesita",
+ "ex_dep_only_t": "Solo estos objetos",
+ "ex_dep_all_t": "Estos objetos con todo lo que necesitan",
  "ex_dep_cnt": "{o} objetos · {n} comandos · {w} avisos",
  "ex_cmp_intro": "Ejemplo: selecciona un vServer CS.",
  "ex_cmp_only": "solo sus propios comandos (add cs vserver, sus vínculos y ajustes SSL). Faltan los vServers LB, políticas, certificados, etc. que usa; se indican como avisos.",
@@ -416,5 +416,9 @@
  "nf_params": "Mostrar parámetros",
  "nf_params_t": "Parámetros de {a}",
  "nf_cc_entry": "Certificado de cliente en {n}",
- "nf_cc_aaa": "Certificado de cliente en el vServer de autenticación {n}"
+ "nf_cc_aaa": "Certificado de cliente en el vServer de autenticación {n}",
+ "ex_basis": "Base: {s} – {n} objeto(s)",
+ "ex_basis_sel": "los objetos seleccionados",
+ "ex_basis_view": "todos los objetos de la vista actual, no solo la selección",
+ "ex_basis_all": "todo el modelo"
 }

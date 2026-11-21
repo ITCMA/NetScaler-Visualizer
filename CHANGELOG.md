@@ -3,6 +3,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-11-21
+### Fixed
+- Config export: with a selected object the export now uses the selection by default (before, the scope stayed on
+  "current view", so all visible objects were exported although one object was selected). The dialog shows the basis
+  and the number of objects (highlighted when it is not the selection); the file names its basis in the header.
+- Gateway tab "Export config": exports only this gateway (with what it needs), no longer all AAA groups and global policies.
+### Changed
+- Clearer labels: "Only these objects" / "These objects with everything they need"; "Selected object (images: with its neighbourhood)".
+
 ## [0.3.6] - 2026-11-21
 ### Added
 - Gateway tab: "Parameters" per session policy opens a table of all parameters of the session action next to the global

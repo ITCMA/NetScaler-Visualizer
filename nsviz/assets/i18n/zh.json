@@ -140,7 +140,7 @@
  "ex_scope": "导出内容",
  "ex_all": "全部（完整模型）",
  "ex_view": "当前视图（可见对象和筛选）",
- "ex_sel": "所选对象及其相邻对象",
+ "ex_sel": "所选对象（图片：含其周边）",
  "ex_sel_none": "请先选择对象",
  "ex_format": "格式",
  "ex_pdf_hint": "打开打印对话框，请选择“另存为 PDF”",
@@ -271,8 +271,8 @@
  "u_info": "更多信息",
  "ms_more": "如何选择多个对象",
  "ex_sel_multi": "所选对象（{n}）",
- "ex_dep_only_t": "仅所选内容",
- "ex_dep_all_t": "所选内容及其所需的一切",
+ "ex_dep_only_t": "仅这些对象",
+ "ex_dep_all_t": "这些对象及其所需的一切",
  "ex_dep_cnt": "{o} 个对象 · {n} 条命令 · {w} 条警告",
  "ex_cmp_intro": "示例：选择一个 CS vServer。",
  "ex_cmp_only": "只有它自己的命令（add cs vserver、绑定和 SSL 设置）。它所指向的 LB vServer、策略、证书等不包含在内，并作为警告列出。",
@@ -416,5 +416,9 @@
  "nf_params": "显示参数",
  "nf_params_t": "{a} 的参数",
  "nf_cc_entry": "{n} 上的客户端证书",
- "nf_cc_aaa": "认证 vServer {n} 上的客户端证书"
+ "nf_cc_aaa": "认证 vServer {n} 上的客户端证书",
+ "ex_basis": "依据：{s} – {n} 个对象",
+ "ex_basis_sel": "所选对象",
+ "ex_basis_view": "当前视图中的所有对象，而不仅是所选对象",
+ "ex_basis_all": "整个模型"
 }

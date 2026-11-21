@@ -112,8 +112,8 @@ function renderGateway() {
   $$('#gateway [data-gwp]').forEach(b => b.onclick = () => gwParams(sess[+b.dataset.gwp], P0, V.names));
   $('#gateway [data-gwtopo]').onclick = () => goTo(g.node);
   $('#gateway [data-gwexp]').onclick = () => {
-    const ids = [g.node, ...grp.map(x => x.node), ...G.policies.map(p => p.node)].filter(id => id && nodeById[id]);
-    state.multi = ids; state.selected = g.node; openExport('ncfg');
+    // only this gateway: "with everything it needs" adds what it uses; global bindings and AAA groups apply to every gateway
+    state.multi = [g.node]; state.selected = g.node; exp.deps = true; openExport('ncfg');
   };
 }
 // open the gateway page that contains a node (from the topology details)

@@ -140,7 +140,7 @@
  "ex_scope": "Que exporter",
  "ex_all": "Tout (modèle complet)",
  "ex_view": "Vue actuelle (objets visibles et filtres)",
- "ex_sel": "Objet sélectionné avec son voisinage",
+ "ex_sel": "Objet sélectionné (images : avec son voisinage)",
  "ex_sel_none": "sélectionnez d'abord un objet",
  "ex_format": "Format",
  "ex_pdf_hint": "ouvre la boîte d'impression : choisissez « Enregistrer au format PDF »",
@@ -271,8 +271,8 @@
  "u_info": "Plus d'informations",
  "ms_more": "Sélectionner plusieurs objets",
  "ex_sel_multi": "Objets sélectionnés ({n})",
- "ex_dep_only_t": "Seulement la sélection",
- "ex_dep_all_t": "Sélection avec tout ce qu'elle utilise",
+ "ex_dep_only_t": "Uniquement ces objets",
+ "ex_dep_all_t": "Ces objets avec tout ce dont ils ont besoin",
  "ex_dep_cnt": "{o} objets · {n} commandes · {w} avertissements",
  "ex_cmp_intro": "Exemple : vous sélectionnez un vServer CS.",
  "ex_cmp_only": "uniquement ses propres commandes (add cs vserver, ses liaisons et paramètres SSL). Les vServers LB, policies, certificats, etc. qu'il utilise manquent et sont signalés en avertissement.",
@@ -416,5 +416,9 @@
  "nf_params": "Afficher les paramètres",
  "nf_params_t": "Paramètres de {a}",
  "nf_cc_entry": "Certificat client sur {n}",
- "nf_cc_aaa": "Certificat client sur le vServer d’authentification {n}"
+ "nf_cc_aaa": "Certificat client sur le vServer d’authentification {n}",
+ "ex_basis": "Base : {s} – {n} objet(s)",
+ "ex_basis_sel": "les objets sélectionnés",
+ "ex_basis_view": "tous les objets de la vue actuelle, pas seulement la sélection",
+ "ex_basis_all": "le modèle entier"
 }

@@ -171,7 +171,7 @@
  "ex_scope": "What to export",
  "ex_all": "Everything (full model)",
  "ex_view": "Current view (visible objects and filters)",
- "ex_sel": "Selected object with neighbourhood",
+ "ex_sel": "Selected object (images: with its neighbourhood)",
  "ex_sel_none": "select an object first",
  "ex_format": "Format",
  "ex_pdf_hint": "opens the print dialog – choose \"Save as PDF\"",
@@ -302,8 +302,8 @@
  "u_info": "More information",
  "ms_more": "How to select several objects",
  "ex_sel_multi": "Selected objects ({n})",
- "ex_dep_only_t": "Only the selection",
- "ex_dep_all_t": "Selection with everything it needs",
+ "ex_dep_only_t": "Only these objects",
+ "ex_dep_all_t": "These objects with everything they need",
  "ex_dep_cnt": "{o} object(s) · {n} statement(s) · {w} warning(s)",
  "ex_cmp_intro": "Example: you select a CS vServer.",
  "ex_cmp_only": "only its own statements (add cs vserver, its bindings and SSL settings). The LB vServers, policies, certificates etc. it points to are missing and are listed as warnings. Useful to compare or to change one object.",
@@ -447,5 +447,9 @@
  "nf_params": "Show parameters",
  "nf_params_t": "Parameters of {a}",
  "nf_cc_entry": "Client certificate on {n}",
- "nf_cc_aaa": "Client certificate on the authentication vServer {n}"
+ "nf_cc_aaa": "Client certificate on the authentication vServer {n}",
+ "ex_basis": "Basis: {s} – {n} object(s)",
+ "ex_basis_sel": "the selected object(s)",
+ "ex_basis_view": "all objects of the current view, not only the selection",
+ "ex_basis_all": "the whole model"
 }

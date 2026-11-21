@@ -197,7 +197,7 @@
  "ex_scope": "Was exportieren",
  "ex_all": "Alles (gesamtes Modell)",
  "ex_view": "Aktuelle Ansicht (sichtbare Objekte und Filter)",
- "ex_sel": "Ausgewähltes Objekt mit Umfeld",
+ "ex_sel": "Ausgewähltes Objekt (bei Bildern mit Umfeld)",
  "ex_sel_none": "erst ein Objekt auswählen",
  "ex_format": "Format",
  "ex_pdf_hint": "öffnet den Druckdialog – „Als PDF speichern“ wählen",
@@ -329,8 +329,8 @@
  "u_info": "Weitere Informationen",
  "ms_more": "So wählst du mehrere Objekte",
  "ex_sel_multi": "Ausgewählte Objekte ({n})",
- "ex_dep_only_t": "Nur die Auswahl",
- "ex_dep_all_t": "Auswahl mit allem, was sie braucht",
+ "ex_dep_only_t": "Nur diese Objekte",
+ "ex_dep_all_t": "Diese Objekte mit allem, was sie brauchen",
  "ex_dep_cnt": "{o} Objekt(e) · {n} Befehl(e) · {w} Warnung(en)",
  "ex_cmp_intro": "Beispiel: Du wählst einen CS vServer.",
  "ex_cmp_only": "nur seine eigenen Befehle (add cs vserver, seine Bindings und SSL-Einstellungen). Die LB vServer, Policies, Zertifikate usw., auf die er zeigt, fehlen und werden als Warnung aufgeführt. Gut zum Vergleichen oder um ein einzelnes Objekt anzupassen.",
@@ -474,5 +474,9 @@
  "nf_params": "Parameter anzeigen",
  "nf_params_t": "Parameter von {a}",
  "nf_cc_entry": "Client-Zertifikat an {n}",
- "nf_cc_aaa": "Client-Zertifikat am Authentifizierungs-vServer {n}"
+ "nf_cc_aaa": "Client-Zertifikat am Authentifizierungs-vServer {n}",
+ "ex_basis": "Grundlage: {s} – {n} Objekt(e)",
+ "ex_basis_sel": "die ausgewählten Objekte",
+ "ex_basis_view": "alle Objekte der aktuellen Ansicht, nicht nur die Auswahl",
+ "ex_basis_all": "das gesamte Modell"
 }

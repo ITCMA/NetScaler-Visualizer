@@ -248,6 +248,7 @@ function openExport(fmt) {
   const page = !fmt && isPage();  // export button on the Gateway / nFactor tab: the page as image or PDF
   if (page && !/^p(img|svg|pdf)$/.test(exp.fmt)) exp.fmt = 'pimg';
   if (!page && /^p(img|svg|pdf)$/.test(exp.fmt)) exp.fmt = 'png';
+  if (exp.fmt === 'ncfg' && selOk) exp.scope = 'sel';
   if (exp.scope === 'sel' && !selOk) exp.scope = 'view';
   const radio = (name, items, cur, cls) => items.map(([v, label, dis]) => `<label class="${cls || 'opt'}${dis ? ' off' : ''}"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''} ${dis ? 'disabled' : ''}> ${esc(label)}</label>`).join('');
   const selLabel = state.multi.length > 1 ? t('ex_sel_multi', { n: state.multi.length }) : t('ex_sel');
@@ -255,14 +256,15 @@ function openExport(fmt) {
   const cmp = `<p>${esc(t('ex_cmp_intro'))}</p><p><b>${esc(t('ex_dep_only_t'))}:</b> ${esc(t('ex_cmp_only'))}</p><p><b>${esc(t('ex_dep_all_t'))}:</b> ${esc(t('ex_cmp_all'))}</p><p>${esc(t('ex_ncfg_hint'))}</p>`;
   $('#ex-body').innerHTML = `${page ? `<p class="muted pg-note">${esc(t('pg_note', { p: pageTitle() }))}</p>` : ''}<fieldset class="rlist" id="ex-scope"${/^clean/.test(exp.fmt) || page ? ' hidden' : ''}><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', selLabel + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
     <fieldset><legend>${esc(t('ex_format'))}${infoBtn('PDF: ' + esc(t('ex_pdf_hint')))}</legend><div class="chips">${radio('fmt', page ? [['pimg', 'PNG'], ['psvg', 'SVG'], ['ppdf', 'PDF']] : [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')], ['clean', t('ex_clean')], ['cleanrb', t('ex_cleanrb')]], exp.fmt, 'chip')}</div></fieldset>
-    <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}${infoBtn(cmp)}</legend><div class="cards">${card('deps', '0', exp.deps ? '1' : '0', t('ex_dep_only_t'))}${card('deps', '1', exp.deps ? '1' : '0', t('ex_dep_all_t'))}</div></fieldset>
+    <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}${infoBtn(cmp)}</legend><p id="ex-basis" class="ex-basis"></p><div class="cards">${card('deps', '0', exp.deps ? '1' : '0', t('ex_dep_only_t'))}${card('deps', '1', exp.deps ? '1' : '0', t('ex_dep_all_t'))}</div></fieldset>
     <fieldset id="ex-cl"${/^clean/.test(exp.fmt) ? '' : ' hidden'}><legend>${esc(t('ex_cl_part'))}${infoBtn(esc(t('cl_info')))}</legend><div class="cards">${card('cld', '1', exp.cld === false ? '0' : '1', t('ex_cl_with'))}${card('cld', '0', exp.cld === false ? '0' : '1', t('ex_cl_without'))}</div></fieldset>
     <fieldset><legend>${esc(t('ex_data'))}${infoBtn(`<p>${esc(t('ex_anon_hint'))}</p><p>${esc(t('ex_warn'))}</p>`)}</legend><div class="cards">${card('anon', '0', '', t('ex_orig'))}${card('anon', '1', '', t('ex_anon'))}</div>
     <p class="warn small" role="note" id="ex-warn" hidden>${esc(t('ex_warn'))}</p></fieldset>`;
-  const figs = () => { if (/^clean/.test(exp.fmt)) { [['1', true], ['0', false]].forEach(([v, w]) => { const r = buildClean(false, false, w); const el = $('#fig-cld-' + v); if (el) el.textContent = t('ex_cl_cnt', { o: r.objects, r: r.rm, u: r.unbind, c: r.check }); }); return; } if (exp.fmt !== 'ncfg') return; [['0', false], ['1', true]].forEach(([v, d]) => { const r = buildNcfg(false, d); const el = $('#fig-deps-' + v); if (el) el.textContent = t('ex_dep_cnt', { o: r.objects, n: r.lines, w: r.warnings }); }); };
+  const figs = () => { if (/^clean/.test(exp.fmt)) { [['1', true], ['0', false]].forEach(([v, w]) => { const r = buildClean(false, false, w); const el = $('#fig-cld-' + v); if (el) el.textContent = t('ex_cl_cnt', { o: r.objects, r: r.rm, u: r.unbind, c: r.check }); }); return; } if (exp.fmt !== 'ncfg') return; const bs = $('#ex-basis'); if (bs) { const n = ncfgStart().length; bs.textContent = t('ex_basis', { s: t('ex_basis_' + exp.scope), n }); bs.classList.toggle('warn', exp.scope !== 'sel' && n > 1); } [['0', false], ['1', true]].forEach(([v, d]) => { const r = buildNcfg(false, d); const el = $('#fig-deps-' + v); if (el) el.textContent = t('ex_dep_cnt', { o: r.objects, n: r.lines, w: r.warnings }); }); };
   figs();
   $$('#ex-body input[name=scope]').forEach(i => i.onchange = () => { exp.scope = i.value; figs(); });
-  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => { exp.fmt = i.value; $('#ex-deps').hidden = exp.fmt !== 'ncfg'; $('#ex-cl').hidden = !/^clean/.test(exp.fmt); $('#ex-scope').hidden = page || !$('#ex-cl').hidden; figs(); });
+  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => { exp.fmt = i.value;
+    if (exp.fmt === 'ncfg' && selOk && exp.scope !== 'sel') { exp.scope = 'sel'; const r = $('#ex-body input[name=scope][value=sel]'); if (r) r.checked = true; } $('#ex-deps').hidden = exp.fmt !== 'ncfg'; $('#ex-cl').hidden = !/^clean/.test(exp.fmt); $('#ex-scope').hidden = page || !$('#ex-cl').hidden; figs(); });
   $$('#ex-body input[name=deps]').forEach(i => i.onchange = () => exp.deps = i.value === '1');
   $$('#ex-body input[name=cld]').forEach(i => i.onchange = () => exp.cld = i.value === '1');
   exp.anon = null; $('#ex-go').disabled = true;  // the data variant is chosen explicitly every time
@@ -451,6 +453,7 @@ function buildNcfg(anon, deps) {
   const W = [...new Set(warn)], groups = [...new Set(rows.map(r => r.g))].sort();
   const cnt = p => rows.filter(r => r.phase === p).length;
   const L = [`# NetScaler config extract - ${D.meta.generator} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    `# Basis: ${{ sel: 'selected object(s)', view: 'current view (all visible objects)', all: 'everything' }[exp.scope] || exp.scope}`,
     `# ${start.length} object(s) chosen, ${inc.size} exported (${deps ? 'with all direct and indirect dependencies' : 'only the chosen objects'}), ${rows.length} statement(s)${anon ? ', anonymized' : ''}`,
     `# Structure: 1. objects (add, ${cnt(0)}), 2. settings (set, ${cnt(1)}), 3. bindings (bind/link, ${cnt(2)}); each grouped by feature.`,
     '# Every object is added before it is used, so the file can be imported as a batch, for example:',
