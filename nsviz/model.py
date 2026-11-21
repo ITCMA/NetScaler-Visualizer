@@ -33,6 +33,9 @@ KIND_BY_ETYPE = {
     "contentinspection action": "action", "appqoe action": "action", "feo action": "action", "spillover action": "action",
     "aaa group": "group",
     "ssl cipher": "cipher", "vlan": "vlan", "ns ip": "netip", "route": "route",
+    "transform action": "action",
+    "ns acl": "netrule", "ns acl6": "netrule", "ns pbr": "netrule", "ns pbr6": "netrule", "rnat": "netrule",
+    "lb group": "lbgroup", "ssl crl": "crl", "ns trafficdomain": "td",
 }
 
 KIND_LABELS = {
@@ -42,7 +45,9 @@ KIND_LABELS = {
     "cert": "Certificate", "sslprofile": "SSL profile", "nflabel": "nFactor Policy Label",
     "schema": "Login Schema", "authnprofile": "Authn profile", "appfwprof": "WAF profile",
     "policylabel": "Policy Label", "policy": "Policy", "authpol": "Auth policy",
-    "authact": "Auth action", "action": "Action", "group": "AAA group", "cipher": "Cipher group", "vlan": "VLAN", "netip": "IP address (SNIP/VIP)", "route": "Route", "domain": "GSLB domain", "sta": "STA", "missing": "Missing reference",
+    "authact": "Auth action", "action": "Action", "group": "AAA group", "cipher": "Cipher group", "vlan": "VLAN", "netip": "IP address (SNIP/VIP)", "route": "Route", "domain": "GSLB domain", "sta": "STA",
+    "netrule": "Network rule (ACL/PBR/RNAT)", "lbgroup": "Persistency group", "crl": "CRL", "td": "Traffic domain",
+    "missing": "Missing reference",
 }
 
 # Well-known ports -> service names (for labels on connections); proto-specific names for NetScaler service types.
@@ -318,6 +323,29 @@ class Graph:
         dev = Node(f"{self.gid}|device|{cfg.name}", "device", cfg.hostname or cfg.name, "device", cfg.name, group=self.gid)
         dev.props = {"File": cfg.name, "Version": f"{cfg.version or '?'} (build {cfg.build or '?'})",
                      "NSIP": cfg.nsip or "?", "Features": ", ".join(sorted(cfg.features)) or "-"}
+        if cfg.modes:
+            dev.props["Modes"] = ", ".join(sorted(cfg.modes))
+        ns_srv = [st.args[0] for st in cfg.statements if st.verb == "add" and st.etype == "dns nameserver" and st.args]
+        if ns_srv:
+            dev.props["DNS name servers"] = ", ".join(ns_srv)
+        sfx = [st.args[0] for st in cfg.statements if st.verb == "add" and st.etype == "dns suffix" and st.args]
+        if sfx:
+            dev.props["DNS suffixes"] = ", ".join(sfx)
+        # local/authoritative DNS records (ADNS, DNS proxy); counted by type, root hints (default NS records of ".") left out
+        recs: dict[str, int] = {}
+        for st in cfg.statements:
+            if st.verb == "add" and st.etype.startswith("dns ") and st.etype.endswith("rec") and st.args:
+                if st.etype == "dns nsrec" and st.args[0] == ".":
+                    continue
+                if st.etype == "dns addrec" and st.args[0].lower().endswith("root-servers.net"):
+                    continue
+                k = {"ADD": "A", "AAAA": "AAAA"}.get(st.etype[4:-3].upper(), st.etype[4:-3].upper())
+                recs[k] = recs.get(k, 0) + 1
+        if recs:
+            dev.props["DNS records"] = ", ".join(f"{k} {v}" for k, v in sorted(recs.items()))
+        parts = [st.args[0] for st in cfg.statements if st.verb == "add" and st.etype == "ns partition" and st.args]
+        if parts:
+            dev.props["Admin partitions"] = str(len(parts))
         self.nodes[dev.id] = dev
         for et, d in list(cfg.entities.items()):
             if et in ("server",) or self._kind(et) is None:
@@ -378,7 +406,14 @@ class Graph:
                              ("redirecturl", "Redirect URL"), ("httpsredirecturl", "HTTPS redirect"),
                              ("redirectfromport", "Redirect from port"), ("comment", "Comment"),
                              ("authentication", "Authentication"), ("authnvsname", "Auth vServer"),
-                             ("authnprofile", "Authn profile"), ("icaonly", "ICA only"), ("dnsrecordtype", "DNS record")):
+                             ("authnprofile", "Authn profile"), ("icaonly", "ICA only"), ("dnsrecordtype", "DNS record"),
+                             ("td", "Traffic domain"), ("listenpolicy", "Listen policy"), ("cacheable", "Cacheable (integrated caching)"),
+                             ("somethod", "Spillover method"), ("sothreshold", "Spillover threshold"), ("sobackupaction", "Spillover backup action"),
+                             ("sopersistence", "Spillover persistence"), ("toggleorder", "Priority order (toggle)"),
+                             ("orderthreshold", "Priority order threshold (%)"), ("disableprimaryondown", "Disable primary when down"),
+                             ("rhistate", "RHI state"), ("icmpvsrresponse", "ICMP response"), ("appflowlog", "AppFlow logging"),
+                             ("tcpprofilename", "TCP profile"), ("httpprofilename", "HTTP profile"), ("netprofile", "Net profile"),
+                             ("dnsprofilename", "DNS profile"), ("dbprofilename", "DB profile"), ("quicprofilename", "QUIC profile")):
                 v = o(k)
                 if v:
                     p[label] = v
@@ -388,7 +423,9 @@ class Graph:
                 p["Service"] = comm_name(p["Protocol"], e.args[3] if et == "service" and len(e.args) > 3 else "")
             if et == "service":
                 p["Target"] = f"{e.args[1]}:{e.args[3]}" if len(e.args) > 3 else (e.args[1] if len(e.args) > 1 else "")
-            for k, label in (("maxclient", "maxClient"), ("cip", "Client IP header"), ("usip", "USIP"), ("state", "Status"), ("comment", "Comment")):
+            for k, label in (("maxclient", "maxClient"), ("cip", "Client IP header"), ("usip", "USIP"), ("state", "Status"), ("comment", "Comment"),
+                             ("td", "Traffic domain"), ("cacheable", "Cacheable (integrated caching)"), ("appflowlog", "AppFlow logging"),
+                             ("tcpprofilename", "TCP profile"), ("httpprofilename", "HTTP profile"), ("netprofile", "Net profile")):
                 if o(k):
                     p[label] = o(k)
         elif et == "ns ip":
@@ -413,6 +450,39 @@ class Graph:
             p["Address"] = e.args[1] if len(e.args) > 1 else ""
             if o("state"):
                 p["Status"] = o("state")
+            if o("td"):
+                p["Traffic domain"] = o("td")
+        elif et in ("ns acl", "ns acl6", "ns pbr", "ns pbr6"):
+            p["Type"] = {"ns acl": "ACL (IPv4)", "ns acl6": "ACL (IPv6)", "ns pbr": "PBR (IPv4)", "ns pbr6": "PBR (IPv6)"}[et]
+            if len(e.args) > 1:
+                p["Action"] = e.args[1]
+            for k, label in (("srcip", "Source IP"), ("srcipval", "Source IP"), ("destip", "Destination IP"), ("destipval", "Destination IP"),
+                             ("srcport", "Source port"), ("srcportval", "Source port"), ("destport", "Destination port"),
+                             ("destportval", "Destination port"), ("protocol", "Protocol"), ("nexthop", "Next hop"), ("nexthopval", "Next hop"),
+                             ("vlan", "VLAN"), ("interface", "Interface"), ("priority", "Priority"), ("state", "Status"), ("td", "Traffic domain")):
+                v = o(k)
+                if v and label not in p:
+                    p[label] = v
+        elif et == "rnat":
+            p["Type"] = "RNAT"
+            for k, label in (("network", "Network"), ("netmask", "Netmask"), ("aclname", "ACL"), ("td", "Traffic domain")):
+                if o(k):
+                    p[label] = o(k)
+            ips = [b.opt("natip") or (b.args[0] if b.args else "") for b in self.cfg.bindings if b.etype == "rnat" and b.owner == e.name]
+            if [x for x in ips if x]:
+                p["NAT IP"] = ", ".join(x for x in ips if x)
+        elif et == "lb group":
+            for k, label in (("persistencetype", "Persistence"), ("timeout", "Timeout"), ("cookiename", "Cookie"), ("usevserverpersistency", "Use vServer persistence")):
+                if o(k):
+                    p[label] = o(k)
+        elif et == "ssl crl":
+            for k, label in (("cacert", "CA certificate"), ("refresh", "Refresh"), ("method", "Method"), ("inform", "Format")):
+                if o(k):
+                    p[label] = o(k)
+        elif et == "ns trafficdomain":
+            p["ID"] = e.args[0] if e.args else ""
+            if o("aliasname"):
+                p["Alias"] = o("aliasname")
         elif et == "lb monitor":
             p["Type"] = e.args[1] if len(e.args) > 1 else ""
             for k, label in (("interval", "Interval"), ("resptimeout", "Timeout"), ("secure", "TLS"), ("send", "Send"), ("recv", "Recv"), ("httprequest", "HTTP request"), ("respcode", "Response code")):
@@ -436,6 +506,9 @@ class Graph:
                 p["Action"] = act
             if rule and "IPREP" in rule.upper():
                 p["IP reputation"] = "rule uses IPREP"
+            uses = [lab for rx, lab in EXPR_FEATURES if rule and re.search(rx, rule, re.I)]
+            if uses:
+                p["Uses"] = ", ".join(uses)
         elif self._kind(et) == "authact":
             for k, label in (("serverip", "Server IP"), ("serverport", "Port"), ("sectype", "SecType"), ("ldapbase", "Base DN"), ("authtimeout", "Timeout")):
                 if o(k):
@@ -525,6 +598,16 @@ class Graph:
         g = b.opt("gotopriorityexpression")
         return f"Prio {pr}" if pr and not g else (f"Prio {pr} → {g}" if pr else "")
 
+    @staticmethod
+    def _order(b: Binding) -> str:
+        """Edge label for a service binding: priority order (priority load balancing) and weight."""
+        parts = []
+        if b.opt("order"):
+            parts.append(f"Order {b.opt('order')}")
+        if b.opt("weight") and b.opt("weight") != "1":
+            parts.append(f"Weight {b.opt('weight')}")
+        return ", ".join(parts)
+
     def _bind(self, b: Binding) -> None:
         et, owner = b.etype, b.owner
         if et in ("lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"):
@@ -536,7 +619,7 @@ class Graph:
             if b.args and not is_option_like(b.args[0]):
                 tgt = b.args[0]
                 if et == "lb vserver":
-                    self._ref(src, ["service", "servicegroup"], tgt, "bind", "", ctx, b.line)
+                    self._ref(src, ["service", "servicegroup"], tgt, "bind", self._order(b), ctx, b.line)
                 elif et == "cs vserver":
                     self._ref(src, ["lb vserver"], tgt, "route", "Default", ctx, b.line)
             for key, etypes, typ in (("servicename", ["service", "servicegroup", "gslb service", "gslb servicegroup"], "bind"),
@@ -598,9 +681,10 @@ class Graph:
                 self._ref(src, ["lb monitor"], m, "bind", "Monitor", ctx, b.line)
         elif et == "lb monitor":
             mon = self._ensure("lb monitor", owner)
-            for a in b.args:
-                v, _ = self._vs_node(a, ["lb vserver"])
+            for a in b.args:  # bind lb monitor <monitor> <service|servicegroup|vserver>
+                v, _ = self._vs_node(a, ["service", "servicegroup", "lb vserver"])
                 if v and mon:
+                    self.referenced.add(("lb monitor", owner))
                     self._add_edge(v, mon, "bind", "Monitor")
         elif et in ("ssl vserver", "ssl service", "ssl servicegroup", "ssl profile"):
             if et == "ssl vserver":
@@ -672,6 +756,20 @@ class Graph:
                 for t in self._policy_etypes():
                     if self.cfg.get(t, pol):
                         self.referenced.add((t, pol))
+        elif et == "lb group":
+            # drawn from the vServer to its persistency group, so exporting a vServer brings the group along
+            for a in [x for x in b.args if not is_option_like(x)] + ([b.opt("vservername")] if b.opt("vservername") else []):
+                v, _ = self._vs_node(a, ["lb vserver"])
+                if v:
+                    self._ref(v, ["lb group"], owner, "bind", "Persistency group", (et, owner), b.line)
+        elif et == "ns trafficdomain":
+            # Assumption (syntax): bind ns trafficdomain <id> -vlan <id> | -vServer <name> | -vxlan <id>
+            src = self._ensure(et, owner)
+            if src:
+                for v in b.opts.get("vlan") or []:
+                    self._ref(src, ["vlan"], v, "network", "VLAN", (et, owner), b.line)
+                for v in b.opts.get("vserver") or []:
+                    self._ref(src, list(VSERVER_TYPES), v, "network", "vServer", (et, owner), b.line)
         elif et.endswith("global") or et == "system global":
             dev = self.device_node().id
             pol = b.opt("policyname") or (b.args[0] if b.args else "")
@@ -786,6 +884,20 @@ class Graph:
                         self._ref(src, ["lb vserver", "cs vserver", "vpn vserver", "authentication vserver", "gslb vserver"], tv, "route", act, ("cs action", act), a.line)
                 elif act:
                     self.missing.append({"src_etype": et, "src_name": name, "ref_type": "cs action", "ref_name": act, "node": src, "line": e.line})
+        if et == "ssl crl":
+            src, ca = self.nid(et, name), e.opt("cacert")
+            if ca and src in self.nodes:
+                c = self._ensure("ssl certkey", ca)
+                if c:  # CA certificate -> its revocation list (exporting the certificate brings the CRL along)
+                    self.referenced.add(("ssl certkey", ca))
+                    self._add_edge(c, src, "ssl", "CRL", e.line)
+                else:
+                    self._ref(src, ["ssl certkey"], ca, "ssl", "CA", (et, name), e.line)
+        if et == "transform action":
+            prof = e.opt("profilename") or (e.args[1] if len(e.args) > 1 else None)
+            src = self.nid(et, name)
+            if prof and src in self.nodes and self.nid("transform profile", prof) in self.nodes:
+                self._ref(self.nid("transform profile", prof), ["transform action"], name, "bind", "Action", ("transform profile", prof), e.line)
         if et == "appfw policy":
             src = self.nid(et, name)
             prof = e.opt("profilename") or (e.args[2] if len(e.args) > 2 else None)
@@ -1026,6 +1138,11 @@ class Graph:
                 if be["host"] == fe["ip"] and be["port"] == fe["port"] and be["node"] != fe["node"]:
                     self._add_edge(be["node"], fe["node"], "loop", "lokal (Loopback/Chain)")
 
+
+# special functions inside policy expressions (shown as "Uses" on the policy)
+EXPR_FEATURES = ((r"IPREP_", "IP reputation"), (r"CHECK_LIMIT|\.LIMIT\(|limitidentifier", "Rate limiting"),
+                 (r"HTTP_CALLOUT", "HTTP callout"), (r"\.LOCATION\b|MATCHES_LOCATION", "Geo location"),
+                 (r"URL_CATEGORIZE", "URL categorization"), (r"\bBOT\.", "Bot management"))
 
 POLICY_ACTION = {"transform policy": ("transform profile",), "vpn clientlessaccesspolicy": ("vpn clientlessaccessprofile",),
                  "ica policy": ("ica action",), "tm trafficpolicy": ("tm trafficaction",), "tm sessionpolicy": ("tm sessionaction",)}

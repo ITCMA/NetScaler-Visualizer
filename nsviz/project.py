@@ -322,7 +322,7 @@ class Project:
 
     # ---- Dependencies: what is reachable from an addressable vServer? --------------------------------
     VS_KINDS = {"csvs", "lbvs", "gwvs", "aaavs", "gslbvs"}
-    INFRA_KINDS = {"device", "netip", "vlan", "route", "group", "missing", "domain"}
+    INFRA_KINDS = {"device", "netip", "vlan", "route", "group", "missing", "domain", "netrule", "td", "crl", "lbgroup"}
 
     def _dependency(self) -> None:
         """Marks every object as entry (addressable vServer), reached (reachable from an entry or from a global binding)

@@ -2,11 +2,13 @@
 from collections import defaultdict
 
 from . import rule
+from ..model import BUILTIN_MONITORS
 
 FEATURE_BY_FAMILY = {
     "lb": "LB", "cs": "CS", "ssl": "SSL", "rewrite": "REWRITE", "responder": "RESPONDER",
     "appfw": "APPFW", "gslb": "GSLB", "cmp": "CMP", "cache": "IC", "vpn": "SSLVPN",
     "authentication": "AAA", "aaa": "AAA", "appflow": "APPFLOW", "bot": "BOT",
+    "feo": "FEO", "appqoe": "APPQOE", "contentinspection": "CI",
 }
 FEATURE_ALIASES = {"SSLVPN": {"SSLVPN"}, "APPFLOW": {"APPFLOW"}, "IC": {"IC", "CACHE"}}
 # Object types whose mere existence does not prove the feature requirement (default objects/parameters)
@@ -15,6 +17,7 @@ FEATURE_TRIGGER = {
     "vpn": ("vpn vserver",), "appfw": ("appfw profile", "appfw policy"),
     "rewrite": ("rewrite policy",), "responder": ("responder policy",), "cmp": ("cmp policy",),
     "cache": ("cache policy",), "authentication": ("authentication vserver",), "bot": ("bot profile",),
+    "feo": ("feo policy",), "appqoe": ("appqoe policy",), "contentinspection": ("contentinspection policy",),
 }
 
 
@@ -78,7 +81,7 @@ def cert_unused(ctx):
 @rule("QA-006", "info", "misconfig")
 def monitor_unused(ctx):
     for e in ctx.ents("lb monitor"):
-        if ("lb monitor", e.name) not in ctx.graph.referenced and e.name.lower() not in ctx.graph_builtin():
+        if ("lb monitor", e.name) not in ctx.graph.referenced and e.name.lower() not in BUILTIN_MONITORS:
             yield ctx.finding("QA-006", e)
 
 
@@ -117,11 +120,14 @@ def feature_off(ctx):
         trig = FEATURE_TRIGGER.get(fam)
         if not trig:
             continue
-        if any(cfg.of(t) for t in trig):
+        # built-in default objects exist in every ns.conf: names starting with "_" and, for integrated caching, the
+        # default "ctx_" cache policies (measured: present in configs with the feature off; assumption: shipped defaults)
+        own = [(t, n) for t in trig for n in cfg.of(t)
+               if not n.startswith("_") and not (fam == "cache" and n.lower().startswith("ctx_"))]
+        if own:
             ok = FEATURE_ALIASES.get(need, {need})
             if not (cfg.features & ok):
-                t = next(t for t in trig if cfg.of(t))
-                yield ctx.finding("QA-009", etype=t, name=next(iter(cfg.of(t))), feature=need)
+                yield ctx.finding("QA-009", etype=own[0][0], name=own[0][1], feature=need)
 
 
 @rule("QA-010", "high", "misconfig")

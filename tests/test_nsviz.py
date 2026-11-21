@@ -253,6 +253,56 @@ class ConfigLineTests(unittest.TestCase):
             self.assertNotIn("secretpw", users[0].lines[0]["text"])
 
 
+    def test_feature_objects(self):
+        """Priority order, spillover, traffic domains, ACL/PBR/RNAT, persistency groups, CRLs, transform actions."""
+        src = ('enable ns feature LB CS REWRITE\n'
+               'enable ns mode FR L3\n'
+               'add dns nameServer 192.0.2.53\n'
+               'add dns addRec host1.example.test 192.0.2.10\n'
+               'add ns trafficDomain 10\n'
+               'add vlan 20\n'
+               'bind ns trafficDomain 10 -vlan 20\n'
+               'add server s1 192.0.2.11 -td 10\n'
+               'add service svc1 s1 HTTP 80\n'
+               'add service svc2 s1 HTTP 8080\n'
+               'add lb vserver lb1 HTTP 192.0.2.20 80 -soMethod CONNECTION -soThreshold 100 -toggleorder ASCENDING -orderThreshold 50\n'
+               'bind lb vserver lb1 svc1 -order 1\n'
+               'bind lb vserver lb1 svc2 -order 2 -weight 3\n'
+               'add lb group grp1 -persistenceType COOKIEINSERT\n'
+               'bind lb group grp1 lb1\n'
+               'add ns acl acl1 ALLOW -srcIP = 192.0.2.0-192.0.2.255 -priority 10\n'
+               'add ns pbr pbr1 ALLOW -srcIP = 192.0.2.5 -nexthop 192.0.2.1\n'
+               'add ssl certKey ca1 -cert ca1.pem\n'
+               'add ssl crl crl1 /nsconfig/ssl/crl1.crl -CAcert ca1\n'
+               'add transform profile tp1\n'
+               'add transform action ta1 tp1 10\n'
+               'add responder policy rp1 "CLIENT.IP.SRC.IPREP_IS_MALICIOUS" DROP\n')
+        g = Graph(Config.parse_text(src), "g1")
+        by = {(n.etype, n.name): n for n in g.nodes.values()}
+        kinds = {k: by[k].kind for k in by}
+        self.assertEqual(kinds[("ns acl", "acl1")], "netrule")
+        self.assertEqual(kinds[("ns pbr", "pbr1")], "netrule")
+        self.assertEqual(kinds[("lb group", "grp1")], "lbgroup")
+        self.assertEqual(kinds[("ssl crl", "crl1")], "crl")
+        self.assertEqual(kinds[("ns trafficdomain", "10")], "td")
+        lb = by[("lb vserver", "lb1")].props
+        self.assertEqual(lb["Spillover method"], "CONNECTION")
+        self.assertEqual(lb["Priority order threshold (%)"], "50")
+        self.assertEqual(by[("server", "s1")].props["Traffic domain"], "10")
+        self.assertEqual(by[("ns pbr", "pbr1")].props["Next hop"], "192.0.2.1")
+        dev = g.device_node().props
+        self.assertEqual(dev["Modes"], "FR, L3")
+        self.assertIn("192.0.2.53", dev["DNS name servers"])
+        self.assertEqual(dev["DNS records"], "A 1")
+        self.assertEqual(by[("responder policy", "rp1")].props["Uses"], "IP reputation")
+        lab = {(g.nodes[e.source].name, g.nodes[e.target].name): e.label for e in g.edges}
+        self.assertEqual(lab[("lb1", "svc1")], "Order 1")
+        self.assertEqual(lab[("lb1", "svc2")], "Order 2, Weight 3")
+        self.assertIn(("lb1", "grp1"), lab)
+        self.assertIn(("ca1", "crl1"), lab)
+        self.assertIn(("tp1", "ta1"), lab)
+        self.assertIn(("10", "20"), lab)
+
     def test_supporting_objects_and_builtin_actions(self):
         src = ('add ns httpProfile hp_custom -http2 ENABLED\n'
                'add ns tcpProfile tp_custom -WS ENABLED\n'

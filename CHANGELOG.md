@@ -3,6 +3,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-21
+### Added
+- New objects in the topology: network rules (ACL, PBR, RNAT), traffic domains (with their VLANs and vServers), persistency groups (from each member vServer) and certificate revocation lists (from their CA certificate). Transform actions hang under their transform profile.
+- Priority load balancing: the order and weight of a service binding are shown on the connection (`Order 1`, `Weight 3`); vServers show priority order (toggle, threshold), spillover (method, threshold, backup action, persistence), "disable primary when down", traffic domain, listen policy, integrated caching, AppFlow logging, RHI/ICMP state and the TCP/HTTP/net/DNS profiles. Services, service groups and servers show their traffic domain.
+- Device details: enabled modes, DNS name servers and suffixes, local/authoritative DNS records by type (root hints left out) and the number of admin partitions.
+- Policies show special functions used in their expression: IP reputation, rate limiting, HTTP callout, geo location, URL categorization, bot management.
+- "Feature not enabled" check (QA-009) also covers Front-End Optimization, AppQoE and Content Inspection.
+### Fixed
+- QA-009 reported integrated caching as "not enabled" on almost every config because of the built-in default cache policies (`_...`, `ctx_...`); measured on real configs: 70 of 93 configs affected, now 2.
+- QA-006 (unused monitor) never ran because of an internal error; monitors bound with `bind lb monitor <monitor> <service>` count as used.
+
 ## [0.3.2] - 2026-11-21
 ### Changed
 - Config export is structured: 1. objects (add), 2. settings (set), 3. bindings (bind/link), each grouped by feature (monitors, servers, services, service groups, LB vServers, content switching, SSL, rewrite, responder, authentication, gateway, ...) with counts. Objects are ordered so that every object is added before a line names it, independent of the source order (checked on 3,109 vServer exports of real configs and the public sample corpus).

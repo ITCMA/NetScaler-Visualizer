@@ -280,5 +280,9 @@
  "u_tools": "Outils",
  "u_cancel": "Annuler",
  "sc_find": "Rechercher ou filtrer dans l'onglet actuel",
- "sc_esc": "Effacer la sélection, quitter un champ, fermer une boîte de dialogue ou une info"
+ "sc_esc": "Effacer la sélection, quitter un champ, fermer une boîte de dialogue ou une info",
+ "kind_netrule": "Règle réseau (ACL/PBR/RNAT)",
+ "kind_lbgroup": "Groupe de persistance",
+ "kind_crl": "Liste de révocation (CRL)",
+ "kind_td": "Domaine de trafic"
 }

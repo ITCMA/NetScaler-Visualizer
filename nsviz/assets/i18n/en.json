@@ -311,5 +311,9 @@
  "u_tools": "Tools",
  "u_cancel": "Cancel",
  "sc_find": "Search or filter in the current tab",
- "sc_esc": "Clear the selection, leave a field, close a dialog or info"
+ "sc_esc": "Clear the selection, leave a field, close a dialog or info",
+ "kind_netrule": "Network rule (ACL/PBR/RNAT)",
+ "kind_lbgroup": "Persistency group",
+ "kind_crl": "CRL",
+ "kind_td": "Traffic domain"
 }

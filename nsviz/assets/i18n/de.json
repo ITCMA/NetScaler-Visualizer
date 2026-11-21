@@ -338,5 +338,9 @@
  "u_tools": "Werkzeuge",
  "u_cancel": "Abbrechen",
  "sc_find": "Suchen oder filtern im aktuellen Reiter",
- "sc_esc": "Auswahl aufheben, Feld verlassen, Dialog oder Info schließen"
+ "sc_esc": "Auswahl aufheben, Feld verlassen, Dialog oder Info schließen",
+ "kind_netrule": "Netzregel (ACL/PBR/RNAT)",
+ "kind_lbgroup": "Persistenzgruppe",
+ "kind_crl": "Sperrliste (CRL)",
+ "kind_td": "Traffic-Domain"
 }

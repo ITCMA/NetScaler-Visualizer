@@ -280,5 +280,9 @@
  "u_tools": "工具",
  "u_cancel": "取消",
  "sc_find": "在当前标签页中搜索或筛选",
- "sc_esc": "取消选择、离开输入框、关闭对话框或信息"
+ "sc_esc": "取消选择、离开输入框、关闭对话框或信息",
+ "kind_netrule": "网络规则 (ACL/PBR/RNAT)",
+ "kind_lbgroup": "持久性组",
+ "kind_crl": "吊销列表 (CRL)",
+ "kind_td": "流量域"
 }

@@ -8,7 +8,7 @@ function pseudonymizer(on) {
   if (!on) return { s: x => String(x == null ? '' : x), on: false };
   const map = new Map(), ips = new Map(), subs = new Map(), hosts = new Map();
   const add = (v, kind) => { v = String(v || ''); if (v.length >= 2 && !map.has(v) && !/^\d+$/.test(v) && !(v.toUpperCase() === v && v.includes('-'))) map.set(v, (kind || 'obj') + '_' + String(map.size + 1).padStart(4, '0')); };
-  D.nodes.forEach(n => { add(n.name, n.kind); add(n.label, n.kind); });
+  D.nodes.forEach(n => { add(n.name, n.kind); add(n.label, n.kind); String(n.props['DNS suffixes'] || '').split(', ').forEach(v => add(v, 'domain')); });
   D.groups.forEach(g => { add(g.name, 'group'); g.devices.forEach(d => { add(d.name, 'adc'); add(d.file, 'file'); }); });
   const names = [...map.keys()].sort((a, b) => b.length - a.length);
   const ip4 = /(?<![\d.])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?![\d.])/g;
@@ -265,11 +265,11 @@ renderDetail = function (d) {
 // network (SNIP/VIP/VLAN/routes) and the global default SSL profiles.
 const NCFG_SKIP = new Set(['contains', 'doublehop', 'loop', 'network']);
 const NCFG_DEFAULT = /^ns_default_ssl_profile_(frontend|backend)$/i;
-const NCFG_NOREF = new Set(['device', 'netip', 'vlan', 'route', 'missing']);
+const NCFG_NOREF = new Set(['device', 'netip', 'vlan', 'route', 'td', 'missing']);
 const NCFG_SEC = [
   ['Expressions, pattern sets, variables and log messages', /^(policy (patset|dataset|stringmap|httpcallout|expression|map)|ns (variable|assignment|limitidentifier|limitselector)|stream (selector|identifier)|audit messageaction)$/],
   ['Profiles (TCP, HTTP, network, DNS, analytics)', /^(ns (tcpprofile|httpprofile|icmpprofile)|netprofile|dns profile|analytics profile|lb profile|lb metrictable)$/],
-  ['Network', /^(ns ip6?|vlan|route6?|ns trafficdomain)$/],
+  ['Network', /^(ns ip6?|vlan|route6?|ns trafficdomain|ns (acl|pbr)6?|rnat6?)$/],
   ['SSL: certificates', /^ssl (certkey|ocspresponder|crl)$/],
   ['SSL: cipher groups, profiles and policies', /^ssl (cipher|profile|action|policy|policylabel)$/],
   ['Load balancing: monitors', /^lb monitor$/],
