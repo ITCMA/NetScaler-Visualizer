@@ -17,6 +17,8 @@
   </div>
   <nav id="tabs" role="tablist" aria-label="Views"></nav>
   <div class="tools">
+    <div id="gui-nav" class="seg2" hidden><button id="g-back" class="icon" data-i18n-title="g_back" data-i18n-aria="g_back">←</button><button id="g-restart" class="icon" data-i18n-title="g_restart" data-i18n-aria="g_restart">↺</button></div>
+    <button id="dbg-btn" class="icon" aria-pressed="false" data-i18n-title="dbg_btn" data-i18n-aria="dbg_btn">🐞</button>
     <label class="sr" for="lang" data-i18n="u_lang">Language</label>
     <select id="lang" aria-label="Language"></select>
     <div class="seg" id="theme" role="radiogroup" aria-label="Theme">
@@ -26,6 +28,7 @@
     </div>
     <button id="export" class="btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg> <span data-i18n="ex_btn">Export</span></button>
     <button id="help" class="icon" aria-haspopup="dialog" data-i18n-title="u_keys" data-i18n-aria="u_keys">?</button>
+    <button id="g-quit" class="icon" hidden data-i18n-title="g_quit" data-i18n-aria="g_quit">⏻</button>
   </div>
 </header>
 <main id="main" tabindex="-1">
@@ -85,8 +88,7 @@
     <div class="tablewrap"><table id="t-rules"><thead><tr id="h-rules"></tr></thead><tbody></tbody></table></div>
   </section>
 </main>
-<footer id="legal" class="legal" role="contentinfo" data-i18n="disclaimer"></footer>
-<dialog id="dlg" aria-labelledby="dlg-t"><div class="dlg-head"><h2 id="dlg-t" data-i18n="u_keys"></h2><button class="icon" id="dlg-x" data-i18n-aria="u_close">✕</button></div><dl id="keys"></dl></dialog>
+<dialog id="dlg" aria-labelledby="dlg-t"><div class="dlg-head"><h2 id="dlg-t" data-i18n="u_keys"></h2><button class="icon" id="dlg-x" data-i18n-aria="u_close">✕</button></div><dl id="keys"></dl><p class="legal" data-i18n="disclaimer"></p></dialog>
 <dialog id="dlgx" aria-labelledby="dlgx-t"><div class="dlg-head"><h2 id="dlgx-t" data-i18n="ex_title"></h2><button class="icon" id="ex-x" data-i18n-aria="u_close">✕</button></div><div id="ex-body"></div><div class="dlg-foot"><button id="ex-go" class="primary" data-i18n="ex_go" disabled></button></div></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="live" class="sr" aria-live="polite"></div>

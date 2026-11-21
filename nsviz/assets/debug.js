@@ -67,7 +67,7 @@ function dbgAll() {
 }
 function dbgBox(obj, title) {
   const txt = JSON.stringify(obj, null, 1);
-  return `<section class="dbg"><h4>🐞 ${esc(title)}</h4><p class="muted small">${esc(t('dbg_hint'))}</p>
+  return `<section class="dbg"><h4>🐞 ${esc(title)}</h4><p class="muted small">${esc(t('dbg_hint'))}</p><p class="muted small">${esc(t('dbg_add'))}</p>
     <div class="row wrap"><button class="dbg-copy">${esc(t('dbg_copy'))}</button><button class="dbg-all">${esc(t('dbg_all'))}</button></div>
     <textarea class="dbg-txt" readonly rows="10" aria-label="${esc(t('dbg_copy'))}">${esc(txt)}</textarea></section>`;
 }
@@ -91,10 +91,50 @@ renderDetail = function (d) {
     <div class="tablewrap"><table class="small"><thead><tr><th>${esc(t('dbg_conn'))}</th><th>${esc(t('dbg_type'))}</th><th>${esc(t('dbg_rule'))}</th><th>${esc(t('dbg_line'))}</th><th>${esc(t('dbg_drawn'))}</th></tr></thead><tbody>${rows}</tbody></table></div></section>` + dbgBox(info, t('dbg_obj')));
   dbgWire();
 };
-cy.on('tap', 'edge', ev => {
-  if (!state.debug) return;
-  const info = dbgEdgeInfo(ev.target);
+// several elements at once: Shift, Ctrl or Cmd + click adds or removes an object or line, a normal click starts anew
+state.dbgSel = [];
+cy.style().selector('.dbgsel').style({ 'overlay-color': '#6366f1', 'overlay-opacity': 0.28, 'overlay-padding': 6 }).update();
+function dbgMarks() { cy.elements('.dbgsel').removeClass('dbgsel'); state.dbgSel.forEach(id => cy.getElementById(id).addClass('dbgsel')); }
+function dbgItem(id) {
+  const el = cy.getElementById(id); if (!el.length) return null;
+  const { tool, code, view, ...rest } = el.isNode() ? dbgNodeInfo(id) : dbgEdgeInfo(el);
+  return el.isNode() ? { object: rest } : { line: rest };
+}
+function dbgItemLabel(id) {
+  const el = cy.getElementById(id); if (!el.length) return '?';
+  if (el.isNode()) { const n = dbgNode(id); return `${n.id} · ${n.kind}`; }
+  return `${DBG_IDX[el.data('source')] || '?'} → ${DBG_IDX[el.data('target')] || '?'} · ${el.data('type') || ''}`;
+}
+function dbgShowMulti() {
+  const info = { tool: D.meta.generator, code: D.meta.code || '', view: dbgView(), items: state.dbgSel.map(dbgItem).filter(Boolean) };
+  $('#detail').innerHTML = `<h3>🐞 ${esc(t('dbg_multi', { n: state.dbgSel.length }))}</h3><ul class="small">${state.dbgSel.map(id => `<li>${esc(dbgItemLabel(id))}</li>`).join('')}</ul>
+    <button id="dbg-clear">${esc(t('dbg_clear'))}</button>` + dbgBox(info, t('dbg_multi', { n: state.dbgSel.length }));
+  $('#dbg-clear').onclick = () => { state.dbgSel = []; dbgMarks(); clearSelection(); };
+  dbgWire();
+}
+function dbgShowEdge(el) {
+  const info = dbgEdgeInfo(el);
   $('#detail').innerHTML = `<h3>🐞 ${esc(t('dbg_edge'))}</h3><dl><dt>${esc(t('dbg_type'))}</dt><dd>${esc(String(info.edge.type))}</dd><dt>${esc(t('dbg_rule'))}</dt><dd><code>${esc(info.edge.rule || '–')}</code></dd><dt>${esc(t('dbg_line'))}</dt><dd>${esc(String(info.edge.cfgLine || '–'))}</dd></dl>` + dbgBox(info, t('dbg_edge'));
   dbgWire();
+}
+cy.on('tap', 'node, edge', ev => {
+  if (!state.debug) return;
+  const oe = ev.originalEvent || {}, id = ev.target.id();
+  if (oe.shiftKey || oe.ctrlKey || oe.metaKey) { const i = state.dbgSel.indexOf(id); i >= 0 ? state.dbgSel.splice(i, 1) : state.dbgSel.push(id); }
+  else state.dbgSel = [id];
+  dbgMarks();
+  if (state.dbgSel.length > 1) dbgShowMulti();
+  else if (state.dbgSel.length === 1 && cy.getElementById(state.dbgSel[0]).isEdge()) dbgShowEdge(cy.getElementById(state.dbgSel[0]));
+  else if (state.dbgSel.length === 1 && state.dbgSel[0] !== state.selected) select(state.dbgSel[0]);
 });
-$('#debug-mode').onchange = e => { state.debug = e.target.checked; document.body.classList.toggle('debug', state.debug); if (state.selected) renderDetail(nodeById[state.selected]); else if (state.debug) { $('#detail').innerHTML = dbgBox({ tool: D.meta.generator, code: D.meta.code || '', view: dbgView(), hint: 'select an object or a line' }, t('dbg_mode')); dbgWire(); } };
+cy.on('tap', ev => { if (ev.target === cy && state.debug) { state.dbgSel = []; dbgMarks(); } });
+function dbgSet(on) {
+  state.debug = on; $('#debug-mode').checked = on; $('#dbg-btn').setAttribute('aria-pressed', String(on)); document.body.classList.toggle('debug', on);
+  if (!on) { state.dbgSel = []; dbgMarks(); }
+  if (on) { showTab('topo'); toast(t('dbg_on')); }
+  if (state.selected) renderDetail(nodeById[state.selected]);
+  else if (on) { $('#detail').innerHTML = dbgBox({ tool: D.meta.generator, code: D.meta.code || '', view: dbgView(), hint: 'select an object or a line' }, t('dbg_mode')); dbgWire(); }
+  else renderDetail(null);
+}
+$('#debug-mode').onchange = e => dbgSet(e.target.checked);
+$('#dbg-btn').onclick = () => dbgSet(!state.debug);

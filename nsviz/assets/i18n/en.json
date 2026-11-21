@@ -278,5 +278,13 @@
  "dbg_hint": "Copy and paste it into the chat. Config lines appear only anonymised (same rules as 'Anonymize configs': pseudonyms, secrets removed, IPs/FQDNs replaced with private/public and internal/external kept, ports and protocols kept).",
  "dbg_copied": "Copied",
  "dbg_manual": "Copy did not work: select the text in the box and copy it manually",
- "dbg_saved": "Saved as nsviz-debug.json (anonymised)"
+ "dbg_saved": "Saved as nsviz-debug.json (anonymised)",
+ "g_back": "Change selection",
+ "g_restart": "Start over",
+ "g_quit": "Quit",
+ "dbg_btn": "Debug mode (anonymized info for error reports)",
+ "dbg_multi": "Debug selection: {n} element(s)",
+ "dbg_add": "Shift, Ctrl or Cmd + click adds further objects or lines; a normal click starts a new selection.",
+ "dbg_clear": "Clear selection",
+ "dbg_on": "Debug mode on: click objects or lines, Shift/Ctrl/Cmd + click to select several"
 }

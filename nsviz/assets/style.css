@@ -137,3 +137,13 @@ button[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(-
 
 .dbg{border-top:1px dashed var(--line,#94a3b8);margin-top:10px;padding-top:6px}.dbg textarea{width:100%;font:11px/1.35 ui-monospace,monospace;margin-top:6px}.dbg table td,.dbg table th{padding:2px 4px}
 .ver{font-size:11px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--chip,#e2e8f0);color:inherit;opacity:.8;vertical-align:middle}
+/* compact header: one slim row, more room for the graph */
+header.top{padding:4px 14px;gap:12px}.logo{width:26px;height:26px}.brand{gap:8px}.brand b{font-size:15px}.sub{font-size:11px;line-height:1.25}
+nav#tabs button{padding:5px 12px;min-height:30px}.seg button{min-height:30px;padding:4px 8px}button.icon{width:30px;height:30px}
+.tools{gap:6px}.tools select{padding:3px 6px}.seg2{display:flex;gap:6px}
+#dbg-btn[aria-pressed=true]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+dialog .legal{border-top:1px solid var(--line);margin:12px 0 0;padding-top:8px;text-align:start}
+header.top{flex-wrap:nowrap}.brand{min-width:0;flex:0 1 auto}.brand>div{min-width:0}.sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
+nav#tabs{flex-wrap:nowrap;overflow-x:auto;min-width:0;scrollbar-width:thin}nav#tabs button{white-space:nowrap}.tools{flex:none}
+@media (max-width:1100px){.sub{display:none}}
+.sub{max-width:24vw}nav#tabs button{padding:5px 10px}.tools select#lang{max-width:110px}header.top{gap:10px}

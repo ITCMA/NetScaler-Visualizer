@@ -247,5 +247,13 @@
  "dbg_hint": "Copiez et collez dans le chat : aucun nom, IP, nom de fichier ni valeur, seulement types, règles, numéros de ligne et structure des lignes.",
  "dbg_copied": "Copié",
  "dbg_manual": "La copie a échoué : sélectionnez le texte et copiez-le",
- "dbg_saved": "Enregistré sous nsviz-debug.json (anonymisé)"
+ "dbg_saved": "Enregistré sous nsviz-debug.json (anonymisé)",
+ "g_back": "Modifier la sélection",
+ "g_restart": "Recommencer",
+ "g_quit": "Quitter",
+ "dbg_btn": "Mode débogage (infos anonymisées pour signaler une erreur)",
+ "dbg_multi": "Sélection de débogage : {n} élément(s)",
+ "dbg_add": "Maj, Ctrl ou Cmd + clic ajoute d'autres objets ou lignes ; un clic normal commence une nouvelle sélection.",
+ "dbg_clear": "Vider la sélection",
+ "dbg_on": "Mode débogage actif : cliquez sur des objets ou lignes, Maj/Ctrl/Cmd + clic pour en choisir plusieurs"
 }

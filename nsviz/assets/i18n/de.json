@@ -305,5 +305,13 @@
  "dbg_hint": "Kopieren und in den Chat einfügen. Config-Zeilen erscheinen nur anonymisiert (gleiche Regeln wie „Configs anonymisieren“: Pseudonyme, Geheimnisse entfernt, IPs/FQDNs ersetzt, privat/öffentlich und intern/extern bleiben erkennbar, Ports und Protokolle bleiben).",
  "dbg_copied": "Kopiert",
  "dbg_manual": "Kopieren ging nicht: Text im Feld markieren und manuell kopieren",
- "dbg_saved": "Gespeichert als nsviz-debug.json (anonymisiert)"
+ "dbg_saved": "Gespeichert als nsviz-debug.json (anonymisiert)",
+ "g_back": "Auswahl ändern",
+ "g_restart": "Neu starten",
+ "g_quit": "Beenden",
+ "dbg_btn": "Debug-Modus (anonymisierte Infos für Fehlermeldungen)",
+ "dbg_multi": "Debug-Auswahl: {n} Element(e)",
+ "dbg_add": "Umschalt-, Strg- oder Cmd-Klick fügt weitere Objekte oder Linien hinzu; ein normaler Klick beginnt eine neue Auswahl.",
+ "dbg_clear": "Auswahl leeren",
+ "dbg_on": "Debug-Modus an: Objekte oder Linien anklicken, mit Umschalt/Strg/Cmd + Klick mehrere wählen"
 }

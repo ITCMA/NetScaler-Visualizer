@@ -56,7 +56,7 @@ backend HA pair with a deliberate deviation). Prebuilt report: `examples/demo/re
   Rule texts and finding messages are available in English and German. UI translations other than en/de are not
   reviewed by native speakers.
 - **Anonymize configs** (GUI section 5 or `nsviz anonymize`): choose what to replace (all on by default; secrets are always removed; comments, time zone and location/GeoIP data are kept unless you tick their "remove" option). Consistent pseudonyms keep the object type, IP subnets and private/public, FQDN structure and internal/external, LDAP DNs and product URL paths; a structure check compares objects and connections before and after, and remaining places to check are listed locally.
-- **Debug mode:** shows for every line which rule and config line created it; copies an anonymised description (no names, IPs or values) to report wrong or missing lines.
+- **Debug mode** (🐞 button in the header): shows for every line which rule and config line created it; copies an anonymised description (no names, IPs or values) to report wrong or missing lines. Shift, Ctrl or Cmd + click selects several objects and lines for one combined description.
 - **Accessibility/usability:** skip link, ARIA tabs, focus outlines, keyboard control in the graph (arrows, Enter,
   +/−, 0, `/`, `?` lists all shortcuts), reduced motion support, overview page with health score.
 ### Checks

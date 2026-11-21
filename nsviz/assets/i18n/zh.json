@@ -247,5 +247,13 @@
  "dbg_hint": "复制并粘贴到聊天：不含名称、IP、文件名或值，只有类型、规则、行号和配置行结构。",
  "dbg_copied": "已复制",
  "dbg_manual": "复制失败：请选中文本手动复制",
- "dbg_saved": "已保存为 nsviz-debug.json（已匿名）"
+ "dbg_saved": "已保存为 nsviz-debug.json（已匿名）",
+ "g_back": "更改选择",
+ "g_restart": "重新开始",
+ "g_quit": "退出",
+ "dbg_btn": "调试模式（用于错误报告的匿名信息）",
+ "dbg_multi": "调试选择：{n} 个元素",
+ "dbg_add": "Shift、Ctrl 或 Cmd + 单击可添加更多对象或连线；普通单击开始新的选择。",
+ "dbg_clear": "清除选择",
+ "dbg_on": "调试模式已开启：单击对象或连线，Shift/Ctrl/Cmd + 单击可多选"
 }

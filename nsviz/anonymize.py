@@ -69,7 +69,8 @@ KEEP_OPTS = {"subjectnameattribute", "groupnameattribute", "ssonameattribute", "
              "subattributename", "signaturealg", "digestmethod", "authentication", "attribute1", "attribute2", "attribute3",
              "attribute4", "attribute5", "attribute6", "attribute7", "attribute8", "attribute9", "attribute10",
              "attribute11", "attribute12", "attribute13", "attribute14", "attribute15", "attribute16", "followreferrals",
-             "nestedgroupextraction", "groupsearchattribute", "groupsearchsubattribute", "defaultloginschema"}
+             "nestedgroupextraction", "groupsearchattribute", "groupsearchsubattribute", "defaultloginschema",
+             "strongpassword", "passwordchange", "passwdchange", "passwordexpirynotification"}  # settings, no secret
 FILE_OPTS = {"authenticationschema", "cert", "key", "certfilename", "keyfilename", "certfile", "keyfile", "crlfile", "dhfile", "file", "filename",
              "fipskey", "intermediatecacert", "cacertfile", "src", "importfile", "suffix", "kekfile", "certkeyfile"}
 POSITIONAL_SECRETS = {"system user": 1, "aaa user": 1, "snmp community": 0}  # etype -> positional index that is a secret
@@ -123,6 +124,9 @@ SAFE_WORDS = SAFE_PATH | SAFE_LOWER | {
     "request", "response", "override", "symmetric", "asymmetric", "ascii", "utf_8", "unicode", "next", "end", "noop",
     "allow", "deny", "drop", "reset", "other", "enabled", "disabled", "both", "client", "header", "body", "query", "method",
     "storeweb", "nsc_", "nsc_tmas", "nsc_aaac", "nsc_tass", "pwcount", "csrftoken", "aspxauth", "redirect", "true", "false",
+    # login vocabulary (field names in forms, schemas and expressions; no customer data)
+    "password", "passwd", "passcode", "username", "user", "login", "logon", "otp", "token", "credentials", "credential",
+    "email", "submit", "form", "account", "newpassword", "oldpassword", "confirmpassword", "password1", "password2",
 }
 
 # internal services of the appliance (nshttps-127.0.0.1-443, nsrpcs-::1l-3008, ...): the prefix is product vocabulary
@@ -719,7 +723,8 @@ def anonymize_texts(items: list[tuple[str, str]], options: dict | None = None, k
         if lk:  # where to look (shown only locally: GUI/CLI); never part of the anonymized output
             lines = res.splitlines()
             for v in sorted(lk)[:200]:
-                ln = next((k for k, x in enumerate(lines, 1) if v in x), 0)
+                rx = re.compile(r"(?<![\w.@-])" + re.escape(v) + r"(?![\w.@-])") if re.fullmatch(r"[\w.@:/-]+", v) else None
+                ln = next((k for k, x in enumerate(lines, 1) if (rx.search(x) if rx else v in x)), 0)
                 review.append({"file": out[-1][0], "line": ln, "value": v})
     st = {"files": len(configs), "skipped": len(items) - len(configs), "statements_in": sin, "statements_out": sout,
           "structure_ok": all(not d for d in diffs), "structure_diffs": [d[:20] for d in diffs], "names": len(an.names),

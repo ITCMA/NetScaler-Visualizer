@@ -52,7 +52,7 @@ Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/r
   umschaltbar. Hell/Dunkel folgt `prefers-color-scheme`, umschaltbar, Wahl wird im Browser gemerkt. Regeltexte und
   Befundmeldungen gibt es auf Englisch und Deutsch. Übersetzungen außer en/de sind nicht von Muttersprachlern geprüft.
 - **Configs anonymisieren** (GUI Abschnitt 5 oder `nsviz anonymize`): auswählen, was ersetzt wird (Standard: alles; Geheimnisse werden immer entfernt; Kommentare, Zeitzone und Standort-/GeoIP-Angaben bleiben, außer die jeweilige Option "entfernen" ist angehakt). Einheitliche Pseudonyme erhalten Objekttyp, IP-Subnetze und privat/öffentlich, FQDN-Aufbau und intern/extern, LDAP-DNs und Produkt-URL-Pfade; eine Strukturprüfung vergleicht Objekte und Verbindungen vorher/nachher, verbleibende Prüfstellen werden lokal aufgelistet.
-- **Debug-Modus:** zeigt zu jeder Linie, welche Regel und welche Config-Zeile sie erzeugt hat; kopiert eine anonymisierte Beschreibung (keine Namen, IPs oder Werte), um falsche oder fehlende Linien zu melden.
+- **Debug-Modus** (🐞-Schaltfläche im Kopf): zeigt zu jeder Linie, welche Regel und welche Config-Zeile sie erzeugt hat; kopiert eine anonymisierte Beschreibung (keine Namen, IPs oder Werte), um falsche oder fehlende Linien zu melden. Umschalt-, Strg- oder Cmd-Klick wählt mehrere Objekte und Linien für eine gemeinsame Beschreibung.
 - **Barrierefreiheit/Bedienung:** Skip-Link, ARIA-Tabs, Fokusrahmen, Tastatursteuerung im Graph (Pfeile, Enter, +/−, 0, `/`,
   `?` zeigt alle Kürzel), reduzierte Animationen, Übersichtsseite mit Gesundheitswert.
 ### Prüfungen

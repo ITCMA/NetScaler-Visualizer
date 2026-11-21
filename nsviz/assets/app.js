@@ -558,7 +558,7 @@ function renderOverview() {
    <div class="card"><h3>${esc(t('o_devs'))} · ${esc(t('o_obj'))} · ${esc(t('o_rel'))}</h3><div class="kpi" style="justify-content:space-around;text-align:center"><div><div class="num" data-n="${nDev}">0</div><div class="muted">${esc(t('o_devs'))}</div></div><div><div class="num" data-n="${D.nodes.length}">0</div><div class="muted">${esc(t('o_obj'))}</div></div><div><div class="num" data-n="${D.edges.length}">0</div><div class="muted">${esc(t('o_rel'))}</div></div></div>
      ${D.chains.length ? `<h3 style="margin-top:14px">${esc(t('o_chain'))}</h3><p>${D.chains.map(c => c.map(esc).join(' → ')).join('<br>')}</p>` : ''}</div></div>
    <div class="card"><h3>${esc(t('o_top'))}</h3>${risk.length ? `<ul class="toplist">${risk.map(([n]) => { const w = worst(n.findings); return `<li tabindex="0" data-id="${esc(n.id)}"><span class="sev ${w}">${esc(sevLabel(w))}</span><span class="nm">${esc(n.label)} <span class="muted">${esc(kindLabel(n.kind))}</span></span><b>${n.findings.length}</b></li>`; }).join('')}</ul>` : `<div class="clean"><span class="party" aria-hidden="true">🎉</span>${esc(t('o_clean'))}</div>`}</div>
-   ${!['de', 'en'].includes(lang) ? `<p class="banner">${esc(t('note_i18n'))}</p>` : ''}`;
+   ${!['de', 'en'].includes(lang) ? `<p class="banner">${esc(t('note_i18n'))}</p>` : ''}<p class="legal">${esc(t('disclaimer'))}</p>`;
   requestAnimationFrame(() => { $$('#overview .fg').forEach(c => c.setAttribute('stroke-dashoffset', c.dataset.to)); $$('#overview .bar i').forEach(i => i.style.width = i.dataset.w + '%'); countUp($('#sc'), score); $$('#overview [data-n]').forEach(e => countUp(e, +e.dataset.n)); });
   $$('#overview .bars button').forEach(b => b.onclick = () => { SEV.forEach(s => s === b.dataset.sev ? sevSel.add(s) : sevSel.delete(s)); renderFindingsUi(); renderFindings(); showTab('findings'); });
   $$('#overview .toplist li').forEach(li => { li.onclick = () => goTo(li.dataset.id); li.onkeydown = e => { if (e.key === 'Enter') goTo(li.dataset.id); }; });
@@ -591,6 +591,7 @@ function applyStatic() {
   document.title = 'NetScaler Visualizer';
   $('#ver').textContent = D.meta.generator.replace(/^nsviz /, 'v'); $('#ver').title = 'code ' + (D.meta.code || '') + ' · ' + D.meta.created;
   $('#subtitle').textContent = t('sub', { d: D.groups.reduce((a, g) => a + g.devices.length, 0), g: D.groups.length, o: D.nodes.length, t: dateStr() }) + ' · ' + (D.meta.redacted ? t('masked') : t('unmasked'));
+  $('#subtitle').title = $('#subtitle').textContent;
 }
 function renderAll() {
   applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderRulesUi(); renderRules(); renderOverview();
@@ -607,5 +608,11 @@ ls.onchange = () => { lang = ls.value; store.set('lang', lang); renderAll(); };
 lang = detectLang(); ls.value = lang;
 applyTheme(); renderAll();
 showTab('overview');
+let GUI = null; try { GUI = window.parent !== window && window.parent.nsvizGui || null; } catch (e) { GUI = null; }
+if (GUI) {
+  $('#gui-nav').hidden = false; $('#g-quit').hidden = false;
+  $('#g-back').onclick = () => GUI.back(); $('#g-restart').onclick = () => GUI.restart(); $('#g-quit').onclick = () => GUI.quit();
+  const prevLang = ls.onchange; ls.onchange = () => { prevLang(); try { GUI.lang(lang); } catch (e) { /* GUI gone */ } };
+}
 window.__nsviz = { cy, state, select, revealNode, refresh, showTab, setLang: l => { ls.value = l; ls.onchange(); }, setTheme: p => { themePref = p; applyTheme(); } };
 })();

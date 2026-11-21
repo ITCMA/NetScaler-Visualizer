@@ -3,6 +3,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-21
+### Added
+- Debug mode: 🐞 button in the report header (switches to the topology); Shift, Ctrl or Cmd + click selects several objects and lines, "Copy debug info" then contains all of them (anonymized).
+### Changed
+- GUI: the report view has a single slim header row; "Change selection", "Start over" and "Quit" are icon buttons in the report header, one language selector (report and GUI stay in sync), the GUI statistics line is gone (figures are in the report subtitle and tabs).
+- Trademark notice moved from the report footer to the GUI start page, the report overview and the help dialog.
+### Fixed
+- Anonymization: `-strongpassword` and similar settings keep their value; login vocabulary such as "password" or "username" is no longer reported as a possible leftover; review lines point to the exact token (not to option names that merely contain it).
+
 ## [0.2.2] - 2026-11-21
 ### Added
 - Anonymization: optional categories (off by default) to remove comments (`-comment` values and `#` lines), the device time zone and location/GeoIP data (SNMP location, `add location`, location files, coordinates). GUI: extra check boxes; CLI: `--remove comments,timezone,location`. Statements removed on request do not count as a structure difference.
