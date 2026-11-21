@@ -464,11 +464,28 @@ class Graph:
                 out.append({"file": st.file, "line": st.line, "text": redact(st, self.redact)})
                 keys.extend(k for k in self._supporting(st) if k not in done)
         out.sort(key=lambda x: x["line"])
-        return out[:1000]  # complete for the config export; the details panel shows them in a scroll box
+        return out[:5000]  # complete for the config export (large WAF profiles); the details panel shows them in a scroll box
 
     # objects that are no nodes of their own but are needed to recreate a statement elsewhere (config export)
     EXPR_ETYPES = ("policy patset", "policy dataset", "policy stringmap", "policy httpcallout", "policy expression",
                    "ns variable", "ns assignment", "policy map", "ns limitidentifier", "stream identifier", "audit messageaction")
+    # referenced by name in an option value (not inside an expression); measured gaps of the export on real configs
+    SUPPORT_ETYPES = EXPR_ETYPES + (
+        "ns tcpprofile", "ns httpprofile", "netprofile", "dns profile", "analytics profile", "lb profile", "ns icmpprofile",
+        "cache contentgroup", "cache selector", "appflow collector", "stream selector", "ns limitselector", "lb metrictable",
+        "ssl ocspresponder", "ssl action", "ssl crl", "bot profile", "bot signature",
+        "vpn portaltheme", "vpn url", "vpn urlaction", "vpn intranetapplication", "vpn nexthopserver", "vpn formssoaction",
+        "vpn eula", "vpn alwaysonprofile", "vpn pcoipprofile", "vpn pcoipvserverprofile",
+        "rdp clientprofile", "rdp serverprofile", "tm formssoaction", "tm samlssoprofile", "tm sessionparameter",
+        "aaa kcdaccount", "aaa preauthenticationaction", "authentication pushservice")
+
+    def _support_index(self) -> dict[str, list[str]]:
+        if self._expr_names is None:
+            self._expr_names = {}
+            for (et, nm) in self._stmt_idx:
+                if et in self.SUPPORT_ETYPES and len(nm) >= 2:
+                    self._expr_names.setdefault(nm, []).append(et)
+        return self._expr_names
 
     def _supporting(self, st) -> list[tuple[str, str]]:
         out: list[tuple[str, str]] = []
@@ -476,16 +493,23 @@ class Graph:
             act = st.opt("action")
             if act and ("cs action", act) in self._stmt_idx:
                 out.append(("cs action", act))
-        exprs = [t.text for t in getattr(st, "tokens", []) if t.quoted and ("(" in t.text or "." in t.text or "$" in t.text)]
-        if exprs and self._expr_names is None:
-            self._expr_names = {}
-            for (et, nm) in self._stmt_idx:
-                if et in self.EXPR_ETYPES and len(nm) >= 2:
-                    self._expr_names.setdefault(nm, []).append(et)
+        toks = getattr(st, "tokens", [])[1:]
+        exprs = [t.text for t in toks if t.quoted and ("(" in t.text or "." in t.text or "$" in t.text)]
+        plain = [t.text for t in toks if not t.quoted and not is_option(t)]
+        if not exprs and not plain:
+            return out
+        idx = self._support_index()
+        own = st.args[0] if st.args else None
+        for tok in plain:  # option values / positional arguments that name a supporting object
+            if tok != own:
+                for et in idx.get(tok, []):
+                    if et != st.etype:
+                        out.append((et, tok))
         for txt in exprs:
             for tok in set(re.findall(r"[$\w.-]+", txt)):
-                for et in (self._expr_names or {}).get(tok.lstrip("$"), []) + (self._expr_names or {}).get(tok, []):
-                    out.append((et, tok.lstrip("$") if (et, tok.lstrip("$")) in self._stmt_idx else tok))
+                for et in idx.get(tok.lstrip("$"), []) + idx.get(tok, []):
+                    if et in self.EXPR_ETYPES:
+                        out.append((et, tok.lstrip("$") if (et, tok.lstrip("$")) in self._stmt_idx else tok))
         return out
 
     # ---- Bindungen ------------------------------------------------------------------------
@@ -695,7 +719,7 @@ class Graph:
             ctx = (et, name)
             for key, etypes, typ, lab in (("authnvsname", ["authentication vserver", "vpn vserver"], "auth", "Auth"),
                                           ("authnprofile", ["authentication authnprofile"], "auth", "Authn profile"),
-                                          ("backupvserver", ["lb vserver", "cs vserver"], "backup", "Backup"),
+                                          ("backupvserver", ["gslb vserver"] if et == "gslb vserver" else [et] + [t for t in ("lb vserver", "cs vserver") if t != et], "backup", "Backup"),
                                           ("sslprofile", ["ssl profile"], "ssl", "SSL profile")):
                 v = e.opt(key)
                 if v:
@@ -729,7 +753,10 @@ class Graph:
         if kind == "authpol":
             src = self.nid(et, name)
             act = e.opt("action") or e.opt("reqaction") or (e.args[2] if len(e.args) > 2 else None)
-            if act and src in self.nodes and not et.endswith("localpolicy") and not et.endswith("noauthpolicy"):
+            builtin = re.fullmatch(r"[A-Z_]+", act or "") and not any(act in self.cfg.of(t) for t in self.cfg.entities)
+            if act and ("ns assignment", act) in self._stmt_idx:
+                act = None  # nFactor: an assignment (variable) as action; part of the policy's config lines, no node
+            if act and src in self.nodes and not builtin and not et.endswith("localpolicy") and not et.endswith("noauthpolicy"):
                 if et.endswith("loginschemapolicy"):
                     self._ref(src, ["authentication loginschema"], e.opt("action") or act, "nfactor", "Login Schema", (et, name), e.line)
                 elif et.endswith("policy") and et != "authentication policy":

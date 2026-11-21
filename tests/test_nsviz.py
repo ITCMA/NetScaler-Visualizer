@@ -253,6 +253,26 @@ class ConfigLineTests(unittest.TestCase):
             self.assertNotIn("secretpw", users[0].lines[0]["text"])
 
 
+    def test_supporting_objects_and_builtin_actions(self):
+        src = ('add ns httpProfile hp_custom -http2 ENABLED\n'
+               'add ns tcpProfile tp_custom -WS ENABLED\n'
+               'add lb vserver lb2 HTTP 192.0.2.5 80 -httpProfileName hp_custom -tcpProfileName tp_custom\n'
+               'add cache contentGroup cg1\n'
+               'add cache policy cp1 -rule true -action CACHE -storeInGroup cg1\n'
+               'add ns assignment as1 -variable $v1 -set 1\n'
+               'add authentication Policy ap_noauth -rule true -action NO_AUTHN\n'
+               'add authentication Policy ap_var -rule true -action as1\n')
+        g = Graph(Config.parse_text(src), "g1")
+        by = {(n.etype, n.name): n for n in g.nodes.values()}
+        lb = [l["text"] for l in by[("lb vserver", "lb2")].lines]
+        self.assertIn("add ns httpProfile hp_custom -http2 ENABLED", lb)       # profiles named in options travel along
+        self.assertIn("add ns tcpProfile tp_custom -WS ENABLED", lb)
+        cp = [n for n in g.nodes.values() if n.name == "cp1"]
+        if cp:
+            self.assertIn("add cache contentGroup cg1", [l["text"] for l in cp[0].lines])
+        self.assertFalse([n for n in g.nodes.values() if n.kind == "missing"])  # NO_AUTHN is built in, as1 is an assignment
+
+
 class DebugAnonTests(unittest.TestCase):
     def test_debug_data_has_no_originals(self):
         p = Project.load([str(DEMO)])

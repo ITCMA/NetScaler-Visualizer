@@ -11,6 +11,7 @@ from . import __version__
 from .model import Edge, Graph, KIND_LABELS, is_ip
 from .linking import apply_map, collect
 from .parser import Config
+from .parser import FAMILIES, ONE_WORD
 from .rules import RULES, SEVERITIES, CATEGORIES, Finding, Rule, finalize, load_builtin_rules, register_meta, render_messages, run_rules
 
 CONF_SUFFIX = {".conf", ".txt", ".cfg", ".ns", ".config"}
@@ -459,7 +460,7 @@ class Project:
         rules = {r.id: r.meta() for r in RULES.values()}
         return {
             "meta": {"generator": f"nsviz {__version__}", "code": _code_id(), "created": _dt.datetime.now().isoformat(timespec="seconds"),
-                     "redacted": self.redact, "kind_labels": KIND_LABELS, "severities": SEVERITIES, "categories": CATEGORIES,
+                     "redacted": self.redact, "kind_labels": KIND_LABELS, "parse": {"families": sorted(FAMILIES), "one_word": sorted(ONE_WORD)}, "severities": SEVERITIES, "categories": CATEGORIES,
                      "notes": self.notes},
             "groups": [{"id": g.id, "name": g.name, "kind": g.kind, "assumption": g.assumption,
                         "devices": [{"name": d.name, "file": d.cfg.name, "role": d.role, "version": d.cfg.version, "build": d.cfg.build,

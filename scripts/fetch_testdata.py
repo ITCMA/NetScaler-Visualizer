@@ -42,10 +42,15 @@ def main() -> int:
     dest.mkdir(parents=True, exist_ok=True)
     failed = []
     for name in FILES:
-        try:
-            text = _get(BASE + name).decode("utf-8", errors="replace")
-        except Exception as exc:  # report and continue
-            failed.append(f"{name}: {exc}")
+        text = None
+        for sub in ("", "apps/"):  # most samples live in tests/artifacts/apps/ at the pinned commit
+            try:
+                text = _get(BASE + sub + name).decode("utf-8", errors="replace")
+                break
+            except Exception as exc:  # try the next location, report if none works
+                err = exc
+        if text is None:
+            failed.append(f"{name}: {err}")
             continue
         text = _HEX.sub(lambda m: "0" * len(m.group(0)), text)
         (dest / name).write_text(text, encoding="utf-8")

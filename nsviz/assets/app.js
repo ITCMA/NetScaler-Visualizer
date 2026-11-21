@@ -704,5 +704,5 @@ if (GUI) {
   $('#g-back').onclick = () => GUI.back(); $('#g-restart').onclick = () => GUI.restart(); $('#g-quit').onclick = () => GUI.quit();
   const prevLang = ls.onchange; ls.onchange = () => { prevLang(); try { GUI.lang(lang); } catch (e) { /* GUI gone */ } };
 }
-window.__nsviz = { cy, state, select, revealNode, refresh, showTab, setLang: l => { ls.value = l; ls.onchange(); }, setTheme: p => { themePref = p; applyTheme(); } };
+window.__nsviz = { cy, state, select, revealNode, refresh, showTab, ncfg: (a, d, s) => { const o = exp.scope; if (s) exp.scope = s; try { return buildNcfg(a, d); } finally { exp.scope = o; } }, setLang: l => { ls.value = l; ls.onchange(); }, setTheme: p => { themePref = p; applyTheme(); } };
 })();

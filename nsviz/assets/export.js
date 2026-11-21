@@ -257,18 +257,74 @@ renderDetail = function (d) {
 };
 
 // ---- NetScaler config export (batch file) ----------------------------------------------------------------
-// Statements of the chosen objects, optionally with everything they use (directly or indirectly), in the order of the
-// source config (ns.conf is saved add-before-bind, so that order also works as a batch). -devno is removed (appliance
-// internal). Lines are taken from one source file per object (HA partners hold the same lines).
-const NCFG_SKIP = new Set(['contains', 'doublehop']);
+// Statements of the chosen objects, optionally with everything they use (directly or indirectly). Output in three phases
+// that are valid as a batch regardless of the source order: 1. objects (add, ordered so that every referenced object is
+// added first), 2. settings (set/enable), 3. bindings (bind/link). Each phase is grouped in sections (monitors, servers,
+// services, service groups, vServers, ...). Lines are taken from one source file per object (HA partners hold the same
+// lines). -devno is removed (appliance internal). Not followed: links to other vServers via a server IP ('loop'), the
+// network (SNIP/VIP/VLAN/routes) and the global default SSL profiles.
+const NCFG_SKIP = new Set(['contains', 'doublehop', 'loop', 'network']);
+const NCFG_DEFAULT = /^ns_default_ssl_profile_(frontend|backend)$/i;
+const NCFG_NOREF = new Set(['device', 'netip', 'vlan', 'route', 'missing']);
+const NCFG_SEC = [
+  ['Expressions, pattern sets, variables and log messages', /^(policy (patset|dataset|stringmap|httpcallout|expression|map)|ns (variable|assignment|limitidentifier|limitselector)|stream (selector|identifier)|audit messageaction)$/],
+  ['Profiles (TCP, HTTP, network, DNS, analytics)', /^(ns (tcpprofile|httpprofile|icmpprofile)|netprofile|dns profile|analytics profile|lb profile|lb metrictable)$/],
+  ['Network', /^(ns ip6?|vlan|route6?|ns trafficdomain)$/],
+  ['SSL: certificates', /^ssl (certkey|ocspresponder|crl)$/],
+  ['SSL: cipher groups, profiles and policies', /^ssl (cipher|profile|action|policy|policylabel)$/],
+  ['Load balancing: monitors', /^lb monitor$/],
+  ['Load balancing: servers', /^server$/],
+  ['Load balancing: services', /^service$/],
+  ['Load balancing: service groups', /^servicegroup$/],
+  ['Load balancing: virtual servers', /^lb (vserver|group)$/],
+  ['GSLB', /^gslb /],
+  ['Content switching', /^cs /],
+  ['Rewrite', /^rewrite /],
+  ['Responder', /^responder /],
+  ['Caching', /^cache /],
+  ['Compression', /^cmp /],
+  ['Web App Firewall and bot management', /^(appfw|bot) /],
+  ['AppFlow and analytics', /^appflow /],
+  ['Audit and logging', /^audit /],
+  ['Authentication, AAA and nFactor', /^(authentication|authorization|aaa|tm) /],
+  ['NetScaler Gateway', /^(vpn|ica|rdp) /],
+  ['Other', /./]];
+const NCFG_FAM = new Set(((D.meta.parse || {}).families) || []), NCFG_ONE = new Set(((D.meta.parse || {}).one_word) || []);
+function ncfgTok(txt) { // words in order; q = was a quoted string (its inner text)
+  const out = [], re = /"((?:\\.|[^"\\])*)"|(\S+)/g; let m;
+  while ((m = re.exec(txt))) out.push(m[1] !== undefined ? { t: m[1], q: true } : { t: m[2], q: false });
+  return out;
+}
+function ncfgRefs(txt, from) { // candidate object names used in a statement from word index 'from' on
+  const r = new Set();
+  ncfgTok(txt).slice(from).forEach(w => { if (!w.q) { if (!/^-[A-Za-z]/.test(w.t)) r.add(w.t); return; } r.add(w.t); (w.t.match(/[$\w.-]+/g) || []).forEach(x => r.add(x.replace(/^\$/, ''))); });
+  return r;
+}
+function ncfgStmt(txt) { // verb, object type, name (same rules as the Python parser)
+  const w = ncfgTok(txt), verb = ((w[0] || {}).t || '').toLowerCase(), r = w.slice(1), w0 = ((r[0] || {}).t || '').toLowerCase();
+  const n = !r.length ? 0 : NCFG_ONE.has(w0) ? 1 : (NCFG_FAM.has(w0) && r.length >= 2 && !r[1].q && !/^-[A-Za-z]/.test(r[1].t)) ? 2 : 1;
+  const etype = r.slice(0, n).map(x => x.t).join(' ').toLowerCase(), name = r[n] && (r[n].q || !/^-[A-Za-z]/.test(r[n].t)) ? r[n].t : '';
+  return { verb, etype, name, at: n + 2 };
+}
+function ncfgSection(etype, ownerEtype) {
+  if (/^ssl (vserver|service|servicegroup)$/.test(etype) && ownerEtype) etype = ownerEtype.toLowerCase();
+  return NCFG_SEC.findIndex(([, re]) => re.test(etype));
+}
 function ncfgStart() {
   if (exp.scope === 'sel') { const ids = state.multi.length ? state.multi : (state.selected ? [state.selected] : []); return ids.filter(id => nodeById[id]); }
   return sc().map(n => n.id());
 }
 function buildNcfg(anon, deps) {
-  const start = ncfgStart(), inc = new Set(start), out = {};
+  const start = ncfgStart(), inc = new Set(start.filter(id => !NCFG_DEFAULT.test(nodeById[id].label))), out = {}, byName = {};
+  let skippedDefault = start.length !== inc.size;
   D.edges.forEach(e => { if (NCFG_SKIP.has(e.type)) return; const a = nodeById[e.source], b = nodeById[e.target]; if (!a || !b || a.group !== b.group || b.kind === 'device') return; (out[e.source] = out[e.source] || []).push(e.target); });
-  if (deps) { const q = [...inc]; while (q.length) { const u = q.pop(); (out[u] || []).forEach(v => { if (!inc.has(v)) { inc.add(v); q.push(v); } }); } }
+  D.nodes.forEach(n => { if (!NCFG_NOREF.has(n.kind)) ((byName[n.group] = byName[n.group] || {})[n.label] = byName[n.group][n.label] || []).push(n.id); });
+  const walk = from => { const q = [...from]; while (q.length) { const u = q.pop(); (out[u] || []).forEach(v => { if (inc.has(v)) return; if (NCFG_DEFAULT.test(nodeById[v].label)) { skippedDefault = true; return; } inc.add(v); q.push(v); }); } };
+  const nameRefs = id => { const nd = nodeById[id], m = byName[nd.group] || {}, r = new Set(); (nd.lines || []).forEach(l => ncfgRefs(l.text, ncfgStmt(l.text).at).forEach(w => (m[w] || []).forEach(v => { if (v !== id) r.add(v); }))); return r; };
+  if (deps) { // follow the graph, then names used in the lines that the graph does not link (safety net), until nothing new
+    walk(inc);
+    for (let round = 0; round < 10; round++) { const add = []; inc.forEach(id => nameRefs(id).forEach(v => { if (!inc.has(v) && !NCFG_DEFAULT.test(nodeById[v].label)) add.push(v); else if (NCFG_DEFAULT.test(nodeById[v].label)) skippedDefault = true; })); if (!add.length) break; add.forEach(v => inc.add(v)); walk(add); }
+  }
   const lab = n => (anon ? ((n.anon || {}).label || '?') : n.label) + ' (' + n.etype + ')';
   const files = {}, warn = [], seen = new Set(), rows = [];
   let masked = false, enc = false, certs = false;
@@ -285,26 +341,63 @@ function buildNcfg(anon, deps) {
       if (/\*\*\*/.test(txt)) masked = true;
       if (/\s-encrypted\b|\s-kek\b/.test(txt)) enc = true;
       if (/^add ssl certkey\b/i.test(txt)) certs = true;
-      rows.push({ g: nd.group, f: l.file, line: l.line, txt });
+      const st = ncfgStmt(l.text); // classify on the original line (same structure as the anonymized one)
+      const phase = st.verb === 'add' ? 0 : /^(bind|link)$/.test(st.verb) ? 2 : 1;
+      rows.push({ g: nd.group, f: l.file, line: l.line, txt, orig: l.text, st, phase, sec: ncfgSection(st.etype, nd.etype), id });
     });
-    if ((nd.lines || []).length >= 1000) warn.push('very many statements, the list may be incomplete: ' + lab(nd));
+    if ((nd.lines || []).length >= 5000) warn.push('very many statements, the list may be incomplete: ' + lab(nd));
   });
-  inc.forEach(id => (out[id] || []).forEach(v => { if (!inc.has(v)) warn.push(lab(nodeById[id]) + ' uses ' + lab(nodeById[v]) + ', which is not part of this export'); }));
-  rows.sort((a, b) => a.g.localeCompare(b.g) || a.f.localeCompare(b.f) || a.line - b.line);
-  const W = [...new Set(warn)];
+  inc.forEach(id => (out[id] || []).forEach(v => { if (!inc.has(v) && !NCFG_DEFAULT.test(nodeById[v].label)) warn.push(lab(nodeById[id]) + ' uses ' + lab(nodeById[v]) + ', which is not part of this export'); }));
+  if (!deps) inc.forEach(id => nameRefs(id).forEach(v => { if (!inc.has(v) && !NCFG_DEFAULT.test(nodeById[v].label)) warn.push(lab(nodeById[id]) + ' names ' + lab(nodeById[v]) + ', which is not part of this export'); }));
+  // phase 1: order the add statements so that every object named in an add line is added before it
+  const order = (list, topo) => {
+    const byPrio = (a, b) => a.sec - b.sec || a.f.localeCompare(b.f) || a.line - b.line;
+    if (!topo) return list.sort(byPrio);
+    const def = {}; list.forEach((r, i) => { if (r.st.name) (def[r.st.name] = def[r.st.name] || []).push(i); });
+    const need = list.map((r, i) => { const d = new Set(); ncfgRefs(r.orig, r.st.at).forEach(w => (def[w] || []).forEach(j => { if (j !== i) d.add(j); })); return d; });
+    const deg = need.map(d => d.size), users = list.map(() => []), heap = [], res = [], done = new Uint8Array(list.length);
+    need.forEach((d, i) => d.forEach(j => users[j].push(i)));
+    const less = (a, b) => byPrio(list[a], list[b]) < 0;
+    const push = i => { heap.push(i); let k = heap.length - 1; while (k) { const p = (k - 1) >> 1; if (!less(heap[k], heap[p])) break; [heap[k], heap[p]] = [heap[p], heap[k]]; k = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && less(heap[l], heap[m])) m = l; if (r < heap.length && less(heap[r], heap[m])) m = r; if (m === k) break; [heap[k], heap[m]] = [heap[m], heap[k]]; k = m; } } return top; };
+    deg.forEach((d, i) => { if (!d) push(i); });
+    while (res.length < list.length) {
+      let i;
+      if (heap.length) i = pop();
+      else { i = -1; list.forEach((r, j) => { if (!done[j] && (i < 0 || less(j, i))) i = j; }); } // cycle: fall back to section/source order
+      if (done[i]) continue;
+      done[i] = 1; res.push(list[i]);
+      users[i].forEach(u => { if (!done[u] && --deg[u] === 0) push(u); });
+    }
+    return res;
+  };
+  const W = [...new Set(warn)], groups = [...new Set(rows.map(r => r.g))].sort();
+  const cnt = p => rows.filter(r => r.phase === p).length;
   const L = [`# NetScaler config extract - ${D.meta.generator} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
     `# ${start.length} object(s) chosen, ${inc.size} exported (${deps ? 'with all direct and indirect dependencies' : 'only the chosen objects'}), ${rows.length} statement(s)${anon ? ', anonymized' : ''}`,
-    '# Order as in the source config (add before set/bind). Import on the target appliance, for example:',
+    `# Structure: 1. objects (add, ${cnt(0)}), 2. settings (set, ${cnt(1)}), 3. bindings (bind/link, ${cnt(2)}); each grouped by feature.`,
+    '# Every object is added before it is used, so the file can be imported as a batch, for example:',
     '#   batch -fileName /var/tmp/<this file> -outfile /var/tmp/<this file>.log',
-    '# Not included: certificate and key files (copy them to /nsconfig/ssl/ first), NSIP/SNIP/VLAN/routes and features',
-    '#   unless chosen, system, HA and global settings, global policy bindings. -devno values were removed.'];
+    '# Not included: certificate and key files (copy them to /nsconfig/ssl/ first), NSIP/SNIP/VLAN/routes and features,',
+    '#   system, HA and global settings, global policy bindings, other vServers that only share a server IP. -devno was removed.'];
+  if (skippedDefault) L.push('# The default SSL profiles (ns_default_ssl_profile_*) are global and not included: check their settings on the target.');
   if (masked) L.push('# Masked secrets (***) must be replaced before the import.');
   if (enc) L.push('# Encrypted values (-encrypted, -kek) only work on the source appliance: enter these passwords again.');
   if (certs) L.push('# Certificates: the referenced files must exist on the target before the add ssl certKey lines run.');
   if (anon) L.push('# Anonymized: names, addresses and hosts are pseudonyms; this file is for review, not for a real import.');
   W.forEach(w => L.push('# WARNING: ' + w));
   L.push('# Review the file and test it on a non-production appliance first.');
-  let cur = '';
-  rows.forEach(r => { const k = r.g + '|' + r.f; if (k !== cur) { cur = k; L.push('', '# --- source: ' + fileName(r.f)); } L.push(r.txt); });
+  const PH = ['1. Objects (add)', '2. Settings (set)', '3. Bindings (bind, link)'], bar = '# ' + '='.repeat(78);
+  groups.forEach(g => {
+    const gr = rows.filter(r => r.g === g), src = [...new Set(gr.map(r => fileName(r.f)))].join(', ');
+    if (groups.length > 1) L.push('', bar, '# Device / HA pair: ' + (anon ? 'device-group-' + (groups.indexOf(g) + 1) : ((D.groups.find(x => x.id === g) || {}).name || g)), bar);
+    L.push('# Source: ' + src);
+    [0, 1, 2].forEach(p => {
+      const list = order(gr.filter(r => r.phase === p), p === 0); if (!list.length) return;
+      L.push('', bar, '# ' + PH[p], bar);
+      let cur = -1;
+      list.forEach((r, i) => { if (r.sec !== cur) { cur = r.sec; let n = 0; for (let j = i; j < list.length && list[j].sec === cur; j++) n++; L.push('', `# --- ${NCFG_SEC[cur][0]} (${n})`); } L.push(r.txt); });
+    });
+  });
   return { text: L.join('\n') + '\n', lines: rows.length, warnings: W.length, objects: inc.size };
 }

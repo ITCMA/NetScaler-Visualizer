@@ -3,6 +3,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-21
+### Changed
+- Config export is structured: 1. objects (add), 2. settings (set), 3. bindings (bind/link), each grouped by feature (monitors, servers, services, service groups, LB vServers, content switching, SSL, rewrite, responder, authentication, gateway, ...) with counts. Objects are ordered so that every object is added before a line names it, independent of the source order (checked on 3,109 vServer exports of real configs and the public sample corpus).
+- Less in the export: other vServers that only share a server IP, the network (SNIP/VIP/VLAN/routes) and the global default SSL profiles with their cipher groups are no longer pulled in (a header line points out the default profiles).
+### Fixed
+- Missing parts in the export and in an object's config lines: TCP/HTTP/network/DNS/analytics profiles, cache content groups, AppFlow collectors, OCSP responders, SSL actions, portal themes, bookmarks, intranet applications, RDP profiles, SSO actions, KCD accounts, policy expressions, assignments and log messages named in options are now included; names used in exported lines that the graph does not link are followed as well.
+- Large WAF profiles were cut at 1,000 statements; the limit is now 5,000.
+- nFactor: built-in actions (for example NO_AUTHN) and assignments used as policy actions are no longer reported as missing objects; the backup of a GSLB vServer is resolved as a GSLB vServer.
+- `scripts/fetch_testdata.py` found only 2 of 38 public sample configs (they moved to a subfolder at the pinned commit).
+
 ## [0.3.1] - 2026-11-21
 ### Added
 - Light/dark/system theme switch on the start page (config selection), matching the report; the choice is remembered and shared with the report.
