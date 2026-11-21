@@ -174,14 +174,14 @@ function openExport(fmt) {
   const selOk = !!state.selected || state.multi.length > 0;
   if (fmt === 'ncfg') { exp.fmt = 'ncfg'; if (selOk) exp.scope = 'sel'; }
   if (exp.scope === 'sel' && !selOk) exp.scope = 'view';
-  const radio = (name, items, cur) => items.map(([v, label, dis]) => `<label class="opt${dis ? ' off' : ''}"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''} ${dis ? 'disabled' : ''}> ${esc(label)}</label>`).join('');
+  const radio = (name, items, cur, cls) => items.map(([v, label, dis]) => `<label class="${cls || 'opt'}${dis ? ' off' : ''}"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''} ${dis ? 'disabled' : ''}> ${esc(label)}</label>`).join('');
   const selLabel = state.multi.length > 1 ? t('ex_sel_multi', { n: state.multi.length }) : t('ex_sel');
   const card = (name, v, cur, title, fig) => `<label class="card-opt"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''}><span><b>${esc(title)}</b><span class="fig" id="fig-${name}-${v}">${esc(fig || '')}</span></span></label>`;
   const cmp = `<p>${esc(t('ex_cmp_intro'))}</p><p><b>${esc(t('ex_dep_only_t'))}:</b> ${esc(t('ex_cmp_only'))}</p><p><b>${esc(t('ex_dep_all_t'))}:</b> ${esc(t('ex_cmp_all'))}</p><p>${esc(t('ex_ncfg_hint'))}</p>`;
-  $('#ex-body').innerHTML = `<fieldset><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', selLabel + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
-    <fieldset><legend>${esc(t('ex_format'))}</legend>${radio('fmt', [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF (' + t('ex_pdf_hint') + ')'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')]], exp.fmt)}</fieldset>
+  $('#ex-body').innerHTML = `<fieldset class="rlist"><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', selLabel + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
+    <fieldset><legend>${esc(t('ex_format'))}${infoBtn('PDF: ' + esc(t('ex_pdf_hint')))}</legend><div class="chips">${radio('fmt', [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')]], exp.fmt, 'chip')}</div></fieldset>
     <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}${infoBtn(cmp)}</legend><div class="cards">${card('deps', '0', exp.deps ? '1' : '0', t('ex_dep_only_t'))}${card('deps', '1', exp.deps ? '1' : '0', t('ex_dep_all_t'))}</div></fieldset>
-    <fieldset><legend>${esc(t('ex_data'))}${infoBtn(`<p>${esc(t('ex_anon_hint'))}</p><p>${esc(t('ex_warn'))}</p>`)}</legend>${radio('anon', [['0', t('ex_orig')], ['1', t('ex_anon')]], '')}
+    <fieldset><legend>${esc(t('ex_data'))}${infoBtn(`<p>${esc(t('ex_anon_hint'))}</p><p>${esc(t('ex_warn'))}</p>`)}</legend><div class="cards">${card('anon', '0', '', t('ex_orig'))}${card('anon', '1', '', t('ex_anon'))}</div>
     <p class="warn small" role="note" id="ex-warn" hidden>${esc(t('ex_warn'))}</p></fieldset>`;
   const figs = () => { if (exp.fmt !== 'ncfg') return; [['0', false], ['1', true]].forEach(([v, d]) => { const r = buildNcfg(false, d); const el = $('#fig-deps-' + v); if (el) el.textContent = t('ex_dep_cnt', { o: r.objects, n: r.lines, w: r.warnings }); }); };
   figs();
@@ -192,7 +192,7 @@ function openExport(fmt) {
   $$('#ex-body input[name=anon]').forEach(i => i.onchange = () => { exp.anon = i.value === '1'; $('#ex-go').disabled = false; $('#ex-warn').hidden = exp.anon; });
   dlgx.showModal ? dlgx.showModal() : dlgx.setAttribute('open', '');
 }
-$('#export').onclick = () => openExport(); $('#ex-go').onclick = runExport; $('#ex-x').onclick = () => dlgx.close();
+$('#export').onclick = () => openExport(); $('#ex-go').onclick = runExport; $('#ex-x').onclick = () => dlgx.close(); $('#ex-cancel').onclick = () => dlgx.close();
 dlgx.addEventListener('click', e => { if (e.target === dlgx) dlgx.close(); });
 // ---- Multi-selection ------------------------------------------------------------------------------
 // Shift, Cmd or Option + click adds or removes an object (Ctrl + click too: on macOS it arrives as a right click);

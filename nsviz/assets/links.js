@@ -96,16 +96,15 @@ function renderLinks() {
       `<td class="nowrap"><button class="lk-ok" ${cur ? '' : 'disabled'}>${esc(t('lk_confirm'))}</button> <button class="lk-no" ${cur ? '' : 'disabled'}>${esc(t('lk_reject'))}</button> <button class="lk-reset" ${cur ? '' : 'disabled'}>${esc(t('lk_reset'))}</button></td></tr>`;
   }).join('');
   const all = D.nodes.filter(n => n.kind !== 'device' && n.kind !== 'missing').map(n => `<option value="${esc(n.id)}">${esc(lkGroupName(n.group))} · ${esc(n.label)} (${esc(kindLabel(n.kind))})</option>`).join('');
-  root.innerHTML = `<h2>${esc(t('lk_title'))}</h2><p class="muted">${esc(t('lk_intro'))}</p>
+  root.innerHTML = `<h2 class="hrow">${esc(t('lk_title'))}${infoBtn(`<p>${esc(t('lk_intro'))}</p><p>${esc(t('lk_note'))}</p>`)}</h2>
     <div class="card"><div class="row wrap"><button id="lk-hosts-b">${esc(t('lk_import'))}</button><button id="lk-load-b">${esc(t('lk_load'))}</button><button id="lk-save-b">${esc(t('lk_save'))}</button>
-      <span class="muted">${esc(t('lk_known', { a: known, b: names.length }))}</span></div>
+      <span class="muted">${esc(t('lk_known', { a: known, b: names.length }))}</span>${infoBtn(esc(t('lk_privacy')))}</div>
       <input type="file" id="lk-hosts-f" accept=".txt,.csv,.hosts,text/plain" hidden><input type="file" id="lk-load-f" accept=".json,application/json" hidden>
-      <p class="muted small">${esc(t('lk_privacy'))}</p>
-      <details><summary>${esc(t('lk_dns_title'))}</summary><p class="small">${esc(t('lk_dns_text'))}</p>
-        <div class="row wrap"><label for="lk-srv" class="small">${esc(t('lk_dns_server'))}</label><input id="lk-srv" placeholder="10.0.0.53" size="16"><code id="lk-cmd">${esc(cmd(''))}</code><button id="lk-copy">${esc(t('lk_copy'))}</button><button id="lk-names">${esc(t('lk_names'))}</button></div></details></div>
+      <details><summary>${esc(t('lk_dns_title'))}</summary>
+        <div class="row wrap">${infoBtn(esc(t('lk_dns_text')))}<label for="lk-srv" class="small">${esc(t('lk_dns_server'))}</label><input id="lk-srv" placeholder="10.0.0.53" size="16"><code id="lk-cmd">${esc(cmd(''))}</code><button id="lk-copy">${esc(t('lk_copy'))}</button><button id="lk-names">${esc(t('lk_names'))}</button></div></details></div>
     <div class="card"><div class="tablewrap"><table><thead><tr><th scope="col">${esc(t('lk_th_src'))}</th><th scope="col">${esc(t('lk_th_tgt'))}</th><th scope="col">${esc(t('lk_th_score'))}</th><th scope="col">${esc(t('th_status'))}</th><th scope="col"></th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">${esc(t('lk_empty'))}</td></tr>`}</tbody></table></div><p class="muted small">${esc(t('lk_note'))}</p></div>
-    <div class="card"><h3>${esc(t('lk_manual_h'))}</h3><p class="muted small">${esc(t('lk_manual_hint'))}</p>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">${esc(t('lk_empty'))}</td></tr>`}</tbody></table></div></div>
+    <div class="card"><h3 class="hrow">${esc(t('lk_manual_h'))}${infoBtn(esc(t('lk_manual_hint')))}</h3>
       <div class="row wrap"><select id="lk-from" aria-label="${esc(t('lk_from'))}">${all}</select><span>→</span><select id="lk-to" aria-label="${esc(t('lk_to'))}">${all}</select><button id="lk-add">${esc(t('lk_add'))}</button></div>
       <ul>${lkManual.map((m, i) => `<li>${esc(lkName(m.from))} → ${esc(lkName(m.to))} <button class="lk-del" data-i="${i}">${esc(t('lk_remove'))}</button></li>`).join('')}</ul></div>`;
   $$('#links tbody tr[data-i]').forEach(tr => {

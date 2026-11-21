@@ -3,6 +3,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-21
+### Changed
+- One design language for the start page and the report, close to macOS: shared colors, spacing, radii and system font; on/off options are switches, small choices are segmented controls (levels, tabs, theme), the export format is a row of chips, original/anonymized are option cards, dialogs have Cancel plus the main action.
+- Start page: grouped sections (files, options), HA pairs, cross-device links and anonymization collapsible, explanations behind the info button, "Create report" in a fixed bar at the bottom with the privacy note.
+- Report: sidebar in collapsible sections (search, device, levels, object types with round checks, view, tools), inspector as grouped cards, tables as inset groups, severity filter as toggle chips, explanations on the link tab moved into info buttons.
+### Added
+- Cmd/Ctrl+F focuses the search or filter of the current tab; Esc clears the selection or leaves a field.
+### Fixed
+- Standalone reports no longer show the GUI navigation buttons; the start page's warnings only appear when the risky option is switched on; the primary button in dark mode has enough contrast; tabs no longer get cut off in narrow windows in all 8 languages; switches and chips stay readable with forced colors (Windows high contrast).
+
 ## [0.2.7] - 2026-11-21
 ### Added
 - Info button (i) with a popover for longer explanations: opens on hover, click/tap and Enter/Space, closes with Escape, a click outside or when the mouse leaves; stays inside the window. Used in the export dialog and for the multi-selection.

@@ -122,7 +122,7 @@
  "sc_zoom": "Zoom avant / arrière",
  "sc_fit": "Ajuster à la fenêtre",
  "sc_help": "Afficher cette aide",
- "sc_tabs": "Changer d'onglet (1–6)",
+ "sc_tabs": "Changer d'onglet (1–7)",
  "sev_critical": "critique",
  "sev_high": "élevé",
  "sev_medium": "moyen",
@@ -277,5 +277,8 @@
  "ex_cmp_intro": "Exemple : vous sélectionnez un vServer CS.",
  "ex_cmp_only": "uniquement ses propres commandes (add cs vserver, ses liaisons et paramètres SSL). Les vServers LB, policies, certificats, etc. qu'il utilise manquent et sont signalés en avertissement.",
  "ex_cmp_all": "en plus tout ce que le CS utilise directement ou via d'autres objets : policies et actions, vServers LB, services, serveurs, moniteurs, certificats, profils. Nécessaire pour le recréer sur un autre NetScaler.",
- "u_tools": "Outils"
+ "u_tools": "Outils",
+ "u_cancel": "Annuler",
+ "sc_find": "Rechercher ou filtrer dans l'onglet actuel",
+ "sc_esc": "Effacer la sélection, quitter un champ, fermer une boîte de dialogue ou une info"
 }

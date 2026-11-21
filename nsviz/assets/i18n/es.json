@@ -122,7 +122,7 @@
  "sc_zoom": "Acercar / alejar",
  "sc_fit": "Ajustar a la ventana",
  "sc_help": "Mostrar esta ayuda",
- "sc_tabs": "Cambiar de pestaña (1–6)",
+ "sc_tabs": "Cambiar de pestaña (1–7)",
  "sev_critical": "crítico",
  "sev_high": "alto",
  "sev_medium": "medio",
@@ -277,5 +277,8 @@
  "ex_cmp_intro": "Ejemplo: selecciona un vServer CS.",
  "ex_cmp_only": "solo sus propios comandos (add cs vserver, sus vínculos y ajustes SSL). Faltan los vServers LB, políticas, certificados, etc. que usa; se indican como avisos.",
  "ex_cmp_all": "además todo lo que el CS usa directamente o a través de otros objetos: políticas y acciones, vServers LB, servicios, servidores, monitores, certificados, perfiles. Es lo necesario para recrearlo en otro NetScaler.",
- "u_tools": "Herramientas"
+ "u_tools": "Herramientas",
+ "u_cancel": "Cancelar",
+ "sc_find": "Buscar o filtrar en la pestaña actual",
+ "sc_esc": "Quitar la selección, salir de un campo, cerrar un diálogo o una información"
 }

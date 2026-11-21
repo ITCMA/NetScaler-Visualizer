@@ -619,15 +619,20 @@ function renderOverview() {
 // ---- Dialog / shortcuts --------------------------------------------------------------------------
 const dlg = $('#dlg');
 function openHelp() {
-  const k = [['⇧ / ⌘ / ⌥ + 🖱', 'sc_multi'], ['⇧ + 🖱 ⇲', 'sc_box'], ['/', 'sc_search'], ['←↑↓→', 'sc_arrows'], ['Enter / Space', 'sc_enter'], ['+ / −', 'sc_zoom'], ['0', 'sc_fit'], ['1 – 6', 'sc_tabs'], ['?', 'sc_help']];
+  const k = [['⇧ / ⌘ / ⌥ + 🖱', 'sc_multi'], ['⇧ + 🖱 ⇲', 'sc_box'], ['⌘F / Ctrl+F', 'sc_find'], ['/', 'sc_search'], ['←↑↓→', 'sc_arrows'], ['Enter / Space', 'sc_enter'], ['+ / −', 'sc_zoom'], ['0', 'sc_fit'], ['1 – 7', 'sc_tabs'], ['Esc', 'sc_esc'], ['?', 'sc_help']];
   $('#keys').innerHTML = k.map(x => `<dt><kbd>${esc(x[0])}</kbd></dt><dd>${esc(t(x[1]))}</dd>`).join('');
   dlg.showModal ? dlg.showModal() : dlg.setAttribute('open', '');
 }
 $('#help').onclick = openHelp; $('#dlg-x').onclick = () => dlg.close(); dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 document.addEventListener('keydown', e => {
   const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
-  if (e.key === '/' && !typing) { e.preventDefault(); showTab('topo'); search.focus(); }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'f') {
+    const f = { findings: '#f-text', inventory: '#i-text', rules: '#r-text' }[curTab];
+    e.preventDefault(); if (!f) showTab('topo'); const el = f ? $(f) : search; el.focus(); el.select && el.select();
+  }
+  else if (e.key === '/' && !typing) { e.preventDefault(); showTab('topo'); search.focus(); }
   else if (e.key === '?' && !typing) { e.preventDefault(); openHelp(); }
+  else if (e.key === 'Escape' && !$('dialog[open]') && document.activeElement.id !== 'cy') { if (typing) document.activeElement.blur(); else if (curTab === 'topo') clearSelection(); }
   else if (/^[1-7]$/.test(e.key) && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement.id !== 'cy') showTab(TABS[+e.key - 1]);
 });
 

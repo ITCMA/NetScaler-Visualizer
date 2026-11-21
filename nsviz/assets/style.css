@@ -164,7 +164,7 @@ nav#tabs{flex-wrap:nowrap;overflow-x:auto;min-width:0;scrollbar-width:thin}nav#t
 @media (max-width:1100px){.sub{display:none}}
 .sub{max-width:24vw}nav#tabs button{padding:5px 10px}.tools select#lang{max-width:110px}header.top{gap:10px}
 
-/* ==== UI 2 (draft): one design language for report and GUI, close to macOS =================================
+/* ==== UI 2: one design language for report and GUI, close to macOS =================================
    tokens: spacing 4/8/12/16, radius 8 (controls) / 12 (groups), system font, grouped inset sections, switches */
 :root{--sp1:4px;--sp2:8px;--sp3:12px;--sp4:16px;--rc:8px;--rg:12px;--sbbg:color-mix(in srgb,var(--bg) 70%,var(--panel));
   --sep:color-mix(in srgb,var(--fg) 10%,transparent);--fill:color-mix(in srgb,var(--fg) 6%,transparent)}
@@ -224,8 +224,50 @@ dialog{border-radius:var(--rg);border:0;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 #dlgx fieldset{border:0;background:var(--fill);border-radius:var(--rg);padding:var(--sp2) var(--sp3)}
 #dlgx legend{font-size:11px;font-weight:600;color:var(--muted);padding:0;margin-bottom:4px;float:left;width:100%}
 #dlgx fieldset>*:not(legend){clear:both}
-/* draft: tabs as one segmented control, subtitle only when there is room */
+/* tabs as one segmented control, subtitle only when there is room */
 nav#tabs{flex:0 1 auto;gap:2px;padding:2px;border-radius:9px;background:var(--fill);margin-inline:auto}
 nav#tabs button{border-radius:7px;padding:4px 12px;min-height:28px}nav#tabs button[aria-selected=true]{background:var(--panel);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 @media (max-width:1440px){.sub{display:none}}
 .brand>div{white-space:nowrap}
+/* ==== UI 3: remaining views in the same language ========================================================= */
+[hidden]{display:none!important}
+input[type=radio],input[type=checkbox]{accent-color:var(--accent)}
+.hrow{display:flex;align-items:center;gap:2px}
+/* header: brand fixed, tabs shrink and scroll, compact tools */
+.brand{flex:none}nav#tabs{min-width:0;overflow-x:auto;scrollbar-width:none}nav#tabs::-webkit-scrollbar{display:none}
+.tools select#lang{max-width:104px}
+.seg{border:0;border-radius:var(--rc);padding:2px;gap:2px;background:var(--fill)}
+.seg button{min-width:28px;min-height:24px;padding:2px 6px;border-radius:6px;color:var(--muted)}
+.seg button[aria-checked=true]{background:var(--panel);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+@media (prefers-contrast:more){.seg button[aria-checked=true],.segc button.on,nav#tabs button[aria-selected=true]{outline:2px solid CanvasText;outline-offset:-2px}}
+/* toolbars and tables: plain bar on the page background, table as one inset group */
+.toolbar{background:transparent;border-bottom:0;padding:var(--sp3) var(--sp4) var(--sp2);gap:var(--sp2);position:static}
+.toolbar input[type=checkbox]{min-width:0;width:auto}
+.tab>.tablewrap{margin:0 var(--sp4) var(--sp4);background:var(--panel);border-radius:var(--rg);box-shadow:0 .5px 2px rgba(0,0,0,.1)}
+th{background:var(--panel);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:none}
+th,td{border-bottom-color:var(--sep)}tbody tr:last-child td{border-bottom:0}
+#t-findings td:nth-child(2),#t-rules td:first-child,#t-findings td:nth-child(5){white-space:nowrap}
+/* severity filter as toggle chips */
+#sev-filters{display:flex;gap:4px;flex-wrap:wrap}
+.sevchk{position:relative;margin:0;padding:2px;border-radius:999px}
+.sevchk input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.sevchk:has(input:not(:checked)) .sev{background:var(--fill);color:var(--muted);text-decoration:line-through}
+.sevchk:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:1px}
+/* export dialog: list rows, format chips, option cards, footer with cancel + primary */
+#dlgx{width:min(560px,calc(100vw - 32px))}
+#dlgx .rlist .opt{display:flex;margin:0;padding:6px 0;border-bottom:1px solid var(--sep)}#dlgx .rlist .opt:last-child{border-bottom:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{position:relative;display:inline-flex;align-items:center;padding:3px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--sep);cursor:pointer}
+.chip input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.chip:has(input:checked){background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.chip:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:1px}
+#dlgx .card-opt{background:var(--panel);border-color:var(--sep)}#dlgx .card-opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.dlg-foot{display:flex;justify-content:flex-end;gap:var(--sp2);margin-top:var(--sp3)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:var(--sp3)}
+.dlg-head button.icon{width:24px;height:24px;min-height:0;padding:0;border-radius:50%;border:0;box-shadow:none;background:var(--fill);color:var(--muted);font-size:11px}
+/* overview and project cards follow the inset-group look */
+.card{border-radius:var(--rg);border:0;box-shadow:0 .5px 2px rgba(0,0,0,.1)}
+#links .row .muted{flex:0 1 auto}
+@media (max-width:1380px){nav#tabs button{padding:4px 8px}.tools{gap:4px}header.top{gap:8px}.tools select#lang{max-width:88px}}
+@media (forced-colors:active){.chip:has(input:checked),input[type=checkbox][role=switch]:checked{forced-color-adjust:none;background:Highlight;color:HighlightText;border-color:Highlight}input[type=checkbox][role=switch]{forced-color-adjust:none;border:1px solid CanvasText;background:Canvas}input[type=checkbox][role=switch]::before{background:CanvasText}input[type=checkbox][role=switch]:checked::before{background:HighlightText}}
+:root[data-resolved=dark] nav#tabs button[aria-selected=true],:root[data-resolved=dark] .segc button.on,:root[data-resolved=dark] .segc button[aria-pressed=true],:root[data-resolved=dark] .seg button[aria-checked=true]{background:color-mix(in srgb,var(--fg) 16%,var(--panel))}

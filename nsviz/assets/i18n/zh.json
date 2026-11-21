@@ -122,7 +122,7 @@
  "sc_zoom": "放大 / 缩小",
  "sc_fit": "适应窗口",
  "sc_help": "显示此帮助",
- "sc_tabs": "切换标签页（1–6）",
+ "sc_tabs": "切换标签页 (1–7)",
  "sev_critical": "严重",
  "sev_high": "高",
  "sev_medium": "中",
@@ -277,5 +277,8 @@
  "ex_cmp_intro": "示例：选择一个 CS vServer。",
  "ex_cmp_only": "只有它自己的命令（add cs vserver、绑定和 SSL 设置）。它所指向的 LB vServer、策略、证书等不包含在内，并作为警告列出。",
  "ex_cmp_all": "另外包含 CS 直接或通过其他对象使用的全部内容：策略和操作、LB vServer、服务、服务器、监视器、证书、配置文件。在另一台 NetScaler 上重建时需要这些。",
- "u_tools": "工具"
+ "u_tools": "工具",
+ "u_cancel": "取消",
+ "sc_find": "在当前标签页中搜索或筛选",
+ "sc_esc": "取消选择、离开输入框、关闭对话框或信息"
 }

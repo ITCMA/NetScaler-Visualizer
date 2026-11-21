@@ -122,7 +122,7 @@
  "sc_zoom": "Zoom vergrößern / verkleinern",
  "sc_fit": "An Fenster anpassen",
  "sc_help": "Diese Hilfe anzeigen",
- "sc_tabs": "Tab wechseln (1–6)",
+ "sc_tabs": "Reiter wechseln (1–7)",
  "sev_critical": "kritisch",
  "sev_high": "hoch",
  "sev_medium": "mittel",
@@ -335,5 +335,8 @@
  "ex_cmp_intro": "Beispiel: Du wählst einen CS vServer.",
  "ex_cmp_only": "nur seine eigenen Befehle (add cs vserver, seine Bindings und SSL-Einstellungen). Die LB vServer, Policies, Zertifikate usw., auf die er zeigt, fehlen und werden als Warnung aufgeführt. Gut zum Vergleichen oder um ein einzelnes Objekt anzupassen.",
  "ex_cmp_all": "zusätzlich alles, was der CS direkt oder über andere Objekte nutzt: Policies und Actions, LB vServer, Services, Server, Monitore, Zertifikate, Profile. Das brauchst du, um ihn auf einem anderen NetScaler neu aufzubauen.",
- "u_tools": "Werkzeuge"
+ "u_tools": "Werkzeuge",
+ "u_cancel": "Abbrechen",
+ "sc_find": "Suchen oder filtern im aktuellen Reiter",
+ "sc_esc": "Auswahl aufheben, Feld verlassen, Dialog oder Info schließen"
 }
