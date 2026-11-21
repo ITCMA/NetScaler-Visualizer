@@ -3,6 +3,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-21
+### Added
+- Anonymization: optional categories (off by default) to remove comments (`-comment` values and `#` lines), the device time zone and location/GeoIP data (SNMP location, `add location`, location files, coordinates). GUI: extra check boxes; CLI: `--remove comments,timezone,location`. Statements removed on request do not count as a structure difference.
+### Changed
+- Comments, time zone and location data are kept by default; IP addresses, FQDNs and object names inside comments are still replaced. Customer names written in a comment therefore stay: tick "Remove comments" before passing a config on if that matters.
+- Debug mode always uses the strictest form (comments, time zone and location removed).
+
 ## [0.2.1] - 2026-11-21
 ### Added
 - Anonymization rebuilt: categories to choose (all on by default; passwords, keys, hashes and SNMP communities are always removed) in the GUI (section 5, download single files or ZIP, optional private mapping table) and the CLI (`--keep`). Pseudonyms keep the object type; IPs keep subnets and private/public (public -> 198.18.0.0/15); FQDNs keep generic labels and internal/external (internal TLDs or private DNS records); LDAP DNs follow the domain mapping; URL product paths, ports and LDAP attribute names stay; text inside expressions is replaced word by word with the expression structure kept (also `q/.../` literals); certificate, key, CRL and KEK file names are replaced. A structure check compares statements, objects and connections before and after; places that may still contain original values are listed locally for review.

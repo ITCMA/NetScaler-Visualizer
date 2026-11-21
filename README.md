@@ -37,6 +37,7 @@ python3 -m nsviz rules --markdown > docs/RULES.md
 # anonymized copies of configs (for sharing or development), see docs/PRIVACY.md
 python3 -m nsviz anonymize configs/ -o anonymized/            # everything anonymized (default)
 python3 -m nsviz anonymize configs/ -o anonymized/ --keep ips   # keep IP addresses
+python3 -m nsviz anonymize configs/ -o anonymized/ --remove comments,timezone,location   # also remove comments, time zone, location/GeoIP (off by default)
 python3 -m unittest discover -s tests
 ```
 
@@ -54,7 +55,7 @@ backend HA pair with a deliberate deviation). Prebuilt report: `examples/demo/re
   can be switched. Light/dark follows `prefers-color-scheme` and can be switched; the choice is remembered in the browser.
   Rule texts and finding messages are available in English and German. UI translations other than en/de are not
   reviewed by native speakers.
-- **Anonymize configs** (GUI section 5 or `nsviz anonymize`): choose what to replace (all on by default; secrets are always removed). Consistent pseudonyms keep the object type, IP subnets and private/public, FQDN structure and internal/external, LDAP DNs and product URL paths; a structure check compares objects and connections before and after, and remaining places to check are listed locally.
+- **Anonymize configs** (GUI section 5 or `nsviz anonymize`): choose what to replace (all on by default; secrets are always removed; comments, time zone and location/GeoIP data are kept unless you tick their "remove" option). Consistent pseudonyms keep the object type, IP subnets and private/public, FQDN structure and internal/external, LDAP DNs and product URL paths; a structure check compares objects and connections before and after, and remaining places to check are listed locally.
 - **Debug mode:** shows for every line which rule and config line created it; copies an anonymised description (no names, IPs or values) to report wrong or missing lines.
 - **Accessibility/usability:** skip link, ARIA tabs, focus outlines, keyboard control in the graph (arrows, Enter,
   +/−, 0, `/`, `?` lists all shortcuts), reduced motion support, overview page with health score.

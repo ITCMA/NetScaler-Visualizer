@@ -434,7 +434,7 @@ class Project:
     def _anon(self):
         """Anonymizer over all loaded configs: the debug mode shows config lines and labels only in this form."""
         from .anonymize import Anonymizer
-        an = Anonymizer()
+        an = Anonymizer(options={"comments": True, "timezone": True, "location": True})  # debug output: strictest form
         for g in self.groups:
             for d in g.devices:
                 an.learn(d.cfg)

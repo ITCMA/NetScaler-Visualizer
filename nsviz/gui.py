@@ -177,8 +177,8 @@ def make_handler(st: State, port: int):
             elif u.path == "/api/files":
                 self._json({"files": st.describe(), "extra": sorted(st.extra)})
             elif u.path == "/api/anon-options":
-                from .anonymize import OPTIONS
-                self._json({"options": [{"key": k, "en": v[0], "de": v[1], "fixed": k == "secrets"} for k, v in OPTIONS.items()]})
+                from .anonymize import DEFAULT_OPTIONS, OPTIONS
+                self._json({"options": [{"key": k, "en": v[0], "de": v[1], "fixed": k == "secrets", "on": DEFAULT_OPTIONS[k]} for k, v in OPTIONS.items()]})
             elif u.path.startswith("/anon/"):
                 parts = u.path.split("/")  # /anon/<id>/<index|zip|map>
                 res = st.anon.get(parts[2]) if len(parts) > 3 else None

@@ -214,7 +214,7 @@ class AnonymizeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "in").mkdir()
             (Path(d) / "in" / "acme-prod.conf").write_text(self.SRC)
-            st = anonymize_paths([str(Path(d) / "in")], str(Path(d) / "out"))
+            st = anonymize_paths([str(Path(d) / "in")], str(Path(d) / "out"), options={"comments": True})
             out = (Path(d) / "out" / "device-001.conf").read_text()
             for secret in ("acme", "10.77", "s3cretpw", "web01", "intranet"):
                 self.assertNotIn(secret, out, secret)
@@ -261,7 +261,7 @@ class AnonymizeOptionTests(unittest.TestCase):
         return out[0][1], st
 
     def test_all_on(self):
-        out, st = self.run_()
+        out, st = self.run_(comments=True, timezone=True, location=True)
         for secret in ("acme", "Acme", "ACME", "abc123", "secretpass", "s3cretcomm", "81.2.3.4", "10.1.2", "wildcard", "2023_01", "Staff", "svc_ldap"):
             self.assertNotIn(secret, out, secret)
         self.assertTrue(st["structure_ok"])
@@ -276,6 +276,29 @@ class AnonymizeOptionTests(unittest.TestCase):
         m = re.search(r"dc01\.(corp\d+)\.internal", out)
         self.assertIsNotNone(m)
         self.assertIn(f"DC={m.group(1)},DC=internal", out)     # same domain -> same pseudonym
+
+    def test_optional_categories(self):
+        from nsviz.anonymize import DEFAULT_OPTIONS
+        self.assertFalse(any(DEFAULT_OPTIONS[k] for k in ("comments", "timezone", "location")))
+        src = self.SRC + "\n".join([
+            "# owner team 10.1.2.3", "set ns param -timezone \"GMT+01:00-CET-Europe/Berlin\" -cookieversion 1",
+            "set snmp mib -location \"Rack 4\" -contact \"ops\"",
+            "add location 10.1.9.0 10.1.9.255 \"Europe.DE.Hesse.*.*.*\" -latitude 50 -longitude 8", ""])
+        from nsviz.anonymize import anonymize_texts
+        out = anonymize_texts([("a.conf", src)])[0][0][1]       # default: kept, addresses inside replaced
+        self.assertIn('-comment "Acme portal"', out)
+        self.assertIn("# owner team 10.", out)
+        self.assertNotIn("10.1.2.3", out)
+        self.assertIn("GMT+01:00-CET-Europe/Berlin", out)
+        self.assertIn('-location "Rack 4"', out)
+        self.assertIn("Europe.DE.Hesse", out)
+        out, st, _ = anonymize_texts([("a.conf", src)], {"comments": True, "timezone": True, "location": True})
+        out = out[0][1]
+        for gone in ("-comment", "# owner", "-timezone", "-location", "add location", "-latitude"):
+            self.assertNotIn(gone, out, gone)
+        self.assertIn("set ns param -cookieversion 1", out)
+        self.assertTrue(st["structure_ok"])
+        self.assertEqual(st["statements_in"], st["statements_out"])
 
     def test_keep_categories(self):
         out, st = self.run_(ips=False, fqdns=False)

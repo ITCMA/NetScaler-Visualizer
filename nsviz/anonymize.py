@@ -26,7 +26,7 @@ from .model import BUILTIN_CERTS, BUILTIN_MONITORS, KEYWORD_NAMES, SECRET_OPTS, 
 from .parser import Config, FAMILIES, ONE_WORD, Token, is_option, tokenize
 
 # ---- categories ---------------------------------------------------------------------------------
-OPTIONS = {  # key: (English label, German label); all on by default. "secrets" cannot be switched off.
+OPTIONS = {  # key: (English label, German label). "secrets" cannot be switched off; see DEFAULT_OPTIONS for the preselection.
     "secrets": ("Passwords, keys, hashes, SNMP communities (always removed)", "Kennwörter, Schlüssel, Hashes, SNMP-Communities (immer entfernt)"),
     "names": ("Object names (vServers, services, policies, certificates, ...)", "Objektnamen (vServer, Services, Policies, Zertifikate, ...)"),
     "users": ("User and group names", "Benutzer- und Gruppennamen"),
@@ -34,18 +34,28 @@ OPTIONS = {  # key: (English label, German label); all on by default. "secrets" 
     "ips": ("IP and MAC addresses (subnets and private/public kept)", "IP- und MAC-Adressen (Subnetze und privat/öffentlich bleiben erkennbar)"),
     "fqdns": ("FQDNs, domains, e-mail addresses (internal/external kept)", "FQDNs, Domänen, E-Mail-Adressen (intern/extern bleibt erkennbar)"),
     "urls": ("Customer-specific URL paths (product paths kept)", "Kundenspezifische URL-Pfade (Produktpfade bleiben)"),
-    "text": ("Comments, descriptions, LDAP base/bind DN, NetBIOS and SAML identifiers", "Kommentare, Beschreibungen, LDAP-Base/Bind-DN, NetBIOS- und SAML-Kennungen"),
+    "text": ("Descriptions, contacts, LDAP base/bind DN, NetBIOS and SAML identifiers", "Beschreibungen, Kontakte, LDAP-Base/Bind-DN, NetBIOS- und SAML-Kennungen"),
     "literals": ("Text inside policy expressions (structure kept)", "Text in Policy-Ausdrücken (Aufbau bleibt)"),
     "files": ("Certificate, key, CRL and KEK file names", "Zertifikats-, Schlüssel-, CRL- und KEK-Dateinamen"),
+    # optional, off by default: these remove information instead of replacing it
+    "comments": ("Remove comments (-comment values and # lines); otherwise kept, only IPs/FQDNs/names inside are replaced",
+                 "Kommentare entfernen (-comment-Werte und #-Zeilen); sonst bleiben sie, nur IPs/FQDNs/Namen darin werden ersetzt"),
+    "timezone": ("Remove the device time zone", "Gerätezeitzone entfernen"),
+    "location": ("Remove location and GeoIP data (SNMP location, location entries, location files, coordinates)",
+                 "Standort- und GeoIP-Angaben entfernen (SNMP-Standort, Location-Einträge, Location-Dateien, Koordinaten)"),
 }
-DEFAULT_OPTIONS = {k: True for k in OPTIONS}
+OPTIONAL = ("comments", "timezone", "location")
+DEFAULT_OPTIONS = {k: k not in OPTIONAL for k in OPTIONS}
+# what the optional categories remove: whole statements (by type) and options with their value
+DROP_ETYPES = {"location": {"location", "locationfile", "locationfile6", "locationparameter"}}
+DROP_OPTS = {"comments": {"comment"}, "timezone": {"timezone"}, "location": {"location", "latitude", "longitude", "geolocation"}}
 
 EXTRA_SECRETS = {"passplain", "pwd", "psk", "presharedkey", "sharedsecretkey", "authpassword", "privpassword", "bindpassword",
                  "communityname", "community", "tokenkey", "apikey", "accesskey", "secretaccesskey", "encryptedsecret"}
 SECRETS = set(SECRET_OPTS) | EXTRA_SECRETS
 # Option values that are free text or customer identifiers (DN-like values keep their structure, see _text)
 TEXT_OPTS = {
-    "comment", "description", "contact", "location", "ldapbase", "ldapbinddn", "searchfilter", "kcdaccount", "samlissuername",
+    "description", "contact", "ldapbase", "ldapbinddn", "searchfilter", "kcdaccount", "samlissuername",
     "clientid", "audience", "issuer", "orgname", "ssodomain", "domain", "text", "message", "responsemessage", "customheaders",
     "defaultauthenticationgroup", "authorizationgroup", "groupname", "ifalias", "realmstr", "entityid", "spnname", "realm",
     "identity", "originhost", "originrealm",
@@ -506,6 +516,11 @@ class Anonymizer:
             return self._quoted(s) if not s in self.names else self.names[s]
         if low in KEEP_OPTS or s.lower() in SAFE_VALUES:
             return s
+        if low == "timezone" or (etype in DROP_ETYPES["location"] and not is_ip(s) and low not in FILE_OPTS):
+            return s  # time zone and GeoIP qualifiers stay unless removed on request (addresses are still replaced)
+        if low in ("comment", "location"):  # kept as written; addresses, host names and object names inside are replaced
+            self.counts["kept_" + low] += 1
+            return self.scrub(s)
         if low in URLISH_OPTS:
             return self.scrub(s)
         if low in USER_OPTS:
@@ -536,7 +551,13 @@ class Anonymizer:
         if not s:
             return None
         if s.startswith("#"):
-            return s if re.match(r"#NS\d", s) else None
+            if re.match(r"#NS\d", s):
+                return s
+            if self.opt["comments"]:
+                self.counts["removed_comments"] += 1
+                return None
+            self.counts["kept_comment"] += 1
+            return self.scrub(s)
         toks = tokenize(s)
         if len(toks) == 1 and toks[0].text.lower() in ("done", "save"):
             return s
@@ -556,6 +577,12 @@ class Anonymizer:
         out: list[str] = []
         opt: str | None = None
         etype = " ".join(t.text.lower() for t in toks[1:n_type])
+        for cat, ets in DROP_ETYPES.items():
+            if self.opt[cat] and etype in ets:
+                self.counts["removed_" + cat] += 1
+                return None
+        drop = set().union(*(v for k, v in DROP_OPTS.items() if self.opt[k]))
+        skipping = False
         pos = 0
         for i, t in enumerate(toks):
             if i < n_type:
@@ -563,7 +590,13 @@ class Anonymizer:
                 continue
             if is_option(t):
                 opt = t.text[1:]
-                out.append(t.text)
+                skipping = opt.lower() in drop
+                if skipping:
+                    self.counts["removed_" + next(k for k, v in DROP_OPTS.items() if opt.lower() in v)] += 1
+                else:
+                    out.append(t.text)
+                continue
+            if skipping:
                 continue
             if opt is None:
                 if POSITIONAL_SECRETS.get(etype) == pos and t.text and verb in ("add", "set"):
@@ -673,6 +706,10 @@ def anonymize_texts(items: list[tuple[str, str]], options: dict | None = None, k
             "-secondary" if re.search(r"secondary|[-_.]sec[-_.]|\bsec\b", low) else "")
         out.append((f"device-{i:03d}{marker}.conf", res))
         a, b = structure(t), structure(res)
+        for cat, ets in DROP_ETYPES.items():  # statements removed on request are not a loss
+            if an.opt[cat]:
+                for k in [k for k in a if k.startswith("stmt:") and k.split(" ", 1)[-1] in ets]:
+                    del a[k]
         sin += sum(v for k, v in a.items() if k.startswith("stmt:"))
         sout += sum(v for k, v in b.items() if k.startswith("stmt:"))
         d = compare(a, b)

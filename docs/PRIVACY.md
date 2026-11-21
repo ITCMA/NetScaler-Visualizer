@@ -41,7 +41,10 @@ What it does (safe by default - over-anonymizing is accepted, leaking is not):
 - all object names (and every other value that is not a keyword, number or enum constant) → consistent pseudonyms such as `lbvserver_0012`;
 - IPv4 addresses → synthetic `10.x.y.z` addresses; hosts in the same /24 stay in the same /24 (netmasks and `0.0.0.0` are kept);
   IPv6 → `2001:db8::N`; host names and e-mail addresses → `hostN.example.com` / `userN@example.com`;
-- passwords, keys and long hex blobs removed; comments, descriptions, LDAP DNs/filters, certificate/key file names replaced;
+- passwords, keys and long hex blobs removed; descriptions, LDAP DNs/filters, certificate/key file names replaced;
+- comments, the device time zone and location/GeoIP data are kept by default (IPs, host names and object names inside comments are
+  still replaced); `--remove comments,timezone,location` (GUI: the "remove" check boxes) deletes them. Comments can contain customer
+  names: remove them before a config leaves the private folder;
 - string literals inside policy expressions replaced by `lit` (`--keep-literals` keeps them, with hosts/IPs/names still replaced);
 - the same input always maps to the same pseudonym across **all files of one run**, so HA pairs and double-hop chains still link up;
 - no reverse mapping is stored unless `--map-file` is given (that file is as sensitive as the input).
