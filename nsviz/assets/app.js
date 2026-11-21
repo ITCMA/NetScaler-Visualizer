@@ -83,7 +83,7 @@ const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kind
 cytoscape.use(cytoscapeDagre);
 const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id), fq: !!(n.dep && n.dep.fqdn) } }))
   .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
-const cy = cytoscape({ container: $('#cy'), elements, wheelSensitivity: 0.25, minZoom: 0.03, maxZoom: 3, boxSelectionEnabled: false, textureOnViewport: false });
+const cy = cytoscape({ container: $('#cy'), elements, minZoom: 0.03, maxZoom: 3, boxSelectionEnabled: false, textureOnViewport: false });
 window.cy = cy;
 // ---- Icons (own simple line symbols, 24x24 grid; no third-party artwork) -------------------------
 const ICONS = {
@@ -283,39 +283,90 @@ function tiersLayout() {
 
 // ---- Overlay: tier columns and device frames (HTML behind the canvas, follows pan/zoom) -----------------
 const lanes = $('#lanes');
-function drawOverlay() {
-  if (!lanes) return;
-  const z = cy.zoom(), p = cy.pan(), W = $('#cywrap').clientWidth, H = $('#cywrap').clientHeight, dark = resolved() === 'dark';
-  let h = '';
-  if (state.layout === 'tiers' && tierCols.length) {
-    tierCols.forEach((c, i) => {
-      const l = c.x0 * z + p.x, w = (c.x1 - c.x0) * z;
-      h += `<div class="lane${i % 2 ? ' alt' : ''}" style="left:${l}px;width:${w}px"><span>${esc(t(TIER_KEYS[c.tier]))}</span></div>`;
-    });
-    frames.forEach(f => {
-      const l = f.x0 * z + p.x, tp = f.y0 * z + p.y;
-      h += `<div class="frame" style="left:${l}px;top:${tp}px;width:${(f.x1 - f.x0) * z}px;height:${(f.y1 - f.y0) * z}px"><b style="font-size:${Math.max(10, Math.min(15, 13 * z))}px">${esc(f.name)}</b></div>`;
-    });
+// Rebuilt only when columns/frames change; pan and zoom only move the existing elements (once per frame).
+let ovRaf = 0, ovKey = '', ovEls = [];
+function drawOverlay() { if (lanes && !ovRaf) ovRaf = requestAnimationFrame(() => { ovRaf = 0; drawOverlayNow(); }); }
+function drawOverlayNow() {
+  const z = cy.zoom(), p = cy.pan(), on = state.layout === 'tiers' && tierCols.length;
+  const key = on ? lang + '|' + JSON.stringify(tierCols) + '|' + JSON.stringify(frames) : '';
+  if (key !== ovKey) {
+    ovKey = key;
+    lanes.innerHTML = on ? tierCols.map((c, i) => `<div class="lane${i % 2 ? ' alt' : ''}"><span>${esc(t(TIER_KEYS[c.tier]))}</span></div>`).join('') +
+      frames.map(f => `<div class="frame"><b>${esc(f.name)}</b></div>`).join('') : '';
+    ovEls = [...lanes.children];
   }
-  lanes.innerHTML = h;
+  if (!on) return;
+  tierCols.forEach((c, i) => { const st = ovEls[i].style; st.left = (c.x0 * z + p.x) + 'px'; st.width = ((c.x1 - c.x0) * z) + 'px'; });
+  frames.forEach((f, k) => { const el = ovEls[tierCols.length + k], st = el.style;
+    st.left = (f.x0 * z + p.x) + 'px'; st.top = (f.y0 * z + p.y) + 'px'; st.width = ((f.x1 - f.x0) * z) + 'px'; st.height = ((f.y1 - f.y0) * z) + 'px';
+    el.firstChild.style.fontSize = Math.max(10, Math.min(15, 13 * z)) + 'px'; });
 }
 function applyZoomClass() { const far = cy.zoom() < FAR_ZOOM; if (far !== state.far) { state.far = far; cy.elements().toggleClass('far', far); } }
-cy.on('zoom pan', () => { applyZoomClass(); drawOverlay(); drawMini(); });
+cy.on('zoom pan', () => { applyZoomClass(); drawOverlay(); drawMini(true); });
 cy.on('resize', () => { drawOverlay(); drawMini(); });
+
+// ---- Smooth zoom and pan ----------------------------------------------------------------------------
+// Wheel and trackpad: zoom towards the pointer. A trackpad pinch (wheel + ctrlKey) follows the fingers directly; mouse wheel
+// and two-finger scroll set a target that the view glides to (eased, a little follow-through). A quick drag of the background
+// keeps moving and slows down (inertia). Reduced-motion settings switch the easing and the inertia off.
+let zTarget = null, zAnchor = null, zRaf = 0, inRaf = 0;
+const clampZ = z => Math.max(cy.minZoom(), Math.min(cy.maxZoom(), z));
+function stopInertia() { cancelAnimationFrame(inRaf); inRaf = 0; }
+function zoomStep() {
+  const z = cy.zoom(), nz = z + (zTarget - z) * 0.3, done = Math.abs(zTarget - nz) / zTarget < 0.003;
+  cy.zoom({ level: done ? zTarget : nz, renderedPosition: zAnchor });
+  if (done) { zTarget = null; zRaf = 0; } else zRaf = requestAnimationFrame(zoomStep);
+}
+$('#cywrap').addEventListener('wheel', e => {
+  if (e.target === mini) return;
+  e.preventDefault(); e.stopPropagation(); stopInertia();
+  const r = $('#cy').getBoundingClientRect(); zAnchor = { x: e.clientX - r.left, y: e.clientY - r.top };
+  const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+  if (e.ctrlKey || reduceMotion) {
+    cancelAnimationFrame(zRaf); zRaf = 0; zTarget = null;
+    cy.zoom({ level: clampZ(cy.zoom() * Math.exp(-dy * (e.ctrlKey ? 0.012 : 0.0025))), renderedPosition: zAnchor }); return;
+  }
+  zTarget = clampZ((zTarget || cy.zoom()) * Math.exp(-Math.max(-250, Math.min(250, dy)) * 0.0025));
+  if (!zRaf) zRaf = requestAnimationFrame(zoomStep);
+}, { passive: false, capture: true });
+let dragPan = false, vel = { x: 0, y: 0 }, lastP = null, lastT = 0;
+cy.on('tapstart', e => { stopInertia(); dragPan = e.target === cy; lastP = { ...cy.pan() }; lastT = performance.now(); vel = { x: 0, y: 0 }; });
+cy.on('pan', () => {
+  if (!dragPan) return;
+  const now = performance.now(), p = cy.pan(), dt = Math.max(1, now - lastT);
+  vel = { x: vel.x * .5 + (p.x - lastP.x) / dt * .5, y: vel.y * .5 + (p.y - lastP.y) / dt * .5 }; lastP = { ...p }; lastT = now;
+});
+cy.on('tapend', () => {
+  if (!dragPan) return; dragPan = false;
+  if (reduceMotion || performance.now() - lastT > 60) return;
+  let vx = vel.x * 16, vy = vel.y * 16; if (Math.hypot(vx, vy) < 2) return;
+  const step = () => { vx *= .92; vy *= .92; if (Math.hypot(vx, vy) < .4) { inRaf = 0; return; } cy.panBy({ x: vx, y: vy }); inRaf = requestAnimationFrame(step); };
+  inRaf = requestAnimationFrame(step);
+});
 
 // ---- Minimap ----------------------------------------------------------------------------------
 const mini = $('#mini'), mctx = mini && mini.getContext('2d');
-let miniRaf = 0, miniMap = null;
-function drawMini() {
-  if (!mctx) return; cancelAnimationFrame(miniRaf);
+let miniRaf = 0, miniMap = null, miniFull = true, miniBase = null;
+function drawMini(viewportOnly) {
+  if (!mctx) return; if (!viewportOnly) miniFull = true;
+  if (miniRaf) return;
   miniRaf = requestAnimationFrame(() => {
-    const dark = resolved() === 'dark', w = mini.width, h = mini.height; mctx.clearRect(0, 0, w, h);
-    const ns = cy.nodes(':visible'); if (!ns.length) return;
-    const bb = ns.boundingBox({ includeLabels: false }), pad = 40, bw = bb.w + pad, bh = bb.h + pad, s = Math.min(w / bw, h / bh);
-    const ox = (w - bw * s) / 2 - (bb.x1 - pad / 2) * s, oy = (h - bh * s) / 2 - (bb.y1 - pad / 2) * s;
-    miniMap = { s, ox, oy };
-    ns.forEach(n => { const q = n.position(); mctx.fillStyle = kindStroke(n.data('kind'), dark); mctx.fillRect(q.x * s + ox - 4, q.y * s + oy - 2, 8, 4); });
-    const ex = cy.extent(); mctx.strokeStyle = dark ? '#a5b4fc' : '#4f46e5'; mctx.lineWidth = 1.5; mctx.strokeRect(ex.x1 * s + ox, ex.y1 * s + oy, ex.w * s, ex.h * s);
+    miniRaf = 0;
+    const dark = resolved() === 'dark', w = mini.width, h = mini.height;
+    if (miniFull || !miniBase) {
+      miniFull = false; miniBase = miniBase || document.createElement('canvas'); miniBase.width = w; miniBase.height = h;
+      const b = miniBase.getContext('2d'); b.clearRect(0, 0, w, h); miniMap = null;
+      const ns = cy.nodes(':visible');
+      if (ns.length) {
+        const bb = ns.boundingBox({ includeLabels: false }), pad = 40, bw = bb.w + pad, bh = bb.h + pad, s = Math.min(w / bw, h / bh);
+        const ox = (w - bw * s) / 2 - (bb.x1 - pad / 2) * s, oy = (h - bh * s) / 2 - (bb.y1 - pad / 2) * s;
+        miniMap = { s, ox, oy };
+        ns.forEach(n => { const q = n.position(); b.fillStyle = kindStroke(n.data('kind'), dark); b.fillRect(q.x * s + ox - 4, q.y * s + oy - 2, 8, 4); });
+      }
+    }
+    mctx.clearRect(0, 0, w, h); mctx.drawImage(miniBase, 0, 0);
+    if (!miniMap) return;
+    const { s, ox, oy } = miniMap, ex = cy.extent(); mctx.strokeStyle = dark ? '#a5b4fc' : '#4f46e5'; mctx.lineWidth = 1.5; mctx.strokeRect(ex.x1 * s + ox, ex.y1 * s + oy, ex.w * s, ex.h * s);
   });
 }
 if (mini) {

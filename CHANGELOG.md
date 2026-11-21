@@ -3,6 +3,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-21
+### Changed
+- Topology: smooth zoom towards the pointer. Mouse wheel and two-finger scroll glide to the new zoom level (eased, faster than before); a trackpad pinch follows the fingers directly; a quick drag of the background keeps moving and slows down. Reduced-motion settings switch easing and inertia off.
+- Faster pan and zoom on large graphs: column and device frames are only moved (not rebuilt) per frame, the minimap redraws only its viewport frame.
+### Fixed
+- Version badge in the header was hard to read in the dark theme; it now meets WCAG AA contrast in light, dark and high-contrast mode.
+
 ## [0.2.4] - 2026-11-21
 ### Fixed
 - Topology: with more than 120 objects the graph starts at level 2, which folded every entry vServer (its objects counted one level below the device), so a CS vServer showed no lines to its LB vServers. Entry vServers now count as the first level together with the device; level 2 shows them with their first hop.
