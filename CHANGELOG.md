@@ -3,6 +3,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-21
+### Added
+- Anonymization rebuilt: categories to choose (all on by default; passwords, keys, hashes and SNMP communities are always removed) in the GUI (section 5, download single files or ZIP, optional private mapping table) and the CLI (`--keep`). Pseudonyms keep the object type; IPs keep subnets and private/public (public -> 198.18.0.0/15); FQDNs keep generic labels and internal/external (internal TLDs or private DNS records); LDAP DNs follow the domain mapping; URL product paths, ports and LDAP attribute names stay; text inside expressions is replaced word by word with the expression structure kept (also `q/.../` literals); certificate, key, CRL and KEK file names are replaced. A structure check compares statements, objects and connections before and after; places that may still contain original values are listed locally for review.
+- Debug mode uses the same anonymization: config lines and line labels appear only in anonymized form.
+### Changed
+- The GUI shows only the version number (the code fingerprint stays in `--version` and the debug output).
+
 ## [0.2.0] - 2026-11-21
 ### Added
 - Debug mode in the topology (sidebar checkbox): every line shows the rule (code location) and config line that created it; "Copy debug info" and "Export whole graph" produce an anonymised description (types, rules, line numbers, structure of the config lines; no names, IPs, file names or values) to report wrong or missing lines.

@@ -20,7 +20,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__, linking, report
 from .parser import Config
-from .project import CONF_SUFFIX, Project, _code_id
+from .project import CONF_SUFFIX, Project
 
 ASSET = Path(__file__).parent / "assets" / "gui.html"
 MAX_UPLOAD = 100 * 1024 * 1024  # per file; ns.conf files are small, this only protects against mistakes
@@ -44,6 +44,7 @@ class State:
         self.paths: dict[str, Path] = {}      # display name -> file (uploads and referenced local paths)
         self.extra: dict[str, Path] = {}      # hosts / map files
         self.reports: dict[str, str] = {}
+        self.anon: dict[str, dict] = {}       # id -> {"files": [(name, text)], "map": dict | None}
         self.lock = threading.Lock()
         self.server: ThreadingHTTPServer | None = None
 
@@ -66,6 +67,7 @@ class State:
             self.paths.clear()
             self.extra.clear()
             self.reports.clear()
+            self.anon.clear()
         for sub in ("conf", "hosts", "map"):
             shutil.rmtree(self.dir / sub, ignore_errors=True)
 
@@ -84,6 +86,18 @@ class State:
                 info.update(ok=False, error=str(e)[:200])
             out.append(info)
         return out
+
+    def anonymize(self, opts: dict) -> dict:
+        from . import anonymize as an
+        names = [n for n in opts.get("files", list(self.paths)) if n in self.paths]
+        if not names:
+            raise ValueError("no config files selected")
+        options = {k: bool(v) for k, v in (opts.get("options") or {}).items() if k in an.OPTIONS}
+        items = [(n, self.paths[n].read_text(encoding="utf-8", errors="replace")) for n in names]
+        out, st, a = an.anonymize_texts(items, options)
+        rid = secrets.token_urlsafe(8)
+        self.anon[rid] = {"files": out, "map": an.mapping(a) if opts.get("map") else None}
+        return {"id": rid, "files": [n for n, _ in out], "stats": st}
 
     def analyze(self, opts: dict) -> dict:
         files = [self.paths[n] for n in opts.get("files", list(self.paths)) if n in self.paths]
@@ -157,11 +171,37 @@ def make_handler(st: State, port: int):
                 return
             u = urlparse(self.path)
             if u.path == "/":
-                html = ASSET.read_text(encoding="utf-8").replace("__TOKEN__", st.token).replace("__VERSION__", f"{__version__} (code {_code_id()})")
+                html = ASSET.read_text(encoding="utf-8").replace("__TOKEN__", st.token).replace("__VERSION__", __version__)
                 self._send(200, html.encode("utf-8"), "text/html; charset=utf-8",
                            {"Content-Security-Policy": "default-src 'self' 'unsafe-inline'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer"})
             elif u.path == "/api/files":
                 self._json({"files": st.describe(), "extra": sorted(st.extra)})
+            elif u.path == "/api/anon-options":
+                from .anonymize import OPTIONS
+                self._json({"options": [{"key": k, "en": v[0], "de": v[1], "fixed": k == "secrets"} for k, v in OPTIONS.items()]})
+            elif u.path.startswith("/anon/"):
+                parts = u.path.split("/")  # /anon/<id>/<index|zip|map>
+                res = st.anon.get(parts[2]) if len(parts) > 3 else None
+                if res is None:
+                    self.send_error(404)
+                    return
+                what = parts[3]
+                if what == "zip":
+                    import io
+                    import zipfile
+                    buf = io.BytesIO()
+                    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                        for n, t in res["files"]:
+                            z.writestr(n, t)
+                    self._send(200, buf.getvalue(), "application/zip", {"Content-Disposition": 'attachment; filename="anonymized-configs.zip"'})
+                elif what == "map" and res["map"] is not None:
+                    self._send(200, json.dumps(res["map"], ensure_ascii=False, indent=1).encode("utf-8"), "application/json",
+                               {"Content-Disposition": 'attachment; filename="anonymization-map-KEEP-PRIVATE.json"'})
+                elif what.isdigit() and int(what) < len(res["files"]):
+                    n, t = res["files"][int(what)]
+                    self._send(200, t.encode("utf-8"), "text/plain; charset=utf-8", {"Content-Disposition": f'attachment; filename="{n}"'})
+                else:
+                    self.send_error(404)
             elif u.path.startswith("/report/"):
                 rid = u.path.split("/")[2]
                 html = st.reports.get(rid)
@@ -204,6 +244,8 @@ def make_handler(st: State, port: int):
                 elif u.path == "/api/clear-extra":
                     st.extra.pop(json.loads(self._body(MAX_JSON)).get("kind", ""), None)
                     self._json({"ok": True})
+                elif u.path == "/api/anonymize":
+                    self._json(st.anonymize(json.loads(self._body(MAX_JSON) or b"{}")))
                 elif u.path == "/api/analyze":
                     self._json(st.analyze(json.loads(self._body(MAX_JSON) or b"{}")))
                 elif u.path == "/api/reset":

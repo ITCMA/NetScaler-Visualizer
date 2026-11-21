@@ -77,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     z.add_argument("-o", "--output", required=True, help="output folder (created; must not be inside a git repository you push)")
     z.add_argument("--keep-literals", action="store_true", help="keep string literals in expressions (only hosts/IPs/names are replaced)")
     z.add_argument("--map-file", metavar="FILE", help="also write the reverse mapping (as sensitive as the input!)")
+    z.add_argument("--keep", default="", metavar="CATS", help="comma-separated categories NOT to anonymize: names,users,hostnames,ips,fqdns,urls,text,literals,files (secrets are always removed)")
     g = sub.add_parser("gui", help="open the local web GUI (127.0.0.1 only) to pick configs and create the report")
     g.add_argument("--port", type=int, default=0, help="port (default: a free one)")
     g.add_argument("--no-browser", action="store_true", help="only print the URL")
@@ -100,11 +101,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "anonymize":
         from .anonymize import anonymize_paths
-        st = anonymize_paths(args.paths, args.output, args.keep_literals, args.map_file)
+        keep = {k.strip() for k in args.keep.split(",") if k.strip()}
+        st = anonymize_paths(args.paths, args.output, args.keep_literals, args.map_file, {k: False for k in keep if k != "secrets"})
         print(f"{st['files']} config(s) written to {args.output}; statements {st['statements_in']} -> {st['statements_out']}; "
               f"{st['names']} names, {st['ips']} subnets, {st['hosts']} hosts/e-mails replaced; possible leftovers to review: {st['leaks']}")
+        print("Structure check (objects and connections unchanged): " + ("OK" if st["structure_ok"] else "DIFFERENCES: " + "; ".join(x for d in st["structure_diffs"] for x in d)))
+        for r in st["review"][:50]:
+            print(f"  please check: {r['file']} line {r['line']}")
         print("Review the result manually before using it outside the private folder.")
-        return 0 if st["statements_in"] == st["statements_out"] else 3
+        return 0 if st["statements_in"] == st["statements_out"] and st["structure_ok"] else 3
 
     if args.cmd == "resolve":
         from . import linking

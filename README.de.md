@@ -31,7 +31,8 @@ python3 -m nsviz analyze configs/ --ha pri.conf,sec.conf --role pri.conf=primary
 # Regelkatalog (Deutsch), Tests
 python3 -m nsviz rules --markdown --lang de > docs/RULES.de.md
 # anonymisierte Kopien von Configs (zum Weitergeben oder für die Entwicklung), siehe docs/PRIVACY.de.md
-python3 -m nsviz anonymize configs/ -o anonymized/
+python3 -m nsviz anonymize configs/ -o anonymized/            # alles anonymisiert (Standard)
+python3 -m nsviz anonymize configs/ -o anonymized/ --keep ips   # IP-Adressen behalten
 python3 -m unittest discover -s tests
 ```
 
@@ -49,6 +50,7 @@ Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/r
 - **Mehrsprachig, hell/dunkel:** Oberfläche in 8 Sprachen (de, en, es, fr, pt, zh, ja, hi), folgt der Browsersprache und ist
   umschaltbar. Hell/Dunkel folgt `prefers-color-scheme`, umschaltbar, Wahl wird im Browser gemerkt. Regeltexte und
   Befundmeldungen gibt es auf Englisch und Deutsch. Übersetzungen außer en/de sind nicht von Muttersprachlern geprüft.
+- **Configs anonymisieren** (GUI Abschnitt 5 oder `nsviz anonymize`): auswählen, was ersetzt wird (Standard: alles; Geheimnisse werden immer entfernt). Einheitliche Pseudonyme erhalten Objekttyp, IP-Subnetze und privat/öffentlich, FQDN-Aufbau und intern/extern, LDAP-DNs und Produkt-URL-Pfade; eine Strukturprüfung vergleicht Objekte und Verbindungen vorher/nachher, verbleibende Prüfstellen werden lokal aufgelistet.
 - **Debug-Modus:** zeigt zu jeder Linie, welche Regel und welche Config-Zeile sie erzeugt hat; kopiert eine anonymisierte Beschreibung (keine Namen, IPs oder Werte), um falsche oder fehlende Linien zu melden.
 - **Barrierefreiheit/Bedienung:** Skip-Link, ARIA-Tabs, Fokusrahmen, Tastatursteuerung im Graph (Pfeile, Enter, +/−, 0, `/`,
   `?` zeigt alle Kürzel), reduzierte Animationen, Übersichtsseite mit Gesundheitswert.

@@ -302,7 +302,7 @@
  "dbg_drawn": "Gezeichnet",
  "dbg_copy": "Debug-Info kopieren",
  "dbg_all": "Ganzen Graph exportieren (anonymisiert)",
- "dbg_hint": "Kopieren und in den Chat einfügen: enthält keine Namen, IPs, Dateinamen oder Werte, nur Typen, Regeln, Zeilennummern und den Aufbau der Config-Zeilen.",
+ "dbg_hint": "Kopieren und in den Chat einfügen. Config-Zeilen erscheinen nur anonymisiert (gleiche Regeln wie „Configs anonymisieren“: Pseudonyme, Geheimnisse entfernt, IPs/FQDNs ersetzt, privat/öffentlich und intern/extern bleiben erkennbar, Ports und Protokolle bleiben).",
  "dbg_copied": "Kopiert",
  "dbg_manual": "Kopieren ging nicht: Text im Feld markieren und manuell kopieren",
  "dbg_saved": "Gespeichert als nsviz-debug.json (anonymisiert)"

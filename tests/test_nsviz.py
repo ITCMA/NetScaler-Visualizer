@@ -225,6 +225,66 @@ class AnonymizeTests(unittest.TestCase):
             self.assertFalse(g.missing)  # references still resolve
 
 
+class DebugAnonTests(unittest.TestCase):
+    def test_debug_data_has_no_originals(self):
+        p = Project.load([str(DEMO)])
+        d = p.to_dict()
+        originals = set()
+        for g in p.groups:
+            for dv in g.devices:
+                for et, ents in dv.cfg.entities.items():
+                    originals |= {n for n in ents if len(n) >= 4 and not n.lower().startswith(("ns_", "default"))}
+                originals |= set(re.findall(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", "\n".join(st.raw for st in dv.cfg.statements)))
+        originals = {o for o in originals if not o.startswith(("255.", "0.0.0.0", "127."))}
+        blob = json.dumps([[n["anon"] for n in d["nodes"]], [e["alabel"] for e in d["edges"]]])
+        self.assertEqual([o for o in originals if re.search(r"(?<![\w.-])" + re.escape(o) + r"(?![\w-])", blob)], [])
+        self.assertTrue(any(n["anon"]["lines"] for n in d["nodes"]))
+
+
+class AnonymizeOptionTests(unittest.TestCase):
+    SRC = "\n".join([
+        "add ns ip 10.1.2.3 255.255.255.0 -type VIP",
+        "add dns addRec sf.acme.de 10.1.2.40",
+        "add vpn sessionAction sa -wihome \"https://sf.acme.de/Citrix/AcmeWeb\" -storefronturl \"https://storefront.acme.local\" -ssoDomain ACME",
+        "add authentication ldapAction ldap1 -serverName dc01.acme.local -ldapBase \"OU=Staff,DC=acme,DC=local\" -ldapBindDn svc_ldap@acme.local "
+        "-ldapBindDnPassword abc123 -encrypted -encryptmethod ENCMTHD_3 -kek -suffix 2023_01_02_03_04_05 -ldapLoginName sAMAccountName",
+        "add ssl certKey wild_acme -cert wildcard_acme_de_2025.pfx -key wildcard_acme_de_2025.pfx -inform PFX -passplain secretpass",
+        "add snmp community s3cretcomm ALL",
+        "add responder policy rp \"HTTP.REQ.HOSTNAME.EQ(\\\"portal.acme.de\\\") && HTTP.REQ.URL.STARTSWITH(\\\"/acmeportal/login\\\")\" NOOP",
+        "add server ext1 81.2.3.4",
+        "add lb vserver lb1 HTTP 10.1.2.50 80 -comment \"Acme portal\"",
+        "set interface 0/1 -ifAlias \"uplink acme core\"", ""])
+
+    def run_(self, **opt):
+        from nsviz.anonymize import anonymize_texts
+        out, st, _ = anonymize_texts([("a.conf", self.SRC)], opt)
+        return out[0][1], st
+
+    def test_all_on(self):
+        out, st = self.run_()
+        for secret in ("acme", "Acme", "ACME", "abc123", "secretpass", "s3cretcomm", "81.2.3.4", "10.1.2", "wildcard", "2023_01", "Staff", "svc_ldap"):
+            self.assertNotIn(secret, out, secret)
+        self.assertTrue(st["structure_ok"])
+        self.assertEqual(st["leaks"], 0)
+        self.assertIn("/Citrix/", out)                       # product path kept
+        self.assertIn("sAMAccountName", out)                 # attribute names kept
+        self.assertIn("HTTP.REQ.HOSTNAME.EQ(", out)          # expression structure kept
+        self.assertRegex(out, r"https://sf\.corp\d+\.internal")  # generic label kept, internal (private DNS record)
+        self.assertIn("198.18.", out)                        # public IP stays public (reserved range)
+        self.assertIn("set interface 0/1", out)               # interface ids are not names
+        self.assertRegex(out, r"DC=corp\d+,DC=internal")     # LDAP DN follows the domain mapping
+        m = re.search(r"dc01\.(corp\d+)\.internal", out)
+        self.assertIsNotNone(m)
+        self.assertIn(f"DC={m.group(1)},DC=internal", out)     # same domain -> same pseudonym
+
+    def test_keep_categories(self):
+        out, st = self.run_(ips=False, fqdns=False)
+        self.assertIn("81.2.3.4", out)
+        self.assertIn("dc01.acme.local", out)
+        self.assertNotIn("abc123", out)  # secrets always go
+        self.assertTrue(st["structure_ok"])
+
+
 class PortLabelTests(unittest.TestCase):
     def test_connections_show_service_and_port(self):
         from nsviz.model import comm_label
@@ -439,6 +499,15 @@ class GuiTests(unittest.TestCase):
             html = call(f"/report/{res['id']}").read().decode()
             self.assertIn("NetScaler Visualizer", html)
             self.assertTrue(html.lstrip().lower().startswith("<!doctype html"))
+            opts = json.load(call("/api/anon-options"))["options"]
+            self.assertTrue(any(o["key"] == "secrets" and o["fixed"] for o in opts))
+            an = json.load(call("/api/anonymize", json.dumps({"files": [x["name"] for x in files], "map": True}).encode()))
+            self.assertTrue(an["stats"]["structure_ok"])
+            self.assertEqual(an["stats"]["leaks"], 0)
+            one = call(f"/anon/{an['id']}/0").read().decode()
+            self.assertIn("add ", one)
+            self.assertTrue(call(f"/anon/{an['id']}/zip").read().startswith(b"PK"))
+            self.assertIn("names", json.load(call(f"/anon/{an['id']}/map")))
             call("/api/reset", b"{}")
             self.assertEqual(json.load(call("/api/files"))["files"], [])
         finally:

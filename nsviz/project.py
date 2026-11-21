@@ -431,17 +431,29 @@ class Project:
                 n.findings.append(f.id)
 
     # ---- Export ---------------------------------------------------------------------------
+    def _anon(self):
+        """Anonymizer over all loaded configs: the debug mode shows config lines and labels only in this form."""
+        from .anonymize import Anonymizer
+        an = Anonymizer()
+        for g in self.groups:
+            for d in g.devices:
+                an.learn(d.cfg)
+        return an
+
     def to_dict(self) -> dict:
+        an = self._anon()
+        alab = lambda s: an.scrub(an._replace_known_names(s or ""))  # noqa: E731
         nodes, edges = [], []
         for g in self.groups:
             for n in g.graph.nodes.values():
                 nodes.append({"id": n.id, "kind": n.kind, "label": n.label, "group": g.id, "etype": n.etype, "name": n.name,
                               "props": {k: v for k, v in n.props.items() if not k.startswith("_")},
-                              "lines": n.lines, "findings": n.findings, "dep": self.dep.get(n.id, {})})
+                              "lines": n.lines, "findings": n.findings, "dep": self.dep.get(n.id, {}),
+                              "anon": {"label": an.names.get(n.name) or alab(n.label), "lines": [an.line(l["text"]) or "" for l in n.lines]}})
             for e in g.graph.edges:
-                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {}), "origin": e.origin, "line": e.line})
+                edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {}), "origin": e.origin, "line": e.line, "alabel": alab(e.label)})
         for e in self.extra_edges:
-            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {}), "origin": e.origin, "line": e.line})
+            edges.append({"source": e.source, "target": e.target, "type": e.type, "label": e.label, **({"port": True} if e.port else {}), **({"plain": True} if e.plain else {}), "origin": e.origin, "line": e.line, "alabel": alab(e.label)})
         for i, e in enumerate(edges):
             e["id"] = f"e{i}"
         rules = {r.id: r.meta() for r in RULES.values()}

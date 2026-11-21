@@ -275,7 +275,7 @@
  "dbg_drawn": "Drawn",
  "dbg_copy": "Copy debug info",
  "dbg_all": "Export whole graph (anonymised)",
- "dbg_hint": "Copied. Paste it into the chat: it contains no names, IPs, file names or values, only types, rules, line numbers and the structure of the config lines.",
+ "dbg_hint": "Copy and paste it into the chat. Config lines appear only anonymised (same rules as 'Anonymize configs': pseudonyms, secrets removed, IPs/FQDNs replaced with private/public and internal/external kept, ports and protocols kept).",
  "dbg_copied": "Copied",
  "dbg_manual": "Copy did not work: select the text in the box and copy it manually",
  "dbg_saved": "Saved as nsviz-debug.json (anonymised)"
