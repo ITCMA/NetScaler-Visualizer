@@ -27,6 +27,17 @@ In managed environments the file can be allowed by hash (SHA-256 from `SHA256SUM
 policy, for example AppLocker or Windows Defender Application Control. Alternatively, the organization can sign the file
 with its own internal code-signing certificate.
 
+## Quick reference (macOS, one pass per release)
+```bash
+export NSVIZ_SIGN_IDENTITY="Developer ID Application: <organization> (<team ID>)"
+scripts/sign_macos.sh nsviz-macos-arm64 nsviz-macos-x64          # sign
+ditto -c -k --keepParent nsviz-macos-arm64 nsviz-macos-arm64.zip
+xcrun notarytool submit nsviz-macos-arm64.zip --keychain-profile "nsviz-notary" --wait
+spctl --assess --type execute --verbose nsviz-macos-arm64        # verify
+```
+The profile `nsviz-notary` is created once with `xcrun notarytool store-credentials` (step 3). Notarize the Intel build
+the same way. The individual steps follow below.
+
 ## macOS (Developer ID Application and notarization)
 
 ### Prerequisites

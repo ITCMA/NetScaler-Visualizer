@@ -27,6 +27,17 @@ In verwalteten Umgebungen kann die Datei in der Richtlinie zur Anwendungssteueru
 Defender Application Control) per Hash (SHA-256 aus `SHA256SUMS.txt`) zugelassen werden. Alternativ kann die Organisation die
 Datei mit einem eigenen, internen Codesigning-Zertifikat signieren.
 
+## Kurzfassung (macOS, ein Durchlauf pro Release)
+```bash
+export NSVIZ_SIGN_IDENTITY="Developer ID Application: <Organisation> (<Team-ID>)"
+scripts/sign_macos.sh nsviz-macos-arm64 nsviz-macos-x64          # signieren
+ditto -c -k --keepParent nsviz-macos-arm64 nsviz-macos-arm64.zip
+xcrun notarytool submit nsviz-macos-arm64.zip --keychain-profile "nsviz-notary" --wait
+spctl --assess --type execute --verbose nsviz-macos-arm64        # prüfen
+```
+Das Profil `nsviz-notary` wird einmalig mit `xcrun notarytool store-credentials` angelegt (Schritt 3). Der Intel-Build
+wird gleich notarisiert. Die Einzelschritte folgen unten.
+
 ## macOS (Developer ID Application und Notarisierung)
 
 ### Voraussetzungen
