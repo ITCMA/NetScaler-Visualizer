@@ -3,6 +3,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-11-21
+### Security
+- Test data uses documentation addresses (RFC 5737) instead of public addresses where the test allows it.
+- .gitignore: report exports (images, PDF, CSV, cleanup/rollback batches), transfer bundles and archives are never committed.
+
 ## [0.3.8] - 2026-11-21
 ### Fixed
 - Cleanup detection: an object counts as "sure" only when no line that stays names it; lines of other candidates that

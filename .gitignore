@@ -39,3 +39,18 @@ hosts.txt
 build/
 dist/
 *.spec
+
+# Exports from the report and transfer files - never commit (may contain customer data)
+*.png
+*.svg
+!nsviz/assets/**/*.svg
+*.pdf
+*-topology.*
+*-findings.*
+*-inventory.*
+*-cleanup*.txt
+*-rollback*.txt
+*.bundle
+*.tgz
+/*.conf
+/*.txt

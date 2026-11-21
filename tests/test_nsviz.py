@@ -29,7 +29,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(s.opts["persistencetype"], ["NONE"])
         s = parse_statement("add server srv1 10.0.0.5", 1, "f")
         self.assertEqual(s.etype, "server")
-        s = parse_statement("add authentication ldapAction a -serverIP 1.2.3.4", 1, "f")
+        s = parse_statement("add authentication ldapAction a -serverIP 198.51.100.4", 1, "f")
         self.assertEqual(s.etype, "authentication ldapaction")
 
     def test_negative_number_is_not_option(self):
@@ -37,9 +37,9 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(s.opts["weight"], ["-1"])
 
     def test_apply_set_unset_bind_unbind_rm(self):
-        cfg = Config.parse_text("#NS13.1 Build 37.38\nadd lb vserver v HTTP 1.1.1.1 80\nset lb vserver v -cltTimeout 99\n"
+        cfg = Config.parse_text("#NS13.1 Build 37.38\nadd lb vserver v HTTP 198.51.100.1 80\nset lb vserver v -cltTimeout 99\n"
                                 "bind lb vserver v s1\nbind lb vserver v s2\nunbind lb vserver v s1\n"
-                                "unset lb vserver v -cltTimeout\nadd server a 1.1.1.2\nrm server a\n")
+                                "unset lb vserver v -cltTimeout\nadd server a 198.51.100.2\nrm server a\n")
         self.assertEqual((cfg.version, cfg.build), ("13.1", "37.38"))
         v = cfg.get("lb vserver", "v")
         self.assertFalse(v.has("clttimeout"))
@@ -507,7 +507,7 @@ class AnonymizeOptionTests(unittest.TestCase):
         "add ssl certKey wild_acme -cert wildcard_acme_de_2025.pfx -key wildcard_acme_de_2025.pfx -inform PFX -passplain secretpass",
         "add snmp community s3cretcomm ALL",
         "add responder policy rp \"HTTP.REQ.HOSTNAME.EQ(\\\"portal.acme.de\\\") && HTTP.REQ.URL.STARTSWITH(\\\"/acmeportal/login\\\")\" NOOP",
-        "add server ext1 81.2.3.4",
+        "add server ext1 81.2.3.4",  # arbitrary public address (documentation ranges count as private here)
         "add lb vserver lb1 HTTP 10.1.2.50 80 -comment \"Acme portal\"",
         "set interface 0/1 -ifAlias \"uplink acme core\"", ""])
 
