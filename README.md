@@ -60,6 +60,8 @@ backend HA pair with a deliberate deviation). Prebuilt report: `examples/demo/re
   by disabled objects are marked separately. Both are highlighted in the graph; "Cleanup batch" in the export dialog
   writes the unbind/rm commands in a working order (not used first, the disabled part with an explanation at the end)
   and a rollback batch. Objects whose name also appears in a line that stays are listed "to check" only.
+- **Gateway and nFactor details**: parameters of session and authentication actions in an overlay (with the global VPN
+  settings), client certificate authentication and endpoint analysis (EPA); both tabs can be exported as PNG, SVG or PDF.
 - **nFactor tab** (shown when the config has authentication): the login flow per entry point (gateway, LB/CS vServer with
   authentication, auth vServer) as factor columns: login schema, policies in priority order with action type (LDAP,
   RADIUS, SAML, OAuth, certificate, decision, ...), success → next factor or login complete, failure → next policy or

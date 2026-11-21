@@ -212,6 +212,7 @@ class Config:
         self.modes: set[str] = set()
         self.disabled_features: set[str] = set()
         self.warnings: list[str] = []
+        self.html_decoded = 0  # number of &quot; decoded (HTML-encoded file)
 
     # ---- Zugriff -------------------------------------------------------------------------
     def of(self, etype: str) -> dict[str, Entity]:
@@ -328,6 +329,12 @@ class Config:
     @classmethod
     def parse_text(cls, text: str, name: str = "", path: str = "") -> "Config":
         cfg = cls(name, path)
+        # A config copied from a web page or an export can be HTML-encoded (&quot; instead of "). Without any real
+        # double quote in the file, quoted values would be split at blanks, so the entities are decoded first.
+        if "&quot;" in text and '"' not in text:
+            cfg.html_decoded = text.count("&quot;")
+            for a, b in (("&quot;", '"'), ("&lt;", "<"), ("&gt;", ">"), ("&#39;", "'"), ("&apos;", "'"), ("&amp;", "&")):
+                text = text.replace(a, b)
         lines = text.splitlines()
         for i, line in enumerate(lines, 1):
             if i <= 3 and line.startswith("#NS"):

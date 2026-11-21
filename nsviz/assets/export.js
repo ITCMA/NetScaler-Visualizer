@@ -140,11 +140,77 @@ function printDoc(P) {
   setTimeout(() => { window.print(); setTimeout(() => { if (document.body.classList.contains('printing')) done(); }, 1500); }, 150);
 }
 
+
+// ---- page export (Gateway / nFactor tab): the page as an image (SVG with the page's HTML and styles, PNG via canvas) ----
+// Always in the light theme (the SVG has its own root, so only the light variables apply).
+const PAGE_EL = { gateway: '#gateway .gw-page', nfactor: '#nfactor .nf-flowbox' };
+const isPage = () => !!PAGE_EL[curTab];
+function pageTitle() {
+  if (curTab === 'gateway') return t('tab_gateway') + ' – ' + ((gwList[gwSel] || {}).name || '');
+  const e = nfEntries[nfSel] || {}; return t('tab_nfactor') + ' – ' + (e.name || '');
+}
+function pageSvg(P) {
+  const el = $(PAGE_EL[curTab]); if (!el) return null;
+  const flow = el.querySelector('.nf-flow'), w = Math.ceil(Math.max(el.scrollWidth, flow ? flow.scrollWidth + 8 : 0)) + 40;
+  const c = el.cloneNode(true);
+  c.querySelectorAll('.gw-btns, .ib, button[data-nfopen]').forEach(b => b.remove());
+  c.querySelectorAll('.nf-flow').forEach(f => { f.style.overflow = 'visible'; f.style.flex = 'none'; });
+  if (flow) {  // the arrow layer is as tall as the visible area: shrink it to the cards
+    const fb = flow.getBoundingClientRect(), hh = Math.max(0, ...[...flow.querySelectorAll('.nf-card')].map(x => x.getBoundingClientRect().bottom - fb.top + flow.scrollTop)) + 12;
+    const sv = c.querySelector('.nf-svg'); if (sv) sv.setAttribute('height', Math.ceil(hh));
+  }
+  c.querySelectorAll('details').forEach(d => { if (!d.open) d.remove(); });
+  const wrap = document.createElement('div'), cs = getComputedStyle(document.body);
+  wrap.setAttribute('style', `width:${w}px;padding:20px;box-sizing:border-box;font-family:${cs.fontFamily};font-size:${cs.fontSize};line-height:${cs.lineHeight};color:var(--fg);background:var(--bg)`);
+  const st = document.createElement('style'); st.textContent = [...document.querySelectorAll('style')].map(x => x.textContent).join('\n');
+  const head = document.createElement('div'); head.className = 'pg-head';
+  head.innerHTML = `<b>NetScaler Visualizer</b> · ${esc(pageTitle())} · ${esc(stamp())}${P.on ? ' · ' + esc(t('ex_anon')) : ''}`;
+  wrap.append(st, head, c);
+  if (P.on) {  // pseudonymize text and titles
+    const tw = document.createTreeWalker(c, NodeFilter.SHOW_TEXT); let n; while ((n = tw.nextNode())) n.nodeValue = P.s(n.nodeValue);
+    c.querySelectorAll('[title]').forEach(x => x.setAttribute('title', P.s(x.getAttribute('title'))));
+    head.innerHTML = `<b>NetScaler Visualizer</b> · ${esc(P.s(pageTitle()))} · ${esc(stamp())}`;
+  }
+  // measure in the document (off screen), then serialize as XHTML inside an SVG
+  const probe = document.createElement('div'); probe.setAttribute('style', 'position:absolute;left:-100000px;top:0;visibility:hidden');
+  probe.appendChild(wrap); document.body.appendChild(probe); const h = Math.ceil(wrap.scrollHeight) + 2; probe.remove();
+  const xhtml = new XMLSerializer().serializeToString(wrap);
+  return { w, h, svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><foreignObject x="0" y="0" width="${w}" height="${h}">${xhtml}</foreignObject></svg>` };
+}
+function pageName(P) { return 'netscaler-' + curTab + '-' + stamp() + (P.on ? '-anonymized' : ''); }
+function pageExport(fmt, P) {
+  const r = pageSvg(P); if (!r) return toast(t('ex_empty'));
+  const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.svg);
+  if (fmt === 'psvg') { download(pageName(P) + '.svg', new Blob([r.svg], { type: 'image/svg+xml' })); return toast(t('ex_done')); }
+  if (fmt === 'ppdf') {
+    const root = document.createElement('div'); root.id = 'print-root';
+    root.innerHTML = `<section class="pg-print"><img src="${url}" alt="${esc(pageTitle())}" style="width:100%"></section>`;
+    document.body.appendChild(root); document.body.classList.add('printing');
+    const oldTitle = document.title; document.title = pageName(P);
+    const done = () => { document.body.classList.remove('printing'); root.remove(); document.title = oldTitle; window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    const img = root.querySelector('img'), go = () => setTimeout(() => { window.print(); setTimeout(() => { if (document.body.classList.contains('printing')) done(); }, 1500); }, 100);
+    if (img.complete) go(); else { img.onload = go; img.onerror = () => { done(); toast(t('pg_fail')); }; }
+    return;
+  }
+  // PNG: draw the SVG on a canvas (scale 2, or 1 for very large pages)
+  const img = new Image();
+  img.onload = () => {
+    const sc = Math.max(r.w, r.h) * 2 > 16000 ? 1 : 2, cv = document.createElement('canvas'); cv.width = r.w * sc; cv.height = r.h * sc;
+    const ctx = cv.getContext('2d'); ctx.scale(sc, sc); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, r.w, r.h); ctx.drawImage(img, 0, 0);
+    try { download(pageName(P) + '.png', cv.toDataURL('image/png')); toast(t('ex_done')); }
+    catch (e) { download(pageName(P) + '.svg', new Blob([r.svg], { type: 'image/svg+xml' })); toast(t('pg_png_fallback')); }  // browser blocks the canvas: SVG instead
+  };
+  img.onerror = () => toast(t('pg_fail'));
+  img.src = url;
+}
+
 function runExport() {
   if (exp.anon === null) return toast(t('ex_choose'));
   const P = pseudonymizer(exp.anon), n = 'netscaler-' + stamp();
   try {
-    if (exp.fmt === 'png') download(n + '-topology.png', pngUrl(P, exp.scope !== 'view'));
+    if (/^p(img|svg|pdf)$/.test(exp.fmt)) { dlgx.close(); return pageExport(exp.fmt, P); }
+    else if (exp.fmt === 'png') download(n + '-topology.png', pngUrl(P, exp.scope !== 'view'));
     else if (exp.fmt === 'svg') { const s = svgText(P); if (!s) return toast(t('ex_empty')); download(n + '-topology.svg', new Blob([s], { type: 'image/svg+xml' })); }
     else if (exp.fmt === 'pdf') { dlgx.close(); return printDoc(P); }
     else if (exp.fmt === 'csvf') download(n + '-findings.csv', new Blob([csvText([findingHead()].concat(scopeFindings().map(f => findingRow(f, P))))], { type: 'text/csv' }));
@@ -179,13 +245,16 @@ function openExport(fmt) {
   const selOk = !!state.selected || state.multi.length > 0;
   if (fmt === 'ncfg') { exp.fmt = 'ncfg'; if (selOk) exp.scope = 'sel'; }
   if (fmt === 'clean') exp.fmt = 'clean';
+  const page = !fmt && isPage();  // export button on the Gateway / nFactor tab: the page as image or PDF
+  if (page && !/^p(img|svg|pdf)$/.test(exp.fmt)) exp.fmt = 'pimg';
+  if (!page && /^p(img|svg|pdf)$/.test(exp.fmt)) exp.fmt = 'png';
   if (exp.scope === 'sel' && !selOk) exp.scope = 'view';
   const radio = (name, items, cur, cls) => items.map(([v, label, dis]) => `<label class="${cls || 'opt'}${dis ? ' off' : ''}"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''} ${dis ? 'disabled' : ''}> ${esc(label)}</label>`).join('');
   const selLabel = state.multi.length > 1 ? t('ex_sel_multi', { n: state.multi.length }) : t('ex_sel');
   const card = (name, v, cur, title, fig) => `<label class="card-opt"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''}><span><b>${esc(title)}</b><span class="fig" id="fig-${name}-${v}">${esc(fig || '')}</span></span></label>`;
   const cmp = `<p>${esc(t('ex_cmp_intro'))}</p><p><b>${esc(t('ex_dep_only_t'))}:</b> ${esc(t('ex_cmp_only'))}</p><p><b>${esc(t('ex_dep_all_t'))}:</b> ${esc(t('ex_cmp_all'))}</p><p>${esc(t('ex_ncfg_hint'))}</p>`;
-  $('#ex-body').innerHTML = `<fieldset class="rlist" id="ex-scope"${/^clean/.test(exp.fmt) ? ' hidden' : ''}><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', selLabel + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
-    <fieldset><legend>${esc(t('ex_format'))}${infoBtn('PDF: ' + esc(t('ex_pdf_hint')))}</legend><div class="chips">${radio('fmt', [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')], ['clean', t('ex_clean')], ['cleanrb', t('ex_cleanrb')]], exp.fmt, 'chip')}</div></fieldset>
+  $('#ex-body').innerHTML = `${page ? `<p class="muted pg-note">${esc(t('pg_note', { p: pageTitle() }))}</p>` : ''}<fieldset class="rlist" id="ex-scope"${/^clean/.test(exp.fmt) || page ? ' hidden' : ''}><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', selLabel + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
+    <fieldset><legend>${esc(t('ex_format'))}${infoBtn('PDF: ' + esc(t('ex_pdf_hint')))}</legend><div class="chips">${radio('fmt', page ? [['pimg', 'PNG'], ['psvg', 'SVG'], ['ppdf', 'PDF']] : [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')], ['clean', t('ex_clean')], ['cleanrb', t('ex_cleanrb')]], exp.fmt, 'chip')}</div></fieldset>
     <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}${infoBtn(cmp)}</legend><div class="cards">${card('deps', '0', exp.deps ? '1' : '0', t('ex_dep_only_t'))}${card('deps', '1', exp.deps ? '1' : '0', t('ex_dep_all_t'))}</div></fieldset>
     <fieldset id="ex-cl"${/^clean/.test(exp.fmt) ? '' : ' hidden'}><legend>${esc(t('ex_cl_part'))}${infoBtn(esc(t('cl_info')))}</legend><div class="cards">${card('cld', '1', exp.cld === false ? '0' : '1', t('ex_cl_with'))}${card('cld', '0', exp.cld === false ? '0' : '1', t('ex_cl_without'))}</div></fieldset>
     <fieldset><legend>${esc(t('ex_data'))}${infoBtn(`<p>${esc(t('ex_anon_hint'))}</p><p>${esc(t('ex_warn'))}</p>`)}</legend><div class="cards">${card('anon', '0', '', t('ex_orig'))}${card('anon', '1', '', t('ex_anon'))}</div>
@@ -193,7 +262,7 @@ function openExport(fmt) {
   const figs = () => { if (/^clean/.test(exp.fmt)) { [['1', true], ['0', false]].forEach(([v, w]) => { const r = buildClean(false, false, w); const el = $('#fig-cld-' + v); if (el) el.textContent = t('ex_cl_cnt', { o: r.objects, r: r.rm, u: r.unbind, c: r.check }); }); return; } if (exp.fmt !== 'ncfg') return; [['0', false], ['1', true]].forEach(([v, d]) => { const r = buildNcfg(false, d); const el = $('#fig-deps-' + v); if (el) el.textContent = t('ex_dep_cnt', { o: r.objects, n: r.lines, w: r.warnings }); }); };
   figs();
   $$('#ex-body input[name=scope]').forEach(i => i.onchange = () => { exp.scope = i.value; figs(); });
-  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => { exp.fmt = i.value; $('#ex-deps').hidden = exp.fmt !== 'ncfg'; $('#ex-cl').hidden = !/^clean/.test(exp.fmt); $('#ex-scope').hidden = !$('#ex-cl').hidden; figs(); });
+  $$('#ex-body input[name=fmt]').forEach(i => i.onchange = () => { exp.fmt = i.value; $('#ex-deps').hidden = exp.fmt !== 'ncfg'; $('#ex-cl').hidden = !/^clean/.test(exp.fmt); $('#ex-scope').hidden = page || !$('#ex-cl').hidden; figs(); });
   $$('#ex-body input[name=deps]').forEach(i => i.onchange = () => exp.deps = i.value === '1');
   $$('#ex-body input[name=cld]').forEach(i => i.onchange = () => exp.cld = i.value === '1');
   exp.anon = null; $('#ex-go').disabled = true;  // the data variant is chosen explicitly every time

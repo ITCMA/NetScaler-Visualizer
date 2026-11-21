@@ -93,7 +93,7 @@ function renderLinks() {
     return `<tr data-i="${i}"><td><b>${esc(s.name)}</b><br><span class="muted small">${esc(lkGroupName(s.group))} · ${esc(s.host)}:${esc(s.port)} ${esc(s.proto)}${lkHosts[s.host.toLowerCase()] ? ' → ' + esc(lkHosts[s.host.toLowerCase()]) : ''}</span></td>` +
       `<td><select class="lk-sel" aria-label="${esc(t('lk_th_tgt'))} ${esc(s.name)}"><option value="">${esc(t('lk_none'))}</option>${top.map(c => lkOpt(c, cur && cur.to)).join('')}${top.length && rest.length ? '<option disabled>──────</option>' : ''}${rest.map(c => lkOpt(c, cur && cur.to)).join('')}</select></td>` +
       `<td>${best ? `<b>${best.score}</b> ` : ''}${chips}</td><td><span class="stat st-${st}">${esc(t('st_' + st))}</span></td>` +
-      `<td class="nowrap"><button class="lk-ok" ${cur ? '' : 'disabled'}>${esc(t('lk_confirm'))}</button> <button class="lk-no" ${cur ? '' : 'disabled'}>${esc(t('lk_reject'))}</button> <button class="lk-reset" ${cur ? '' : 'disabled'}>${esc(t('lk_reset'))}</button></td></tr>`;
+      `<td class="nowrap"><button class="lk-ok${st === 'proposed' ? ' primary' : ''}" ${cur && st !== 'confirmed' ? '' : 'disabled'}>${esc(t('lk_confirm'))}</button> <button class="lk-no" ${cur ? '' : 'disabled'}>${esc(t('lk_reject'))}</button> <button class="lk-reset" ${cur ? '' : 'disabled'}>${esc(t('lk_reset'))}</button></td></tr>`;
   }).join('');
   const all = D.nodes.filter(n => n.kind !== 'device' && n.kind !== 'missing').map(n => `<option value="${esc(n.id)}">${esc(lkGroupName(n.group))} · ${esc(n.label)} (${esc(kindLabel(n.kind))})</option>`).join('');
   root.innerHTML = `<h2 class="hrow">${esc(t('lk_title'))}${infoBtn(`<p>${esc(t('lk_intro'))}</p><p>${esc(t('lk_note'))}</p>`)}</h2>
@@ -109,8 +109,8 @@ function renderLinks() {
       <ul>${lkManual.map((m, i) => `<li>${esc(lkName(m.from))} → ${esc(lkName(m.to))} <button class="lk-del" data-i="${i}">${esc(t('lk_remove'))}</button></li>`).join('')}</ul></div>`;
   $$('#links tbody tr[data-i]').forEach(tr => {
     const s = LK.sources[+tr.dataset.i], set = st => { const c = lkSel[s.node]; if (c) { c.status = st; lkSync(true); } };
-    tr.querySelector('.lk-sel').onchange = e => { if (e.target.value) lkSel[s.node] = { to: e.target.value, status: 'proposed' }; else delete lkSel[s.node]; lkSync(true); };
-    tr.querySelector('.lk-ok').onclick = () => set('confirmed'); tr.querySelector('.lk-no').onclick = () => set('rejected');
+    tr.querySelector('.lk-sel').onchange = e => { if (e.target.value) lkSel[s.node] = { to: e.target.value, status: 'proposed' }; else delete lkSel[s.node]; lkSync(true); if (e.target.value) toast(t('lk_pick_hint')); };
+    tr.querySelector('.lk-ok').onclick = () => { set('confirmed'); toast(t('lk_applied', { a: s.name })); }; tr.querySelector('.lk-no').onclick = () => { set('rejected'); toast(t('lk_rejected_t')); };
     tr.querySelector('.lk-reset').onclick = () => { delete lkSel[s.node]; lkAutoPick(); lkSync(true); };
   });
   $('#lk-hosts-b').onclick = () => $('#lk-hosts-f').click(); $('#lk-load-b').onclick = () => $('#lk-load-f').click(); $('#lk-save-b').onclick = lkSave;

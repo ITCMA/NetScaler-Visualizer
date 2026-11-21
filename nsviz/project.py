@@ -110,6 +110,13 @@ class Project:
         self.notes: list[str] = []
         self.dep: dict[str, dict] = {}
         self._pair(ha_pairs or [])
+        for d in devices:
+            if getattr(d.cfg, "html_decoded", 0):
+                self.notes.append({
+                    "en": f"{d.name}: the file is HTML-encoded (&quot; instead of \", e.g. copied from a web page); decoded for the analysis. "
+                          "For a config export use the original ns.conf from the appliance.",
+                    "de": f"{d.name}: Die Datei ist HTML-kodiert (&quot; statt \", z. B. aus einer Webseite kopiert); für die Analyse "
+                          "dekodiert. Für einen Config-Export die originale ns.conf vom Gerät verwenden."})
         for g in self.groups:
             primary = next((d for d in g.devices if d.role == "primary"), g.devices[0])
             g.graph = Graph(primary.cfg, g.id, redact)

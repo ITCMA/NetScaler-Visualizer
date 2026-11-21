@@ -4,7 +4,7 @@
 const NF = D.nfactor || {};
 const nfEntries = []; Object.entries(NF).forEach(([g, f]) => f.entries.forEach(e => nfEntries.push({ ...e, group: g })));
 const nfFactor = (g, id) => (NF[g] || { factors: {} }).factors[id];
-let nfSel = 0;
+let nfSel = 0, nfP = [];  // nfP: actions with parameters of the shown flow (overlay)
 const nfHas = () => nfEntries.length > 0;
 // factors reachable from an entry, by depth (BFS over "next factor")
 function nfLevels(e) {
@@ -26,7 +26,8 @@ const nfLink = (id, txt) => id && nodeById[id] ? `<a href="#" data-go="${esc(id)
 function nfAct(a) {
   if (!a || (!a.name && !a.type)) return '';
   const typ = { NO_AUTHN: t('nf_decision'), NOAUTH: t('nf_decision'), LOCAL: t('nf_local'), ASSIGNMENT: t('nf_assign') }[a.type] || a.type;
-  return `<span class="nf-type">${esc(typ || '?')}</span>${a.name && a.name !== a.type ? ' ' + nfLink(a.node, a.name) : ''}${a.missing ? ` <span class="nf-miss">${esc(t('nf_missing'))}</span>` : ''}`;
+  const pi = a.opts && Object.keys(a.opts).length ? nfP.push(a) - 1 : -1;
+  return `<span class="nf-type">${esc(typ || '?')}</span>${a.name && a.name !== a.type ? ' ' + nfLink(a.node, a.name) : ''}${a.missing ? ` <span class="nf-miss">${esc(t('nf_missing'))}</span>` : ''}${pi >= 0 ? ` <button class="nf-pbtn" data-nfp="${pi}" title="${esc(t('nf_params'))}" aria-label="${esc(t('nf_params'))}">⋯</button>` : ''}`;
 }
 function nfRow(g, f, r, i) {
   let ok, ko;
@@ -53,16 +54,19 @@ function nfCard(g, id, depth) {
 function renderNfactor() {
   const box = $('#nfactor'); if (!box) return;
   if (!nfHas()) { box.innerHTML = `<p class="muted">${esc(t('nf_none'))}</p>`; return; }
-  nfSel = Math.min(nfSel, nfEntries.length - 1);
+  nfSel = Math.min(nfSel, nfEntries.length - 1); nfP = [];
   const multi = Object.keys(NF).length > 1, gname = g => (D.groups.find(x => x.id === g) || {}).name || '';
   const list = nfEntries.map((e, i) => { const f = nfFactor(e.group, e.factor);
     return `<button class="nf-entry${i === nfSel ? ' on' : ''}" data-i="${i}" aria-pressed="${i === nfSel}"><span class="nf-k">${esc(kindLabel((nodeById[e.node] || {}).kind || 'aaavs'))}</span> <b>${esc(e.name)}</b>${f && e.node !== e.factor && f.type !== 'classic' ? `<span class="muted">→ ${esc(f.name)}</span>` : ''}${multi ? `<span class="muted nf-g">${esc(gname(e.group))}</span>` : ''}</button>`; }).join('');
   const e = nfEntries[nfSel], cols = nfLevels(e);
   const head = `<div class="nf-path"><span class="nf-k">${esc(kindLabel((nodeById[e.node] || {}).kind || 'aaavs'))}</span> ${nfLink(e.node, e.name)}${e.via && e.via !== 'classic' ? ` <span class="muted">→ ${esc(t('nf_via'))}</span> <code>${esc(e.via)}</code>` : ''}${e.node !== e.factor && e.via !== 'classic' ? ` <span class="muted">→</span> ${esc(nfFactor(e.group, e.factor).name)}` : ''}</div>`;
+  const cc = gwCc(e.clientcert, t('nf_cc_entry', { n: e.name })) + (e.aaa_clientcert ? gwCc(e.aaa_clientcert, t('nf_cc_aaa', { n: nfFactor(e.group, e.factor).name })) : '');
   box.innerHTML = `<div class="nf-wrap"><aside class="nf-list"><h2 class="hrow">${esc(t('nf_entries'))}${infoBtn(esc(t('nf_info')))}</h2>${list}</aside>
-    <div class="nf-flowbox">${head}<div class="nf-flow"><svg class="nf-svg" aria-hidden="true"></svg>${cols.map((c, d) => `<div class="nf-col">${c.map(id => nfCard(e.group, id, d)).join('')}</div>`).join('')}</div></div></div>`;
+    <div class="nf-flowbox">${head}${cc ? `<div class="nf-cc">${cc}</div>` : ''}<div class="nf-flow"><svg class="nf-svg" aria-hidden="true"></svg>${cols.map((c, d) => `<div class="nf-col">${c.map(id => nfCard(e.group, id, d)).join('')}</div>`).join('')}</div></div></div>`;
   $$('#nfactor .nf-entry').forEach(b => b.onclick = () => { nfSel = +b.dataset.i; renderNfactor(); });
   $$('#nfactor [data-go]').forEach(a => a.onclick = ev => { ev.preventDefault(); goTo(a.dataset.go); });
+  $$('#nfactor [data-nfp]').forEach(b => b.onclick = () => { const a = nfP[+b.dataset.nfp], names = (NF[e.group] || {}).names;
+    paramDlg(t('nf_params_t', { a: a.name }), a.type + (a.etype ? ' · ' + a.etype : ''), [t('gw_param'), t('gw_value')], Object.entries(a.opts).map(([k, v]) => [`<code>${esc(optLabel(k, names))}</code>`, esc(v)])); });
   requestAnimationFrame(nfArrows);
 }
 // arrows from a policy row (success) to the card of its next factor

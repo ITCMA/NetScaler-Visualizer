@@ -10,6 +10,7 @@ const gwTag = k => `<span class="nf-tag">${esc(t(k))}</span>`;
 const gwOn = v => /^(ON|ENABLED|YES|TRUE)$/i.test(v || '');
 function gwModes(o) {
   const m = [];
+  if (o.clientsecurity) m.push('EPA');
   if (gwOn(o.icaproxy)) m.push(t('gw_ica'));
   if (gwOn(o.transparentinterception)) m.push(t('gw_vpn'));
   if (gwOn(o.clientlessvpnmode)) m.push(t('gw_cvpn'));
@@ -21,13 +22,14 @@ function gwTargets(actionNode) {
   const tg = D.edges.filter(e => e.source === actionNode && ['loop', 'doublehop', 'route'].includes(e.type)).map(e => gwLink(e.target, (nodeById[e.target] || {}).label || e.target));
   return tg.length ? ` <span class="muted">${esc(t('gw_target'))}</span> ${tg.join(', ')}` : '';
 }
-const gwKv = o => `<dl class="gw-kv">${Object.entries(o).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+let gwNames = {};
+const gwKv = o => `<dl class="gw-kv">${Object.entries(o).map(([k, v]) => `<dt>${esc(gwNames[k] || k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
 function gwSec(title, body, n) { return `<section class="gw-sec"><h3>${esc(title)}${n !== undefined ? ` <span class="muted">${n}</span>` : ''}</h3>${body || `<p class="muted gw-none">${esc(t('gw_none_sec'))}</p>`}</section>`; }
 const gwRule = r => r && !/^(ns_)?true$/i.test(r) ? `<code class="nf-rule" title="${esc(r)}">${esc(r)}</code>` : '';
 function gwPolRows(list, cols) {
   if (!list.length) return '';
-  return `<div class="gw-tw"><table class="gw-t"><thead><tr><th>${esc(t('nf_prio'))}</th><th>${esc(t('gw_policy'))}</th>${cols.map(c => `<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>${list.map(r => `<tr>
-    <td class="gw-prio">${esc(r.prio || '–')}</td><td>${r.scope ? gwTag(r.scope) + ' ' : ''}${gwLink(r.node, r.policy)}${gwRule(r.rule)}</td>${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="gw-tw"><table class="gw-t"><thead><tr><th>${esc(t('nf_prio'))}</th><th>${esc(t('gw_policy'))}</th>${cols.map(c => `<th>${esc(c[0])}</th>`).join('')}</tr></thead><tbody>${list.map((r, ri) => `<tr>
+    <td class="gw-prio">${esc(r.prio || '–')}</td><td>${r.scope ? gwTag(r.scope) + ' ' : ''}${gwLink(r.node, r.policy)}${gwRule(r.rule)}</td>${cols.map(c => `<td>${c[1](r, ri)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 function renderGateway() {
   const box = $('#gateway'); if (!box) return;
@@ -36,12 +38,16 @@ function renderGateway() {
   const multi = Object.keys(GW).length > 1, gname = g => (D.groups.find(x => x.id === g) || {}).name || '';
   const list = gwList.map((x, i) => `<button class="nf-entry${i === gwSel ? ' on' : ''}" data-i="${i}" aria-pressed="${i === gwSel}"><b>${esc(x.name)}</b><span class="muted">${esc(x.ip ? x.ip + ':' + x.port : '')}</span>${multi ? `<span class="muted nf-g">${esc(gname(x.group))}</span>` : ''}</button>`).join('');
   const g = gwList[gwSel], V = GW[g.group], G = V.global, grp = V.groups;
+  gwNames = V.names || {};
   const scoped = (arr, scope) => arr.map(x => ({ ...x, scope }));
   const sess = [...g.policies.filter(p => p.etype === 'vpn sessionpolicy'), ...scoped(G.policies.filter(p => p.etype === 'vpn sessionpolicy'), 'gw_global'),
     ...grp.flatMap(x => scoped(x.policies.filter(p => p.etype === 'vpn sessionpolicy'), 'gw_group').map(p => ({ ...p, grp: x.name })))];
-  const sfOf = p => ['wihome', 'storefronturl'].filter(k => p.opts[k]).map(k => `<code>${esc(p.opts[k])}</code>${gwTargets(p.action_node)}`).join('<br>') || '<span class="muted">–</span>';
-  const sessT = gwPolRows(sess, [[t('gw_action'), p => gwLink(p.action_node, p.action) + (p.grp ? ` <span class="muted">(${esc(p.grp)})</span>` : '') + `<details class="gw-more"><summary>${esc(t('gw_all'))}</summary>${gwKv(p.opts)}</details>`],
-    [t('gw_mode'), p => gwModes(p.opts)], [t('gw_sf'), sfOf], [t('gw_sso'), p => esc(p.opts.sso || '–')], [t('gw_split'), p => esc(p.opts.splittunnel || '–')], [t('gw_authz'), p => esc(p.opts.defaultauthorizationaction || '–')]]);
+  // effective value: the session action, else the global VPN settings (set vpn parameter); a small "G" marks the latter
+  const P0 = G.params || {}, eff = p => ({ ...P0, ...p.opts }), gMark = `<span class="gw-g" title="${esc(t('gw_from_global'))}">G</span>`;
+  const ev = (p, k) => p.opts[k] !== undefined ? esc(p.opts[k]) : P0[k] !== undefined ? `${esc(P0[k])} ${gMark}` : '<span class="muted">–</span>';
+  const sfOf = p => ['wihome', 'storefronturl'].filter(k => p.opts[k] || P0[k]).map(k => `<code>${esc(p.opts[k] || P0[k])}</code>${p.opts[k] ? gwTargets(p.action_node) : ' ' + gMark}`).join('<br>') || '<span class="muted">–</span>';
+  const sessT = gwPolRows(sess, [[t('gw_action'), (p, i) => gwLink(p.action_node, p.action) + (p.grp ? ` <span class="muted">(${esc(p.grp)})</span>` : '') + `<br><button class="btn sm gw-pbtn" data-gwp="${i}">${esc(t('gw_params', { n: Object.keys(p.opts).length }))}</button>`],
+    [t('gw_mode'), p => gwModes(eff(p))], [t('gw_sf'), sfOf], [t('gw_sso'), p => ev(p, 'sso')], [t('gw_split'), p => ev(p, 'splittunnel')], [t('gw_authz'), p => ev(p, 'defaultauthorizationaction')]]);
   // ICA
   const sta = [...g.sta.map(s => ({ ...s, scope: '' })), ...G.sta.map(s => ({ ...s, scope: 'gw_global' }))];
   const staH = sta.length ? `<ul class="gw-ul">${sta.map(s => `<li>${s.scope ? gwTag(s.scope) + ' ' : ''}<code>${esc(s.url)}</code></li>`).join('')}</ul>` : '';
@@ -76,7 +82,17 @@ function renderGateway() {
   const grpBody = grp.length ? `<ul class="gw-ul">${grp.map(x => `<li>${gwLink(x.node, x.name)} <span class="muted">${esc(t('gw_grp_cnt', { p: x.policies.length, b: x.bookmarks.length, a: x.apps.length }))}</span></li>`).join('')}</ul>` : '';
   // Authentication
   const nfi = typeof nfEntryFor === 'function' ? nfEntryFor(g.node) : -1;
-  const authBody = nfi >= 0 ? `<p>${esc(t(nfEntries[nfi].via === 'classic' ? 'gw_auth_classic' : 'gw_auth_nf'))} <button class="btn sm" data-nfopen="${esc(g.node)}">${esc(t('nf_open'))}</button></p>` : `<p class="muted">${esc(t('gw_noauth'))}</p>`;
+  const authMain = nfi >= 0 ? `<p>${esc(t(nfEntries[nfi].via === 'classic' ? 'gw_auth_classic' : 'gw_auth_nf'))} <button class="btn sm" data-nfopen="${esc(g.node)}">${esc(t('nf_open'))}</button></p>` : `<p class="muted">${esc(t('gw_noauth'))}</p>`;
+  const ccH = gwCc(g.clientcert, t('gw_cc'));
+  const pre = [...(g.preauth || []), ...((G.preauth || []).map(x => ({ ...x, scope: 'gw_global' })))];
+  const nfEpa = nfi >= 0 ? nfLevels(nfEntries[nfi]).flat().flatMap(id => nfFactor(nfEntries[nfi].group, id).rows.filter(r => r.action && r.action.type === 'EPA').map(r => ({ ...r, fname: nfFactor(nfEntries[nfi].group, id).name }))) : [];
+  const post = sess.filter(p => p.opts.clientsecurity);
+  const grpOf = o => o && o.defaultepagroup ? ` <span class="muted">${esc(t('gw_epa_grp'))}</span> ${esc(o.defaultepagroup)}` : '';
+  const epaH = pre.length || nfEpa.length || post.length ? `<h4>${esc(t('gw_epa'))}</h4><ul class="gw-ul">${
+    pre.map(x => `<li><span class="nf-tag">${esc(t('gw_epa_pre'))}</span> ${x.scope ? gwTag(x.scope) + ' ' : ''}${gwLink(x.node, x.policy)} → <span class="nf-type">${esc(x.verdict || x.action)}</span>${grpOf(x.opts)}${gwRule(x.rule)}</li>`).join('')}${
+    nfEpa.map(r => `<li><span class="nf-tag">${esc(t('gw_epa_nf'))}</span> ${gwLink(r.node, r.policy)} <span class="muted">(${esc(r.fname)})</span>${grpOf(r.action.opts)}${gwRule((r.action.opts || {}).csecexpr)}</li>`).join('')}${
+    post.map(p => `<li><span class="nf-tag">${esc(t('gw_epa_post'))}</span> ${gwLink(p.action_node, p.action)}${p.opts.clientsecuritygroup ? ` <span class="muted">${esc(t('gw_epa_grp'))}</span> ${esc(p.opts.clientsecuritygroup)}` : ''}${gwRule(p.opts.clientsecurity)}</li>`).join('')}</ul>` : '';
+  const authBody = authMain + ccH + epaH;
   // RDP / PCoIP
   const rdpC = [...new Set(sess.map(p => p.opts.rdpclientprofilename).filter(Boolean))];
   const rdpS = g.opts.rdpserverprofilename, pc = g.opts.pcoipvserverprofilename || '';
@@ -93,6 +109,7 @@ function renderGateway() {
   $$('#gateway .nf-entry').forEach(b => b.onclick = () => { gwSel = +b.dataset.i; renderGateway(); });
   $$('#gateway [data-go]').forEach(a => a.onclick = ev => { ev.preventDefault(); goTo(a.dataset.go); });
   $$('#gateway [data-nfopen]').forEach(b => b.onclick = () => nfOpen(b.dataset.nfopen));
+  $$('#gateway [data-gwp]').forEach(b => b.onclick = () => gwParams(sess[+b.dataset.gwp], P0, V.names));
   $('#gateway [data-gwtopo]').onclick = () => goTo(g.node);
   $('#gateway [data-gwexp]').onclick = () => {
     const ids = [g.node, ...grp.map(x => x.node), ...G.policies.map(p => p.node)].filter(id => id && nodeById[id]);
@@ -106,3 +123,19 @@ function gwEntryFor(id) {
     (GW[x.group].groups || []).some(gr => gr.node === id) || GW[x.group].global.policies.some(p => p.node === id || p.action_node === id));
 }
 function gwOpen(id) { const i = gwEntryFor(id); if (i < 0) return; gwSel = i; showTab('gateway'); renderGateway(); }
+// client certificate authentication of a vServer (also used by the nFactor tab)
+function gwCc(cc, title) {
+  if (!cc || !cc.ca) return '';
+  const ca = cc.ca.map((c, i) => gwLink((cc.ca_nodes || []).find(id => id.endsWith('|' + c)) || '', c)).join(', ');
+  return `<h4>${esc(title)}</h4><p><span class="nf-type">${esc(cc.mode || t('gw_cc_nomode'))}</span>${cc.profile ? ` <span class="muted">${esc(t('gw_cc_prof'))}</span> ${esc(cc.profile)}` : ''} · ${ca ? 'CA: ' + ca : `<span class="muted">${esc(t('gw_cc_noca'))}</span>`}</p>`;
+}
+// all parameters of a session action next to the global VPN settings (set vpn parameter) and the value that applies
+function gwParams(p, P0, names) {
+  const A = p.opts, keys = [...new Set([...Object.keys(A), ...Object.keys(P0)])].sort((a, b) => (A[a] === undefined) - (A[b] === undefined) || a.localeCompare(b));
+  const rows = keys.map(k => {
+    const a = A[k], g = P0[k], src = a !== undefined ? t('gw_src_act') : t('gw_from_global');
+    return [`<code>${esc(optLabel(k, names))}</code>`, a !== undefined ? `<b>${esc(a)}</b>` : '<span class="muted">–</span>',
+      g !== undefined ? (a !== undefined && a !== g ? `<s class="muted">${esc(g)}</s>` : esc(g)) : '<span class="muted">–</span>', `${esc(a !== undefined ? a : g)} <span class="gw-g" title="${esc(src)}">${a !== undefined ? 'A' : 'G'}</span>`];
+  });
+  paramDlg(t('gw_params_t', { a: p.action || p.policy }), t('gw_params_sub', { p: p.policy }), [t('gw_param'), t('gw_src_act'), t('gw_src_glob'), t('gw_eff')], rows, t('gw_params_info'));
+}

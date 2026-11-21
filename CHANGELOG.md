@@ -3,6 +3,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-11-21
+### Added
+- Gateway tab: "Parameters" per session policy opens a table of all parameters of the session action next to the global
+  VPN settings (set vpn parameter) and the value that applies; columns Mode, StoreFront, SSO, split tunnel and default
+  authorization fall back to the global settings (marked "G"). Option names as written in the config.
+- Gateway tab: client certificate authentication (mode, CA certificates) and endpoint analysis (pre-auth policies,
+  nFactor EPA factors, post-auth client security of session actions).
+- nFactor tab: client certificate on the entry and the authentication vServer; parameters of each authentication action.
+- Export on the Gateway and nFactor tab: the page shown as PNG, SVG or PDF (anonymized on request).
+- Links tab: "Confirm" is highlighted while a proposal is open, with a hint and a confirmation message.
+### Fixed
+- HTML-encoded configuration files (&quot; instead of ", e.g. copied from a web page) are decoded; before, quoted
+  expressions were split at blanks (wrong action, missing StoreFront URLs). A note in the overview names the file.
+- Gateway tab: column widths of traffic policy settings.
+
 ## [0.3.5] - 2026-11-21
 ### Added
 - Cleanup analysis: configuration that is not used (top-down from addressable vServers, GSLB domains, global and

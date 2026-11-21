@@ -717,5 +717,14 @@ if (GUI) {
   $('#g-back').onclick = () => GUI.back(); $('#g-restart').onclick = () => GUI.restart(); $('#g-quit').onclick = () => GUI.quit();
   const prevLang = ls.onchange; ls.onchange = () => { prevLang(); try { GUI.lang(lang); } catch (e) { /* GUI gone */ } };
 }
+// parameter overlay (Gateway / nFactor): head = column titles, rows = arrays of cell HTML
+function paramDlg(title, sub, head, rows, info) {
+  const d = $('#dlgp'); if (!d) return;
+  $('#dlgp-t').innerHTML = esc(title) + (info ? infoBtn(esc(info)) : ''); $('#dlgp-sub').textContent = sub || '';
+  $('#dlgp-body').innerHTML = rows.length ? `<div class="gw-tw"><table class="gw-t pd-t"><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : `<p class="muted">${esc(t('pd_none'))}</p>`;
+  d.showModal();
+}
+if ($('#dlgp')) { $('#dlgp-x').onclick = () => $('#dlgp').close(); $('#dlgp').addEventListener('click', e => { if (e.target.id === 'dlgp') e.target.close(); }); }
+const optLabel = (k, names) => '-' + ((names || {})[k] || k);
 window.__nsviz = { cy, state, select, revealNode, refresh, showTab, ncfg: (a, d, s) => { const o = exp.scope; if (s) exp.scope = s; try { return buildNcfg(a, d); } finally { exp.scope = o; } }, setLang: l => { ls.value = l; ls.onchange(); }, setTheme: p => { themePref = p; applyTheme(); }, clean: (a, r, w) => buildClean(a, r, w) };
 })();

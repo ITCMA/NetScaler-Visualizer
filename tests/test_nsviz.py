@@ -349,6 +349,43 @@ class ConfigLineTests(unittest.TestCase):
         self.assertTrue(all(c["sure"] for c in cl.values()))   # the bind in sg_web becomes an unbind, no "check"
         self.assertEqual(p.clean_summary, {"unused": 6, "disabled": 4, "check": 0})
 
+    def test_gateway_epa_clientcert_html(self):
+        """HTML-encoded files are decoded; client certificate, EPA (pre-auth, nFactor, post-auth) and option names."""
+        src = ('add ssl certKey ca_root -cert ca_root.cer\n'
+               'add authentication epaAction epa_act -csecexpr "sys.client_expr(\\"proc_0_x\\")" -defaultEPAGroup ok\n'
+               'add authentication Policy p_epa -rule true -action epa_act\n'
+               'add authentication vserver aaa1 SSL 0.0.0.0\n'
+               'bind authentication vserver aaa1 -policy p_epa -priority 100\n'
+               'add authentication authnProfile prof1 -authnVsName aaa1\n'
+               'add aaa preauthenticationaction pre_act ALLOW -defaultEPAGroup epa_ok\n'
+               'add aaa preauthenticationpolicy pre_pol "CLIENT.OS(win10) EXISTS" pre_act\n'
+               'add vpn sessionAction sa1 -clientSecurity "CLIENT.APPLICATION.PROCESS(av.exe) EXISTS" -SSO ON\n'
+               'add vpn sessionPolicy sp1 "HTTP.REQ.HEADER(\\"User-Agent\\").CONTAINS(\\"X\\") && true" sa1\n'
+               'set vpn parameter -splitTunnel OFF\n'
+               'add vpn vserver gw1 SSL 192.0.2.50 443 -authnProfile prof1\n'
+               'bind vpn vserver gw1 -policy pre_pol -priority 10\n'
+               'bind vpn vserver gw1 -policy sp1 -priority 100\n'
+               'set ssl vserver gw1 -clientAuth ENABLED -clientCert Mandatory\n'
+               'bind ssl vserver gw1 -certkeyName ca_root -CA -ocspCheck Optional\n')
+        enc = src.replace("&", "&amp;").replace('"', "&quot;")
+        cfg = Config.parse_text(enc)
+        self.assertTrue(cfg.html_decoded)
+        g = Graph(cfg, "g1")
+        gv = g.gateway_view()
+        gw = gv["gateways"][0]
+        sp = [x for x in gw["policies"] if x["policy"] == "sp1"][0]
+        self.assertEqual(sp["action"], "sa1")                              # not split at blanks or "&&"
+        self.assertIn("&&", sp["rule"])
+        self.assertEqual(gw["clientcert"]["mode"], "Mandatory")
+        self.assertEqual(gw["clientcert"]["ca"], ["ca_root"])
+        self.assertEqual(gw["preauth"][0]["verdict"], "ALLOW")
+        self.assertEqual(gv["global"]["params"]["splittunnel"], "OFF")
+        self.assertEqual(gv["names"]["clientsecurity"], "clientSecurity")
+        fl = g.auth_flows()
+        row = fl["factors"]["g1|authentication vserver|aaa1"]["rows"][0]
+        self.assertEqual(row["action"]["type"], "EPA")
+        self.assertEqual(row["action"]["opts"]["defaultepagroup"], "ok")
+
     def test_auth_flows(self):
         """nFactor flow: factors in priority order, login schemas, next factor, decision and classic gateway policies."""
         src = ('add authentication loginSchema ls1 -authenticationSchema "/nsconfig/loginschema/LoginSchema/SingleAuth.xml"\n'

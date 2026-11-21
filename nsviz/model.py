@@ -803,14 +803,28 @@ class Graph:
             except ValueError:
                 return 1e12
 
+        names: dict[str, str] = {}
+
         def opts(e: Entity | None) -> dict:
             if e is None:
                 return {}
+            self._opt_names(e, names)
             return {k: (" ".join(v) if v else "true") for k, v in e.opts.items() if k not in SECRET_OPTS}
 
         def node(et: str, name: str) -> str:
             nid = self.nid(et, name)
             return nid if nid in self.nodes else ""
+
+        def preauth(name: str, b: Binding) -> dict | None:
+            e = cfg.get("aaa preauthenticationpolicy", name)
+            if e is None:
+                return None
+            rule = e.opt("rule") or (e.args[1] if len(e.args) > 1 and not is_option_like(e.args[1]) else "")
+            act = e.opt("reqaction") or (e.args[2] if len(e.args) > 2 and not is_option_like(e.args[2]) else "")
+            ae = cfg.get("aaa preauthenticationaction", act) if act else None
+            return {"policy": name, "node": node("aaa preauthenticationpolicy", name), "prio": b.opt("priority") or "", "rule": rule[:300],
+                    "action": act, "action_node": node("aaa preauthenticationaction", act) if ae is not None else "",
+                    "verdict": (ae.args[1] if ae is not None and len(ae.args) > 1 else ""), "opts": opts(ae)}
 
         def pol(name: str, b: Binding | None = None) -> dict | None:
             for et in ("vpn sessionpolicy", "vpn trafficpolicy", "authorization policy", "vpn clientlessaccesspolicy", "ica policy",
@@ -848,12 +862,15 @@ class Graph:
                     "mode": (e.opt("interception") or "") if e is not None else "", "missing": e is None}
 
         def collect(binds: list[Binding]) -> dict:
-            out = {"policies": [], "sta": [], "bookmarks": [], "apps": [], "ips": [], "theme": "", "eula": [], "nexthop": [], "other": []}
+            out = {"policies": [], "sta": [], "bookmarks": [], "apps": [], "ips": [], "theme": "", "eula": [], "nexthop": [], "other": [], "preauth": []}
             for b in binds:
                 p = b.opt("policy") or b.opt("policyname")
                 if p:
                     r = pol(p, b)
-                    if r:
+                    pa = None if r else preauth(p, b)
+                    if pa:
+                        out["preauth"].append(pa)
+                    elif r:
                         out["policies"].append(r)
                     elif p.startswith("_") and not any(cfg.get(t, p) for t in cfg.entities):
                         pass  # built-in policies (e.g. the default caching policies the gateway binds), not part of the config
@@ -885,7 +902,8 @@ class Graph:
             if src not in self.nodes:
                 continue
             g = {"name": name, "node": src, "proto": e.args[1] if len(e.args) > 1 else "", "ip": e.args[2] if len(e.args) > 2 else "",
-                 "port": e.args[3] if len(e.args) > 3 else "", "opts": opts(e), **collect(cfg.binds("vpn vserver", name))}
+                 "port": e.args[3] if len(e.args) > 3 else "", "opts": opts(e), "clientcert": self.client_cert(name),
+                 **collect(cfg.binds("vpn vserver", name))}
             gws.append(g)
         groups = []
         for gname in sorted({b.owner for b in cfg.binds("aaa group")} | set(cfg.of("aaa group"))):
@@ -893,9 +911,35 @@ class Graph:
             if any(c[k] for k in ("policies", "bookmarks", "apps", "ips")):
                 groups.append({"name": gname, "node": node("aaa group", gname), **c})
         vp = cfg.get("vpn parameter", "")
-        return {"gateways": gws, "global": {**collect(cfg.binds("vpn global")), "params": opts(vp)}, "groups": groups,
-                "rdp": {n: opts(x) for n, x in cfg.of("rdp clientprofile").items()},
-                "rdp_server": {n: opts(x) for n, x in cfg.of("rdp serverprofile").items()}}
+        out = {"gateways": gws, "global": {**collect(cfg.binds("vpn global")), "params": opts(vp)}, "groups": groups,
+               "rdp": {n: opts(x) for n, x in cfg.of("rdp clientprofile").items()},
+               "rdp_server": {n: opts(x) for n, x in cfg.of("rdp serverprofile").items()}}
+        out["names"] = names
+        return out
+
+    @staticmethod
+    def _opt_names(e: Entity, names: dict) -> None:
+        """Option names as written in the config (the model keeps them lower-cased), for display."""
+        for st in e.stmts:
+            for tok in st.tokens:
+                if not tok.quoted and tok.text.startswith("-") and len(tok.text) > 1 and tok.text[1].isalpha():
+                    names.setdefault(tok.text[1:].lower(), tok.text[1:])
+
+    def client_cert(self, vs_name: str) -> dict:
+        """Client certificate authentication of a vServer (set ssl vserver -clientAuth / SSL profile) and its CA certificates."""
+        sv = self.cfg.get("ssl vserver", vs_name)
+        if sv is None:
+            return {}
+        src, via = sv, ""
+        if (sv.opt("clientauth") or "").upper() != "ENABLED" and sv.opt("sslprofile"):
+            pr = self.cfg.get("ssl profile", sv.opt("sslprofile"))
+            if pr is not None and (pr.opt("clientauth") or "").upper() == "ENABLED":
+                src, via = pr, sv.opt("sslprofile")
+        if (src.opt("clientauth") or "").upper() != "ENABLED":
+            return {}
+        ca = [b.opt("certkeyname") for b in self.cfg.binds("ssl vserver", vs_name) if "ca" in b.opts and b.opt("certkeyname")]
+        return {"mode": src.opt("clientcert") or "", "profile": via, "ca": ca,
+                "ca_nodes": [self.nid("ssl certkey", c) for c in ca if self.nid("ssl certkey", c) in self.nodes]}
 
     # ---- nFactor / authentication flow ------------------------------------------------------
     def auth_flows(self) -> dict:
@@ -904,6 +948,7 @@ class Graph:
         cfg = self.cfg
         authpol_types = [t for t in cfg.entities if self._kind(t) == "authpol"]
         authact_types = [t for t in cfg.entities if self._kind(t) == "authact"]
+        names: dict[str, str] = {}
 
         def num(x: str | None) -> float:
             try:
@@ -933,7 +978,10 @@ class Graph:
                 if cfg.get(t, act):
                     base = t.split(" ", 1)[1]
                     typ = AUTH_TYPE_LABELS.get(base, base.replace("action", "").replace("profile", " profile").strip().upper())
-                    return {"name": act, "type": typ, "etype": t, "node": self.nid(t, act)}
+                    ae = cfg.get(t, act)
+                    self._opt_names(ae, names)
+                    return {"name": act, "type": typ, "etype": t, "node": self.nid(t, act),
+                            "opts": {k: (" ".join(v) if v else "true") for k, v in ae.opts.items() if k not in SECRET_OPTS}}
             if re.fullmatch(r"[A-Z_]+", act):
                 return {"name": act, "type": act}  # built-in (NO_AUTHN, ...)
             return {"name": act, "type": "", "missing": True}
@@ -1007,7 +1055,13 @@ class Graph:
         for fid, f in factors.items():  # auth vServers that no other vServer uses are entry points of their own
             if f["type"] == "vserver" and fid not in reached:
                 entries.append({"node": fid, "etype": "authentication vserver", "name": f["name"], "factor": fid, "via": ""})
-        return {"factors": factors, "entries": entries} if factors else {}
+        for x in entries:  # client certificate on the entry vServer and on the authentication vServer of the flow
+            et, nm = x["etype"], x["name"]
+            x["clientcert"] = self.client_cert(nm) if et in ("vpn vserver", "lb vserver", "cs vserver", "authentication vserver") else {}
+            f = factors.get(x["factor"])
+            if f and f["type"] == "vserver" and f["name"] != nm:
+                x["aaa_clientcert"] = self.client_cert(f["name"])
+        return {"factors": factors, "entries": entries, "names": names} if factors else {}
 
     def _ref_or_none(self, et: str, owner: str, pol: str | None) -> str | None:
         if pol:
