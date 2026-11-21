@@ -57,7 +57,8 @@ Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/r
   dadurch frei werden. Objekte, die nur von deaktivierten Objekten genutzt werden, sind gesondert gekennzeichnet. Beides
   wird im Graph hervorgehoben; „Bereinigungs-Batch“ im Export-Dialog schreibt die unbind-/rm-Befehle in ausführbarer
   Reihenfolge (zuerst Ungenutztes, der Teil zu deaktivierten Objekten mit Erklärung am Ende) sowie einen Rollback-Batch.
-  Objekte, deren Name noch in einer bleibenden Zeile vorkommt, werden nur „zu prüfen“ aufgeführt.
+  Objekte, deren Name noch in einer bleibenden Zeile vorkommt, werden nur „zu prüfen“ aufgeführt. Zeilen mit maskierten
+  Secrets (***) sind im Rollback auskommentiert und müssen aus der gesicherten ns.conf ergänzt werden (oder --no-redact).
 - **Details zu Gateway und nFactor**: Parameter von Session- und Authentifizierungs-Actions in einem Overlay (mit den
   globalen VPN-Einstellungen), Client-Zertifikat-Anmeldung und Endpoint-Analyse (EPA); beide Reiter lassen sich als PNG,
   SVG oder PDF exportieren.

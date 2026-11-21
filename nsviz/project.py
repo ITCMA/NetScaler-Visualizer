@@ -447,21 +447,44 @@ class Project:
             users = [u for u in pred.get(nid, []) if u in nodes and nodes[u].kind != "device"]
             c["by"] = sorted({u for u in users if u in cand})[:8]
             c["why"] = ("disabled" if c["self_disabled"] else "no_ref" if not users else "only_cand")
-        # certainty: the name must not appear in a line that stays
-        cand_lines = {(l["file"], l["line"]) for nid in cand for l in nodes[nid].lines}
-        # bind/link lines owned by objects that stay become unbind/unlink lines in the batch, so they do not count
-        owned = {(l["file"], l["line"]) for nid, n in nodes.items() if nid not in cand for l in n.lines}
-        words: dict[str, set] = {}
-        for g in self.groups:
-            for d in g.devices:
-                for st in d.cfg.statements:
-                    if (st.file, st.line) in cand_lines or st.verb in ("bind", "link") and (st.file, st.line) in owned:
-                        continue
-                    for w in set(re.findall(r"[A-Za-z0-9_$.:@/-]+", st.raw)):
-                        words.setdefault(w, set()).add((st.file, st.line))
+        # certainty: the name must not appear in a line that stays. Only an object's own lines (first word after the
+        # type is its name) are removed with it; lines of other objects that are folded into a node (e.g. a CS action in
+        # its policy) stay. Objects that stay ("check") keep their lines too, so this is repeated until nothing changes.
+        stmts = [st for g in self.groups for d in g.devices for st in d.cfg.statements]
+        stmt_at = {(st.file, st.line): st for st in stmts}
+        line_nodes: dict[tuple, set] = {}
+        for nid, n in nodes.items():
+            for l in n.lines:
+                line_nodes.setdefault((l["file"], l["line"]), set()).add(nid)
+
+        def own_lines(nid: str) -> set:
+            nm = (nodes[nid].name or "").strip('"')
+            out = set()
+            for l in nodes[nid].lines:
+                st = stmt_at.get((l["file"], l["line"]))
+                if st is not None and st.args and st.args[0].strip('"') == nm:
+                    out.add((l["file"], l["line"]))
+            return out
+        own = {nid: own_lines(nid) for nid in cand}
+        toks = {(st.file, st.line): set(re.findall(r"[A-Za-z0-9_$.:@/-]+", st.raw)) for st in stmts}
+        sure = set(cand)
+        for _ in range(20):
+            removed = set().union(*(own[nid] for nid in sure)) if sure else set()
+            words: set = set()
+            for st in stmts:
+                k = (st.file, st.line)
+                if k in removed:
+                    continue
+                # bind/link lines of objects that stay become unbind/unlink lines in the batch, so they do not count
+                if st.verb in ("bind", "link") and any(n not in sure for n in line_nodes.get(k, ())):
+                    continue
+                words |= toks[k]
+            keep = {nid for nid in sure if nodes[nid].name in words or nodes[nid].name.strip('"') in words}
+            if not keep:
+                break
+            sure -= keep
         for nid, c in cand.items():
-            nm = nodes[nid].name
-            c["sure"] = not (nm in words or nm.strip('"') in words)
+            c["sure"] = nid in sure
         for nid, c in cand.items():
             self.dep.setdefault(nid, {})["clean"] = c
         n_un = sum(1 for c in cand.values() if c["cat"] == "unused")

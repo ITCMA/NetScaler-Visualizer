@@ -3,6 +3,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-11-21
+### Fixed
+- Cleanup detection: an object counts as "sure" only when no line that stays names it; lines of other candidates that
+  are not removed themselves are taken into account (repeated until stable). Before, a removed object could still be
+  named by such a line.
+- Cleanup batch: removal order from the config lines (an object whose own lines name another removed object goes
+  first), also when a policy and its action share a name. A circular reference gets a note in the batch.
+- Rollback: adds in the reverse order (an object before the lines that use it, by object, not by name); link lines of
+  certificates are no longer restored twice; lines with masked secrets (***) are commented out with a warning, as they
+  cannot restore the object (restore them from the saved ns.conf or create the report with --no-redact).
+- Unbind of a binding without a policy (NOPOLICY, e.g. to invoke a policy label) keeps the priority, which identifies it
+  (assumption, check before running).
+
 ## [0.3.7] - 2026-11-21
 ### Fixed
 - Config export: with a selected object the export now uses the selection by default (before, the scope stayed on

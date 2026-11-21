@@ -31,8 +31,9 @@ const clQ = w => w.q ? '"' + w.t + '"' : w.t;
 // unbind from a bind line: same owner and identity, without ordering/flow options (assumption: NetScaler identifies a binding by these)
 function clUnbind(txt) {
   const w = ncfgTok(txt), out = []; let drop = false;
+  const nopol = w.some((x, i) => /^-policyname$/i.test(x.t) && w[i + 1] && /^NOPOLICY/i.test(w[i + 1].t));  // assumption: identified by priority
   w.forEach((x, i) => { if (i === 0) { out.push(x.t.toLowerCase() === 'link' ? 'unlink' : 'unbind'); return; }
-    if (!x.q && /^-[A-Za-z]/.test(x.t)) { drop = CL_UNBIND_DROP.has(x.t.slice(1).toLowerCase()); if (!drop) out.push(x.t); return; }
+    if (!x.q && /^-[A-Za-z]/.test(x.t)) { const k = x.t.slice(1).toLowerCase(); drop = CL_UNBIND_DROP.has(k) && !(nopol && k === 'priority'); if (!drop) out.push(x.t); return; }
     if (!drop) out.push(clQ(x)); });
   if (/^link$/i.test(w[0].t)) return out.slice(0, 4).join(' '); // unlink ssl certKey <child>
   return out.join(' ');
@@ -53,7 +54,7 @@ function buildClean(anon, rollback, withDisabled) {
   // names of removed objects per group -> bind/link lines of objects that stay and name them get an unbind
   const names = {}; sure.forEach(id => { const n = nodeById[id]; (names[n.group] = names[n.group] || new Set()).add(n.label); });
   const out = {}; D.edges.forEach(e => { if (e.type === 'contains' || e.type === 'network') return; (out[e.source] = out[e.source] || []).push(e.target); });
-  const bar = '# ' + '='.repeat(78), L = [], stat = { rm: 0, unbind: 0, check: 0, objects: 0 };
+  const bar = '# ' + '='.repeat(78), L = [], stat = { rm: 0, unbind: 0, check: 0, objects: 0, masked: 0 };
   const head = rollback
     ? ['# NetScaler cleanup ROLLBACK batch - ' + D.meta.generator + ' - ' + new Date().toISOString().slice(0, 16).replace('T', ' '),
       '# Restores what the cleanup batch removes: objects (add), their settings (set), their bindings, and the bindings to',
@@ -77,15 +78,24 @@ function buildClean(anon, rollback, withDisabled) {
     if (!rows.length) return; L.push('', '# ' + title + ` (${rows.length})`); let cur = -2;
     rows.forEach((r, i) => { if (r.sec !== cur) { cur = r.sec; let n = 0; for (let j = i; j < rows.length && rows[j].sec === cur; j++) n++; L.push(`# --- ${(NCFG_SEC[cur] || ['Other'])[0]} (${n})`); } L.push(mk(r)); });
   };
-  // removal order: users before what they use (edges among the removed objects), then reverse section order
-  const rmOrder = ids => {
-    const set = new Set(ids), indeg = {}; ids.forEach(id => indeg[id] = 0);
-    ids.forEach(id => (out[id] || []).forEach(v => { if (set.has(v)) indeg[v]++; }));
+  // removal order: users before what they use, from the config lines (an object whose own lines name another removed
+  // object is removed first; the same rule NetScaler applies), then reverse section order
+  const usesOf = (ids, addOnly) => {
+    const byLab = {}; ids.forEach(id => (byLab[nodeById[id].label] = byLab[nodeById[id].label] || []).push(id));
+    const u = {}; ids.forEach(id => { const n = nodeById[id], r = new Set();
+      (n.lines || []).forEach(l => { const st = ncfgStmt(l.text); if (st.name !== n.label || (addOnly && /^(bind|link)$/.test(st.verb))) return; ncfgTok(l.text).slice(st.at).flatMap(x => x.t.match(/[A-Za-z0-9_$.:@\/-]+/g) || []).forEach(w => (byLab[w] || []).forEach(v => { if (v !== id) r.add(v); })); });
+      u[id] = [...r]; });
+    return u;
+  };
+  const rmCyc = new Set();  // objects removed while another removed object still refers to them (circular reference)
+  const rmOrder = (ids, addOnly) => {
+    const set = new Set(ids), indeg = {}, uses = usesOf(ids, addOnly); ids.forEach(id => indeg[id] = 0);
+    ids.forEach(id => uses[id].forEach(v => { if (set.has(v)) indeg[v]++; }));
     const secOf = id => ncfgSection(nodeById[id].etype, nodeById[id].etype), res = [], done = new Set();
     const ready = () => ids.filter(id => !done.has(id) && indeg[id] === 0).sort((a, b) => secOf(b) - secOf(a) || nodeById[a].label.localeCompare(nodeById[b].label));
     while (res.length < ids.length) {
-      let r = ready(); if (!r.length) r = ids.filter(id => !done.has(id)).sort((a, b) => secOf(b) - secOf(a)).slice(0, 1); // cycle
-      const id = r[0]; done.add(id); res.push(id); (out[id] || []).forEach(v => { if (set.has(v) && !done.has(v)) indeg[v]--; });
+      let r = ready(); if (!r.length) { r = ids.filter(id => !done.has(id)).sort((a, b) => secOf(b) - secOf(a)).slice(0, 1); rmCyc.add(r[0]); } // cycle
+      const id = r[0]; done.add(id); res.push(id); uses[id].forEach(v => { if (set.has(v) && !done.has(v)) indeg[v]--; });
     }
     return res;
   };
@@ -112,23 +122,25 @@ function buildClean(anon, rollback, withDisabled) {
           if (st.name && nm.has(st.name) && st.verb === 'bind') return; // owner is removed itself
           seen.add(k); const txt = lineOf(n, i); if (txt) unb.push({ sec: ncfgSection(st.etype, n.etype), txt, f: l.file, line: l.line }); }); });
       // link lines owned by removed certificates (unlink before rm)
-      ok.forEach(id => { const n = nodeById[id]; (n.lines || []).forEach((l, i) => { const st = ncfgStmt(l.text); if (st.verb !== 'link' || st.name !== n.label) return; const k = l.file + ':' + l.line; if (seen.has(k)) return; seen.add(k); const txt = lineOf(n, i); if (txt) unb.push({ sec: ncfgSection(st.etype, n.etype), txt, f: l.file, line: l.line }); }); });
+      ok.forEach(id => { const n = nodeById[id]; (n.lines || []).forEach((l, i) => { const st = ncfgStmt(l.text); if (st.verb !== 'link' || st.name !== n.label) return; const k = l.file + ':' + l.line; if (seen.has(k)) return; seen.add(k); const txt = lineOf(n, i); if (txt) unb.push({ sec: ncfgSection(st.etype, n.etype), txt, f: l.file, line: l.line, own: true }); }); });
       unb.sort((a, b) => a.sec - b.sec || a.line - b.line);
       if (rollback) {
         const rows = [], rbSeen = new Set();
         ok.forEach(id => { const n = nodeById[id], f0 = ((n.lines || [])[0] || {}).file; (n.lines || []).forEach((l, i) => { if (l.file !== f0) return; const st = ncfgStmt(l.text), txt = lineOf(n, i); if (!txt || st.name !== n.label) return;
           const k = l.file + ':' + l.line; if (rbSeen.has(k)) return; rbSeen.add(k);
-          rows.push({ sec: ncfgSection(st.etype, n.etype), ph: st.verb === 'add' ? 0 : /^(bind|link)$/.test(st.verb) ? 2 : 1, txt: txt.replace(/\s+-devno\s+\d+/g, ''), line: l.line }); }); });
-        const order = rmOrder(ok).reverse(), pos = {}; order.forEach((id, i) => pos[nodeById[id].label] = i);
-        const byPh = p => rows.filter(r => r.ph === p).sort((a, b) => p === 0 ? (pos[ncfgStmt(a.txt).name] ?? 0) - (pos[ncfgStmt(b.txt).name] ?? 0) || a.line - b.line : a.sec - b.sec || a.line - b.line);
-        section('1. Objects (add)', byPh(0), r => r.txt); section('2. Settings (set)', byPh(1), r => r.txt); section('3. Bindings (bind, link)', byPh(2), r => r.txt);
-        section('4. Bindings to objects that stayed', unb, r => r.txt);
-        stat.rm += rows.length + unb.length;
+          rows.push({ id, sec: ncfgSection(st.etype, n.etype), ph: st.verb === 'add' ? 0 : /^(bind|link)$/.test(st.verb) ? 2 : 1, txt: txt.replace(/\s+-devno\s+\d+/g, ''), line: l.line }); }); });
+        const order = rmOrder(ok, true).reverse(), pos = {}; order.forEach((id, i) => pos[id] = i);
+        const byPh = p => rows.filter(r => r.ph === p).sort((a, b) => p === 0 ? (pos[a.id] ?? 0) - (pos[b.id] ?? 0) || a.line - b.line : a.sec - b.sec || a.line - b.line);
+        const rbTxt = r => /\*\*\*/.test(r.txt) ? (stat.masked++, '# SECRET MASKED - restore this line from the saved ns.conf: ' + r.txt) : r.txt;
+        section('1. Objects (add)', byPh(0), rbTxt); section('2. Settings (set)', byPh(1), rbTxt); section('3. Bindings (bind, link)', byPh(2), rbTxt);
+        const unb4 = unb.filter(r => !r.own);
+        section('4. Bindings to objects that stayed', unb4, r => r.txt);
+        stat.rm += rows.length + unb4.length;
       } else {
         section('1. Unbind from objects that stay', unb, r => clUnbind(r.txt));
         const rmRows = rmOrder(ok).map(id => { const n = nodeById[id], i = addIdx(n);
-          return i < 0 ? null : { sec: ncfgSection(n.etype, n.etype), txt: lineOf(n, i) }; }).filter(r => r && r.txt);
-        section('2. Remove (users first, then what they use)', rmRows, r => clRm(r.txt));
+          return i < 0 ? null : { sec: ncfgSection(n.etype, n.etype), txt: lineOf(n, i), cyc: rmCyc.has(id) }; }).filter(r => r && r.txt);
+        section('2. Remove (users first, then what they use)', rmRows, r => (r.cyc ? '# Note: circular reference with an object removed below; if this rm fails, unbind or remove that object first\n' : '') + clRm(r.txt));
         const chkRows = chk.map(id => { const n = nodeById[id], i = addIdx(n); return i < 0 ? null : { sec: ncfgSection(n.etype, n.etype), txt: lineOf(n, i) }; }).filter(r => r && r.txt).sort((a, b) => b.sec - a.sec);
         section('3. To check (not removed): the name also appears in a line that stays', chkRows, r => '# ' + clRm(r.txt));
         stat.rm += rmRows.length; stat.unbind += unb.length; stat.check += chkRows.length;
@@ -137,5 +149,8 @@ function buildClean(anon, rollback, withDisabled) {
     });
   });
   if (!all.size) L.push('', '# Nothing to clean up.');
+  if (stat.masked) { const at = L.findIndex(l => /^# Source: /.test(l)); L.splice(at < 0 ? head.length : at, 0,
+    `# WARNING: ${stat.masked} line(s) contain secrets that the report masks (***). They are commented out below and must be`,
+    '#   restored from the saved ns.conf (or create the report with --no-redact, which keeps encrypted values).'); }
   return { text: L.join('\n') + '\n', ...stat };
 }

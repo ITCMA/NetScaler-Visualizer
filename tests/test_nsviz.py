@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import shutil
 import unittest
 from pathlib import Path
 
@@ -348,6 +349,45 @@ class ConfigLineTests(unittest.TestCase):
             self.assertNotIn(k, cl)
         self.assertTrue(all(c["sure"] for c in cl.values()))   # the bind in sg_web becomes an unbind, no "check"
         self.assertEqual(p.clean_summary, {"unused": 6, "disabled": 4, "check": 0})
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_cleanup_batch_and_rollback(self):
+        """Cleanup batch: users removed before what they use (also with a shared name), rollback adds in reverse order,
+        masked secrets are commented out in the rollback."""
+        import tempfile, json, subprocess
+        src = ('add authentication ldapAction ldap_old -serverIP 192.0.2.30 -ldapBindDnPassword secret1 -encrypted\n'
+               'add authentication ldapPolicy ldap_old "ns_true" ldap_old\n'
+               'add rewrite action rw_x replace HTTP.REQ.URL "\\"/\\""\n'
+               'add rewrite policy rw_x true rw_x\n'
+               'add lb vserver lb_x HTTP 0.0.0.0 0\n'
+               'bind lb vserver lb_x -policyName rw_x -priority 100 -type REQUEST\n')
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "ns.conf"
+            f.write_text(src)
+            d = Project.load([str(f)]).to_dict()
+            dj = Path(td) / "d.json"
+            dj.write_text(json.dumps({k: d[k] for k in ("nodes", "edges", "groups", "meta")}))
+            assets = Path(__file__).resolve().parent.parent / "nsviz" / "assets"
+            js = Path(td) / "run.js"
+            js.write_text("""const fs = require('fs'); const [a, f] = process.argv.slice(2);
+const ex = fs.readFileSync(a + '/export.js', 'utf8').split('\\n');
+const i0 = ex.findIndex(l => l.startsWith('const NCFG_SKIP')), i1 = ex.findIndex(l => l.startsWith('function ncfgStart'));
+const code = ex.slice(i0, i1).join('\\n') + '\\n' + fs.readFileSync(a + '/cleanup.js', 'utf8');
+const D = JSON.parse(fs.readFileSync(f, 'utf8')); const nodeById = {}; D.nodes.forEach(x => nodeById[x.id] = x);
+const api = new Function('D', 'nodeById', 'state', 'cy', '$', 't', 'esc', 'infoBtn', 'kindLabel', code + '\\nreturn { buildClean };')(
+  D, nodeById, { group: null }, {}, () => null, k => k, s => s, s => s, k => k);
+console.log(JSON.stringify([api.buildClean(false, false, true).text, api.buildClean(false, true, true).text]));""")
+            out = subprocess.run(["node", str(js), str(assets), str(dj)], capture_output=True, text=True, check=True).stdout
+        batch, rb = json.loads(out)
+        rm = [l for l in batch.splitlines() if l.startswith("rm ")]
+        self.assertLess(rm.index("rm lb vserver lb_x"), rm.index("rm rewrite policy rw_x"))
+        self.assertLess(rm.index("rm rewrite policy rw_x"), rm.index("rm rewrite action rw_x"))
+        self.assertLess(rm.index("rm authentication ldapPolicy ldap_old"), rm.index("rm authentication ldapAction ldap_old"))
+        adds = [l for l in rb.splitlines() if l.startswith("add ")]
+        self.assertLess(adds.index('add rewrite action rw_x replace HTTP.REQ.URL "\\"/\\""'), adds.index("add rewrite policy rw_x true rw_x"))
+        self.assertTrue(any(l.startswith("# SECRET MASKED") and "ldapAction ldap_old" in l for l in rb.splitlines()))
+        self.assertNotIn("secret1", rb)
+        self.assertIn("bind lb vserver lb_x -policyName rw_x -priority 100 -type REQUEST", rb)
 
     def test_gateway_epa_clientcert_html(self):
         """HTML-encoded files are decoded; client certificate, EPA (pre-auth, nFactor, post-auth) and option names."""
