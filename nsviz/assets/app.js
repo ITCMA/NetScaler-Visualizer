@@ -81,7 +81,7 @@ const HIDDEN_KINDS = ['policy', 'action', 'policylabel']; // switched on via the
 const unlinkedSet = new Set((D.unlinked || []).map(u => u.node));
 const kindsPresent = {}; D.nodes.forEach(n => kindsPresent[n.kind] = (kindsPresent[n.kind] || 0) + 1);
 const debugEnabled = (typeof window.__NSVIZ_DEBUG__ !== 'undefined' && window.__NSVIZ_DEBUG__ === true) || /(^|[#&?])debug\b/i.test(location.hash);
-const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), onlyUnlinked: false, debug: false, layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
+const state = { group: '', collapsed: new Set(), kinds: new Set(Object.keys(kindsPresent).filter(k => !HIDDEN_KINDS.includes(k))), pinned: new Set(), onlyUnlinked: false, cleanup: false, debug: false, layout: store.get('layout') || 'tiers', contains: false, far: false, focus: true, onlyFindings: false, labels: false, hits: [], hitIdx: -1, selected: null };
 cytoscape.use(cytoscapeDagre);
 const elements = D.nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, kind: n.kind, grp: n.group, sev: worst(n.findings) || '', nf: n.findings.length, unl: unlinkedSet.has(n.id), fq: !!(n.dep && n.dep.fqdn) } }))
   .concat(D.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, elabel: e.label, port: !!e.port } })));
@@ -161,6 +161,9 @@ function styleGraph() {
     { selector: 'node[sev="medium"]', style: { 'border-color': sc.medium, 'border-width': 3 } },
     { selector: 'node[sev="low"]', style: { 'border-color': sc.low, 'border-width': 2.5 } },
     { selector: 'node[kind="missing"]', style: { 'border-style': 'dashed', 'border-color': '#ef4444', 'color': '#ef4444' } },
+    { selector: 'node.cl-u', style: { 'border-style': 'dashed', 'border-color': dark ? '#f87171' : '#b91c1c', 'border-width': 4, 'underlay-color': dark ? '#f87171' : '#b91c1c', 'underlay-opacity': .18, 'underlay-padding': 6 } },
+    { selector: 'node.cl-d', style: { 'border-style': 'dashed', 'border-color': dark ? '#fbbf24' : '#b45309', 'border-width': 4, 'underlay-color': dark ? '#fbbf24' : '#b45309', 'underlay-opacity': .18, 'underlay-padding': 6 } },
+    { selector: 'node.cl-keep', style: { 'opacity': .35 } },
     { selector: '.dim', style: { 'opacity': .14 } },
     { selector: 'edge.onpath', style: { 'width': 3.4, 'z-index': 9 } },
     { selector: '.hit', style: { 'overlay-color': '#facc15', 'overlay-opacity': .5, 'overlay-padding': 6 } },
@@ -483,6 +486,7 @@ function renderLegend() {
     ln(`stroke:${amber};stroke-width:3;stroke-dasharray:7 4`, t('lg_plain')) + ln('stroke:#94a3b8;stroke-width:3;opacity:.5', t('lg_tls')) +
     ln(`stroke:${resolved() === 'dark' ? '#38bdf8' : '#0369a1'};stroke-width:3`, t('lg_via')) + ln('stroke:#94a3b8;stroke-width:3;stroke-dasharray:2 3', t('lg_unl')) + ln('stroke:#f59e0b;stroke-width:6', t('lg_fqdn')) + ln('stroke:#94a3b8;stroke-width:2;stroke-dasharray:3 3', t('lg_ref')) + ln('stroke:#ef4444;stroke-width:3;stroke-dasharray:7 4', t('lg_hop')) + ln('stroke:#a21caf;stroke-width:4', t('lg_link')) + ln('stroke:#f97316;stroke-width:3;stroke-dasharray:7 4', t('lg_loop')) +
     SEV.slice(0, 4).map(s => `<div><span class="sw" style="background:transparent;border:3px solid ${SEVCOL[s]}"></span>${esc(t('lg_find', { s: sevLabel(s) }))}</div>`).join('') +
+    (state.cleanup ? `<div><span class="sw cl-du" style="background:transparent;border:3px dashed"></span>${esc(t('cl_cat_u'))}</div><div><span class="sw cl-dd" style="background:transparent;border:3px dashed"></span>${esc(t('cl_cat_d'))}</div>` : '') +
     `<p class="muted small">${esc(t('lg_note'))}</p><p class="muted small">${esc(t('visible', { a: cy.nodes(':visible').length, b: cy.nodes().length }))}</p></details>`;
   $('#legend details').addEventListener('toggle', e => { legendOpen = e.target.open; store.set('legend', legendOpen ? '1' : '0'); });
 }
@@ -506,7 +510,7 @@ function renderDetail(d) {
   const jb = [gwEntryFor(d.id) >= 0 ? `<button class="btn sm" data-gw="${esc(d.id)}">${esc(t('gw_open'))}</button>` : '',
     nfEntryFor(d.id) >= 0 ? `<button class="btn sm" data-nf="${esc(d.id)}">${esc(t('nf_open'))}</button>` : ''].join('');
   const jump = jb ? `<div class="jump">${jb}</div>` : '';
-  box.innerHTML = `<h3>${esc(d.label)}</h3><div class="kind">${esc(kindLabel(d.kind))} · ${esc(d.etype)}</div>${jump}
+  box.innerHTML = `<h3>${esc(d.label)}</h3><div class="kind">${esc(kindLabel(d.kind))} · ${esc(d.etype)}</div>${jump}${clDetail(d)}
   ${props ? `<section><h4>${esc(t('d_props'))}</h4><dl>${props}</dl></section>` : ''}
   <section><h4>${esc(t('d_findings', { n: f.length }))}</h4>${f.map(findingHtml).join('') || `<span class="muted">${esc(t('none'))}</span>`}</section>
   <section><h4>${esc(t('d_to', { n: out.length }))}</h4>${lst(out)}</section>
@@ -659,7 +663,7 @@ function applyStatic() {
 }
 function renderAll() {
   { const b = $('#dbg-btn'), r = $('#debug-row'); if (b) b.hidden = !debugEnabled; if (r) r.hidden = !debugEnabled; }
-    applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderNfactor(); renderGateway(); renderRulesUi(); renderRules(); renderOverview();
+    applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderNfactor(); renderGateway(); renderCleanupSb(); renderRulesUi(); renderRules(); renderOverview();
   renderDetail(state.selected ? nodeById[state.selected] : null); showTab(curTab);
 }
 const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');
@@ -700,6 +704,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('.ib.ope
 /*__LINKS__*/
 /*__NFACTOR__*/
 /*__GATEWAY__*/
+/*__CLEANUP__*/
 /*__DEBUG__*/
 
 // ---- Start ------------------------------------------------------------------------------------
@@ -712,5 +717,5 @@ if (GUI) {
   $('#g-back').onclick = () => GUI.back(); $('#g-restart').onclick = () => GUI.restart(); $('#g-quit').onclick = () => GUI.quit();
   const prevLang = ls.onchange; ls.onchange = () => { prevLang(); try { GUI.lang(lang); } catch (e) { /* GUI gone */ } };
 }
-window.__nsviz = { cy, state, select, revealNode, refresh, showTab, ncfg: (a, d, s) => { const o = exp.scope; if (s) exp.scope = s; try { return buildNcfg(a, d); } finally { exp.scope = o; } }, setLang: l => { ls.value = l; ls.onchange(); }, setTheme: p => { themePref = p; applyTheme(); } };
+window.__nsviz = { cy, state, select, revealNode, refresh, showTab, ncfg: (a, d, s) => { const o = exp.scope; if (s) exp.scope = s; try { return buildNcfg(a, d); } finally { exp.scope = o; } }, setLang: l => { ls.value = l; ls.onchange(); }, setTheme: p => { themePref = p; applyTheme(); }, clean: (a, r, w) => buildClean(a, r, w) };
 })();

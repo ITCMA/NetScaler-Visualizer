@@ -51,6 +51,13 @@ Backend-HA-Paar mit absichtlicher Abweichung). Fertiger Report: `examples/demo/r
   Lesezeichen, Clientless-Zugriff, Autorisierungs-Policies (ACLs), AAA-Gruppen, RDP/PCoIP-Profilen und weiteren gebundenen
   Policies; globale Bindungen und AAA-Gruppen sind gekennzeichnet. „Config exportieren“ exportiert das Gateway mit
   seinen Abhängigkeiten.
+- **Bereinigung** (Seitenleiste der Topologie): findet Konfiguration, die nicht genutzt wird, von oben nach unten ab den
+  adressierbaren vServern, GSLB-Domains, globalen und Benutzer-/Gruppen-Bindungen: z. B. nicht adressierbare vServer ohne
+  Referenz, Services und Service Groups ohne vServer, danach die Monitore, Server, Policies, Actions und Zertifikate, die
+  dadurch frei werden. Objekte, die nur von deaktivierten Objekten genutzt werden, sind gesondert gekennzeichnet. Beides
+  wird im Graph hervorgehoben; „Bereinigungs-Batch“ im Export-Dialog schreibt die unbind-/rm-Befehle in ausführbarer
+  Reihenfolge (zuerst Ungenutztes, der Teil zu deaktivierten Objekten mit Erklärung am Ende) sowie einen Rollback-Batch.
+  Objekte, deren Name noch in einer bleibenden Zeile vorkommt, werden nur „zu prüfen“ aufgeführt.
 - **Reiter nFactor** (erscheint, wenn die Config Anmeldungen enthält): der Anmeldeablauf je Einstiegspunkt (Gateway,
   LB/CS-vServer mit Anmeldung, Authentifizierungs-vServer) als Faktor-Spalten: Login-Schema, Policies in
   Prioritätsreihenfolge mit Action-Typ (LDAP, RADIUS, SAML, OAuth, Zertifikat, Entscheidung, ...), Erfolg → nächster Faktor

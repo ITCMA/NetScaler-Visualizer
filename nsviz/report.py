@@ -34,7 +34,7 @@ def render(project: Project, title: str = "NetScaler Visualizer", debug: bool = 
                      ("/*__CYTOSCAPE__*/", _js(_read("vendor/cytoscape.min.js"))),
                      ("/*__DAGRE__*/", _js(_read("vendor/dagre.min.js"))),
                      ("/*__CYDAGRE__*/", _js(_read("vendor/cytoscape-dagre.js"))),
-                     ("/*__APP__*/", _js(_read("app.js").replace("/*__EXPORT__*/", _read("export.js")).replace("/*__LINKS__*/", _read("links.js")).replace("/*__NFACTOR__*/", _read("nfactor.js")).replace("/*__GATEWAY__*/", _read("gateway.js")).replace("/*__DEBUG__*/", _read("debug.js")))),
+                     ("/*__APP__*/", _js(_read("app.js").replace("/*__EXPORT__*/", _read("export.js")).replace("/*__LINKS__*/", _read("links.js")).replace("/*__NFACTOR__*/", _read("nfactor.js")).replace("/*__GATEWAY__*/", _read("gateway.js")).replace("/*__CLEANUP__*/", _read("cleanup.js")).replace("/*__DEBUG__*/", _read("debug.js")))),
                      ("/*__I18N__*/", _json(load_i18n())),
                      ("/*__DATA__*/", _json(project.to_dict()))):
         html = html.replace(key, val, 1)

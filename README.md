@@ -54,6 +54,12 @@ backend HA pair with a deliberate deviation). Prebuilt report: `examples/demo/re
   STA servers, ICA policies, intranet applications and IPs, traffic policies, portal theme, bookmarks, clientless access,
   authorization policies (ACLs), AAA groups, RDP/PCoIP profiles and other bound policies; global bindings and AAA groups
   are tagged. "Export config" exports the gateway with its dependencies.
+- **Cleanup** (Topology sidebar): finds configuration that is not used, top-down from the addressable vServers, GSLB
+  domains, global and user/group bindings: e.g. non-addressable vServers without a reference, services and service groups
+  without a vServer, then the monitors, servers, policies, actions and certificates that become free. Objects used only
+  by disabled objects are marked separately. Both are highlighted in the graph; "Cleanup batch" in the export dialog
+  writes the unbind/rm commands in a working order (not used first, the disabled part with an explanation at the end)
+  and a rollback batch. Objects whose name also appears in a line that stays are listed "to check" only.
 - **nFactor tab** (shown when the config has authentication): the login flow per entry point (gateway, LB/CS vServer with
   authentication, auth vServer) as factor columns: login schema, policies in priority order with action type (LDAP,
   RADIUS, SAML, OAuth, certificate, decision, ...), success → next factor or login complete, failure → next policy or

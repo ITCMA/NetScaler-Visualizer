@@ -3,6 +3,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-21
+### Added
+- Cleanup analysis: configuration that is not used (top-down from addressable vServers, GSLB domains, global and
+  user/group bindings) and configuration used only by disabled objects. Highlighted in the graph (sidebar "Cleanup",
+  details panel shows the reason and the chain).
+- Export formats "Cleanup batch" and "Cleanup rollback": unbind from objects that stay, then rm in a working order
+  (users before what they use); part A not used, part B (optional) used only by disabled objects with an explanation;
+  objects whose name appears in a line that stays are listed as comments "to check".
+
 ## [0.3.4] - 2026-11-21
 ### Added
 - Gateway tab: one page per Gateway vServer with access profiles (session policies and their mode: ICA proxy, full VPN,

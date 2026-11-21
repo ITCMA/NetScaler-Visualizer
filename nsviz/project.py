@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import __version__
-from .model import Edge, Graph, KIND_LABELS, is_ip
+from .model import BUILTIN_CERTS, BUILTIN_MONITORS, INTERNAL_SERVICES, KEYWORD_NAMES, Edge, Graph, KIND_LABELS, is_ip
 from .linking import apply_map, collect
 from .parser import Config
 from .parser import FAMILIES, ONE_WORD
@@ -120,6 +120,7 @@ class Project:
             self.notes.append({"en": w, "de": w})
         self._url_chains()
         self._dependency()
+        self._cleanup()
         self._coverage_note()
         self.findings = finalize(self.findings)
         self._attach()
@@ -375,6 +376,90 @@ class Project:
                     self.findings.append(Finding("DEP-002", "info", render_messages("DEP-002", name=n.name, via=u["via"], host=u["host"], port=u["port"] or "?"),
                                                  g.devices[0].name, n.etype, n.name, g.devices[0].cfg.name, n.lines[0]["line"] if n.lines else 0, [], u["node"]))
 
+    # ---- Cleanup: configuration that is not used (or only by disabled objects) ---------------------------------
+    CLEAN_SKIP_KINDS = INFRA_KINDS | {"sta", "domain", "missing", "device", "gslbsite"}  # a local GSLB site is needed without services too
+
+    @staticmethod
+    def _is_disabled(n) -> bool:
+        e = n.entity
+        st = ((e.opt("state") if e is not None else "") or "").upper()
+        return st in ("DISABLED", "OUT OF SERVICE")
+
+    @staticmethod
+    def _builtin(n) -> bool:
+        nm = n.name or ""
+        low = nm.lower()
+        return (nm.startswith("_") or low.startswith(("ns_default", "ns-server", "ns-sftrust")) or low in BUILTIN_MONITORS
+                or low in BUILTIN_CERTS or low.endswith("-default") or nm.upper() in KEYWORD_NAMES or low.startswith(INTERNAL_SERVICES)
+                or n.entity is None or n.entity.implicit or not n.lines)
+
+    def _cleanup(self) -> None:
+        """Top-down analysis of what can be removed. Starting points are the addressable vServers, GSLB vServers with a
+        domain, global bindings (device) and policies bound to users/groups. Everything not reachable from them is
+        'unused'; what is reachable only through disabled objects (state DISABLED) is 'disabled'. The removal order and the
+        batch file are built in the report (export). Certainty: 'sure' unless the object's name also appears in a line that
+        stays (a reference the model does not draw) - then 'check'."""
+        nodes, adj, pred = {}, {}, {}
+        for g in self.groups:
+            nodes.update(g.graph.nodes)
+            for e in g.graph.edges:
+                if e.type not in ("contains", "network"):
+                    adj.setdefault(e.source, []).append(e.target)
+                    pred.setdefault(e.target, []).append(e.source)
+        for e in self.extra_edges:
+            adj.setdefault(e.source, []).append(e.target)
+            pred.setdefault(e.target, []).append(e.source)
+        roots = {nid for nid, d in self.dep.items() if d.get("entry")} | {nid for nid, n in nodes.items() if n.kind in ("device", "group")}
+        roots |= {e.source for g in self.groups for e in g.graph.edges if e.type == "gslb" and nodes.get(e.target) is not None and nodes[e.target].kind == "domain"}
+        incoming = set(pred)
+        for g in self.groups:
+            for et, name in g.graph.referenced:
+                n = g.graph.node_for(et, name)
+                if n is not None and n.id not in incoming and n.kind in ("policy", "authpol"):
+                    roots.add(n.id)
+
+        def bfs(start: set[str], skip) -> set[str]:
+            seen = {r for r in start if not skip(nodes[r])}
+            q = list(seen)
+            while q:
+                u = q.pop()
+                for v in adj.get(u, ()):
+                    if v not in seen and v in nodes and not skip(nodes[v]):
+                        seen.add(v)
+                        q.append(v)
+            return seen
+        reach_all = bfs(roots, lambda n: False)
+        reach_act = bfs(roots, self._is_disabled)
+        cand: dict[str, dict] = {}
+        for nid, n in nodes.items():
+            if n.kind in self.CLEAN_SKIP_KINDS or self._builtin(n) or nid in reach_act:
+                continue
+            cand[nid] = {"cat": "unused" if nid not in reach_all else "disabled", "self_disabled": self._is_disabled(n)}
+        # reasons: which candidates use it (the chain), or nothing at all
+        for nid, c in cand.items():
+            users = [u for u in pred.get(nid, []) if u in nodes and nodes[u].kind != "device"]
+            c["by"] = sorted({u for u in users if u in cand})[:8]
+            c["why"] = ("disabled" if c["self_disabled"] else "no_ref" if not users else "only_cand")
+        # certainty: the name must not appear in a line that stays
+        cand_lines = {(l["file"], l["line"]) for nid in cand for l in nodes[nid].lines}
+        # bind/link lines owned by objects that stay become unbind/unlink lines in the batch, so they do not count
+        owned = {(l["file"], l["line"]) for nid, n in nodes.items() if nid not in cand for l in n.lines}
+        words: dict[str, set] = {}
+        for g in self.groups:
+            for d in g.devices:
+                for st in d.cfg.statements:
+                    if (st.file, st.line) in cand_lines or st.verb in ("bind", "link") and (st.file, st.line) in owned:
+                        continue
+                    for w in set(re.findall(r"[A-Za-z0-9_$.:@/-]+", st.raw)):
+                        words.setdefault(w, set()).add((st.file, st.line))
+        for nid, c in cand.items():
+            nm = nodes[nid].name
+            c["sure"] = not (nm in words or nm.strip('"') in words)
+        for nid, c in cand.items():
+            self.dep.setdefault(nid, {})["clean"] = c
+        n_un = sum(1 for c in cand.values() if c["cat"] == "unused")
+        self.clean_summary = {"unused": n_un, "disabled": len(cand) - n_un, "check": sum(1 for c in cand.values() if not c["sure"])}
+
     def _coverage_note(self) -> None:
         """Self-check shown in the report: how much of the configuration could be linked, and what is left open."""
         gen = sum(len(getattr(g.graph, "generic_refs", [])) for g in self.groups)
@@ -478,5 +563,6 @@ class Project:
             "linking": {**collect(self), "map": self.link_map},
             "chains": self.chains(),
             "nfactor": {g.id: f for g in self.groups for f in [g.graph.auth_flows()] if f},
+            "cleanup": getattr(self, "clean_summary", {}),
             "gateway": {g.id: v for g in self.groups for v in [g.graph.gateway_view()] if v},
         }

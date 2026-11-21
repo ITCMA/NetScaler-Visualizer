@@ -320,3 +320,9 @@ th,td{border-bottom-color:var(--sep)}tbody tr:last-child td{border-bottom:0}
 #detail .jump{display:flex;gap:6px;flex-wrap:wrap}
 .gw-tw{overflow-x:auto}.nf-type{white-space:nowrap}.gw-t th{white-space:normal}
 @media (max-width:1380px){#ver{display:none}nav#tabs button{padding:4px 7px;font-size:13px}}
+/* ---- Cleanup ---- */
+.cl-sum{font-size:12.5px;line-height:1.8;margin:6px 0}.cl-dot{display:inline-block;width:10px;height:10px;border-radius:3px;border:2px dashed;margin-right:6px;vertical-align:-1px}
+.cl-du{border-color:var(--crit)}.cl-dd{border-color:var(--med)}
+.cl-det{font-size:12.5px;margin:10px 16px 2px;padding:8px 10px;border-radius:var(--rc);border:1.5px dashed;background:var(--panel2)}
+#cleanup .tgrid{display:flex;align-items:center;gap:6px}
+.cl-det.cl-du{border-color:var(--crit)}.cl-det.cl-dd{border-color:var(--med)}

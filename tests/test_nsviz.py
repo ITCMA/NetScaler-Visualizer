@@ -303,6 +303,52 @@ class ConfigLineTests(unittest.TestCase):
         self.assertIn(("tp1", "ta1"), lab)
         self.assertIn(("10", "20"), lab)
 
+    def test_cleanup(self):
+        """Cleanup: unused objects (top-down), objects used only by disabled ones, certainty when a staying bind names them."""
+        import tempfile
+        src = (
+               'enable ns feature LB CS SSL REWRITE RESPONDER\n'
+               'add server web1 192.0.2.11\n'
+               'add server web2 192.0.2.12\n'
+               'add server old1 192.0.2.13\n'
+               'add server old2 192.0.2.14 -state DISABLED\n'
+               'add lb monitor mon_http HTTP -respCode 200\n'
+               'add lb monitor mon_old HTTP-ECV -send "GET /health"\n'
+               'add serviceGroup sg_web HTTP\n'
+               'bind serviceGroup sg_web web1 80\n'
+               'bind serviceGroup sg_web web2 80\n'
+               'bind serviceGroup sg_web old2 80\n'
+               'bind serviceGroup sg_web -monitorName mon_http\n'
+               'add serviceGroup sg_old HTTP\n'
+               'bind serviceGroup sg_old old1 80\n'
+               'bind serviceGroup sg_old -monitorName mon_old\n'
+               'add service svc_old old1 HTTP 8080\n'
+               'add lb vserver lb_web HTTP 192.0.2.100 80\n'
+               'bind lb vserver lb_web sg_web\n'
+               'add lb vserver lb_internal HTTP 0.0.0.0 0\n'
+               'bind lb vserver lb_internal sg_old\n'
+               'add lb vserver lb_legacy HTTP 192.0.2.101 80 -state DISABLED\n'
+               'bind lb vserver lb_legacy svc_old\n'
+               'add rewrite action rw_act_old replace HTTP.REQ.URL "\\"/\\""\n'
+               'add rewrite policy rw_pol_old true rw_act_old\n'
+               'add responder action rs_act_used respondwith "\\"HTTP/1.1 200 OK\\r\\n\\r\\n\\""\n'
+               'add responder policy rs_pol_used true rs_act_used\n'
+               'bind lb vserver lb_web -policyName rs_pol_used -priority 100 -gotoPriorityExpression END -type REQUEST\n'
+               'add ssl certKey cert_unused -cert unused.pem -key unused.key\n'
+        )
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "ns.conf"
+            f.write_text(src)
+            p = Project.load([str(f)])
+        cl = {nid.split("|")[-1]: d["clean"] for nid, d in p.dep.items() if "clean" in d}
+        self.assertEqual({k for k, c in cl.items() if c["cat"] == "unused"},
+                         {"lb_internal", "sg_old", "mon_old", "rw_pol_old", "rw_act_old", "cert_unused"})
+        self.assertEqual({k for k, c in cl.items() if c["cat"] == "disabled"}, {"lb_legacy", "svc_old", "old1", "old2"})
+        for k in ("lb_web", "sg_web", "web1", "mon_http", "rs_pol_used", "rs_act_used"):
+            self.assertNotIn(k, cl)
+        self.assertTrue(all(c["sure"] for c in cl.values()))   # the bind in sg_web becomes an unbind, no "check"
+        self.assertEqual(p.clean_summary, {"unused": 6, "disabled": 4, "check": 0})
+
     def test_auth_flows(self):
         """nFactor flow: factors in priority order, login schemas, next factor, decision and classic gateway policies."""
         src = ('add authentication loginSchema ls1 -authenticationSchema "/nsconfig/loginschema/LoginSchema/SingleAuth.xml"\n'
