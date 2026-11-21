@@ -13,6 +13,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Bind an auth policy (`bind vpn vserver <gw> -policy <authpol> -priority 100`) or set `-authnProfile`.
 - **Sources:** BSI IT-Grundschutz ORP.4 Identitäts- und Berechtigungsmanagement
 
+### CLU-002 – Cluster and HA configured together
+
+- **Severity:** high · **Confidence:** likely
+- **Rationale:** A cluster and a classic HA pair exclude each other on one appliance. The configuration contains both an `add cluster instance` and an `add ha node`.
+- **Remediation:** Decide on one model and remove the configuration of the other.
+- **Sources:** –
+
 ### HA-003 – Configuration drift between HA nodes
 
 - **Severity:** high · **Confidence:** likely
@@ -48,6 +55,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Bind a default LB vServer (`bind cs vserver <cs> <lb>`) and/or CS policies.
 - **Sources:** –
 
+### RW-001 – Policy bound to the wrong direction
+
+- **Severity:** high · **Confidence:** certain
+- **Rationale:** The expression or action of the policy refers to the opposite side of the HTTP transaction (request vs. response), which is not available or not relevant at the bind point. The policy never matches or has no effect.
+- **Remediation:** Bind the policy to the matching bind point (REQUEST or RESPONSE) or correct the expression.
+- **Sources:** –
+
 ### TLS-004 – TLS 1.2 disabled
 
 - **Severity:** high · **Confidence:** certain
@@ -74,6 +88,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Severity:** medium · **Confidence:** certain
 - **Rationale:** An authentication vServer without a bound policy cannot authenticate anyone.
 - **Remediation:** Bind auth policies with priorities.
+- **Sources:** –
+
+### CLU-001 – Cluster node without backplane
+
+- **Severity:** medium · **Confidence:** likely
+- **Rationale:** Cluster nodes exchange traffic and state over the backplane. A node without `-backplane` cannot take part in the cluster. Likely: partial exports may omit the option.
+- **Remediation:** Set the backplane interface of the node.
 - **Sources:** –
 
 ### DEP-001 – vServer not reachable
@@ -104,6 +125,27 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** `set ha node -haSync ENABLED -haProp ENABLED`.
 - **Sources:** –
 
+### LB-003 – Backup vServers form a loop
+
+- **Severity:** medium · **Confidence:** certain
+- **Rationale:** The backup vServers reference each other in a cycle. When the primary fails, the traffic cannot reach a vServer that is able to serve it.
+- **Remediation:** Break the cycle so that the chain of backup vServers ends in a vServer without `-backupVServer`.
+- **Sources:** –
+
+### MGMT-015 – SNMP community without manager restriction
+
+- **Severity:** medium · **Confidence:** likely
+- **Rationale:** SNMP communities exist but no SNMP manager is configured. Without a manager list the agent may answer queries from any host that knows the community string.
+- **Remediation:** Add the monitoring systems with `add snmp manager` so that only they are accepted.
+- **Sources:** BSI IT-Grundschutz NET.1.2 Netzmanagement
+
+### NET-001 – Route gateway not in a locally connected network
+
+- **Severity:** medium · **Confidence:** likely
+- **Rationale:** The gateway of the route is not inside the subnet of the NSIP or of any configured SNIP, so the appliance has no direct path to it. Likely: routes through other traffic domains or dynamic routing are not evaluated.
+- **Remediation:** Correct the gateway address or add the SNIP of the missing subnet.
+- **Sources:** BSI IT-Grundschutz NET.1.1 Netzarchitektur und -design
+
 ### QA-001 – LB vServer without bound service
 
 - **Severity:** medium · **Confidence:** certain
@@ -118,6 +160,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Check `enable ns feature REP` and `set reputation settings -proxyServer …` (if a proxy is needed).
 - **Sources:** –
 
+### VPN-002 – ICA proxy without STA server
+
+- **Severity:** medium · **Confidence:** likely
+- **Rationale:** A session action enables ICA proxy but no Secure Ticket Authority is bound to the gateway vServer, so ICA sessions cannot be established. Likely: an STA may be configured on a vServer that is not part of this file.
+- **Remediation:** Bind at least one STA server to the gateway vServer.
+- **Sources:** –
+
 ### WAF-001 – WAF profile without policy binding
 
 - **Severity:** medium · **Confidence:** certain
@@ -130,6 +179,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Severity:** low · **Confidence:** certain
 - **Rationale:** A policy label that is not reached through any `-nextFactor` is dead configuration.
 - **Remediation:** Remove it or link it.
+- **Sources:** –
+
+### NET-003 – Traffic domain without VLAN
+
+- **Severity:** low · **Confidence:** likely
+- **Rationale:** A traffic domain needs at least one bound VLAN to separate traffic; without it the domain has no network connection.
+- **Remediation:** Bind a VLAN to the traffic domain or remove it.
 - **Sources:** –
 
 ### QA-002 – Service/service group not bound to any vServer
@@ -153,11 +209,25 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Remove.
 - **Sources:** –
 
+### CS-001 – Content switching vServer without a policy
+
+- **Severity:** info · **Confidence:** heuristic
+- **Rationale:** The vServer has bindings but no content switching policy, so every request goes to the default target. A plain load balancing vServer would do the same with less configuration. Heuristic.
+- **Remediation:** Check whether the content switching vServer is still needed or bind the intended policies.
+- **Sources:** –
+
 ### DEP-002 – URL target not matched to a vServer
 
 - **Severity:** info · **Confidence:** heuristic
 - **Rationale:** A Gateway session action or STA server points to a host that does not match a vServer of this device by IP and port (FQDN, another device or an external service). The connection cannot be derived from the config alone (assumption: IP and port are compared).
 - **Remediation:** Check the target. For FQDNs use the link map or a hosts file (Links tab) to connect it to the right vServer.
+- **Sources:** –
+
+### NET-002 – VLAN without interface binding
+
+- **Severity:** info · **Confidence:** heuristic
+- **Rationale:** A VLAN without a bound interface or channel does not carry traffic. Heuristic: VLANs that only bind IP addresses are reported as well.
+- **Remediation:** Bind the interface or channel, or remove the VLAN.
 - **Sources:** –
 
 ### QA-003 – Unused server object
@@ -181,6 +251,27 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Remove if permanently unneeded.
 - **Sources:** –
 
+### QA-013 – Several certificate objects use the same file
+
+- **Severity:** info · **Confidence:** certain
+- **Rationale:** Several objects reference the same certificate file. Duplicate objects complicate renewals, because every copy has to be updated.
+- **Remediation:** Use one certificate object and bind it wherever needed.
+- **Sources:** –
+
+### QA-014 – Disabled server is still referenced
+
+- **Severity:** info · **Confidence:** certain
+- **Rationale:** The server is set to DISABLED but is still referenced by services or service groups. It receives no traffic, which may be intended for maintenance but is often a leftover.
+- **Remediation:** Remove the references and the server, or enable it again.
+- **Sources:** –
+
+### QA-015 – Several server objects with the same address
+
+- **Severity:** info · **Confidence:** certain
+- **Rationale:** Several server objects point to the same address. Duplicates make it unclear which object a change belongs to.
+- **Remediation:** Keep one server object per address.
+- **Sources:** –
+
 ## Best practice
 
 ### MGMT-003 – Management access enabled on SNIP/VIP
@@ -197,12 +288,33 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Bind a certificate from a trusted CA.
 - **Sources:** Citrix/NetScaler Secure Deployment Guide (TLS); BSI IT-Grundschutz CON.1 Kryptokonzept
 
+### LB-001 – Health monitoring disabled on service
+
+- **Severity:** medium · **Confidence:** certain
+- **Rationale:** With `-healthMonitor NO` the appliance treats the service as available regardless of its state and keeps sending traffic to a failed server.
+- **Remediation:** Remove `-healthMonitor NO` and bind a monitor that matches the application.
+- **Sources:** Citrix/NetScaler Secure Deployment Guide
+
+### MODE-001 – Layer 2 mode enabled
+
+- **Severity:** medium · **Confidence:** likely
+- **Rationale:** With L2 mode the appliance forwards packets that are not addressed to it. In a network with several paths this can create bridging loops. Enable it only for deployments that require it.
+- **Remediation:** Disable the mode with `disable ns mode L2` if the deployment does not need it.
+- **Sources:** Citrix/NetScaler Secure Deployment Guide
+
 ### TLS-006 – SSL renegotiation not restricted
 
 - **Severity:** medium · **Confidence:** certain
 - **Rationale:** `-denySSLReneg NO` allows client-initiated renegotiation (DoS vector).
 - **Remediation:** `-denySSLReneg FRONTEND_CLIENT` (default) or `ALL`.
 - **Sources:** Citrix/NetScaler Secure Deployment Guide (TLS)
+
+### VPN-001 – Default authorization is ALLOW
+
+- **Severity:** medium · **Confidence:** certain
+- **Rationale:** With `-defaultAuthorizationAction ALLOW` authenticated users may reach every resource that no authorization policy denies. The recommended default is DENY with explicit allow policies.
+- **Remediation:** Set the default to DENY and grant access through authorization policies.
+- **Sources:** Citrix/NetScaler Secure Deployment Guide
 
 ### GSLB-004 – GSLB metric exchange (MEP) disabled
 
@@ -246,6 +358,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** `set ns httpParam -dropInvalReqs ON -markHttp09Inval ON -markConnReqInval ON`.
 - **Sources:** Citrix/NetScaler Secure Deployment Guide (section management access/hardening)
 
+### MGMT-016 – Only one NTP server
+
+- **Severity:** low · **Confidence:** heuristic
+- **Rationale:** A single time source is a single point of failure for time synchronization, which affects logs, certificates and HA.
+- **Remediation:** Configure at least two NTP servers.
+- **Sources:** BSI IT-Grundschutz OPS.1.1.5 Protokollierung
+
 ### TLS-005 – TLS 1.3 not enabled
 
 - **Severity:** low · **Confidence:** likely
@@ -266,6 +385,13 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Rationale:** Without an HTTP Strict Transport Security header, browsers can fall back to HTTP.
 - **Remediation:** Rewrite policy with `Strict-Transport-Security`, or `-HSTS ENABLED` in the SSL profile.
 - **Sources:** BSI IT-Grundschutz APP.3.2 Webserver / APP.3.1 Webanwendungen und Webservices
+
+### VPN-003 – No limit for failed logins
+
+- **Severity:** low · **Confidence:** likely
+- **Rationale:** Without `-maxLoginAttempts` the number of failed logins is not limited, which allows password guessing against the gateway or authentication vServer. Likely: a limit may be set by other means.
+- **Remediation:** Set `-maxLoginAttempts` together with `-failedLoginTimeout`.
+- **Sources:** Citrix/NetScaler Secure Deployment Guide
 
 ### WAF-002 – WAF profile without blocking action
 
@@ -295,6 +421,20 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** Set up an HA pair or cluster.
 - **Sources:** –
 
+### LB-002 – HTTP(S) service monitored only by the default monitor
+
+- **Severity:** info · **Confidence:** heuristic
+- **Rationale:** Without a bound monitor only the default TCP check runs. It confirms that the port is open, not that the application answers correctly. Heuristic: custom monitors configured outside this file are not visible.
+- **Remediation:** Bind an HTTP, HTTP-ECV or application-specific monitor that checks a meaningful response.
+- **Sources:** –
+
+### MGMT-017 – Only one DNS name server
+
+- **Severity:** info · **Confidence:** heuristic
+- **Rationale:** With a single name server, name resolution fails when it is unavailable.
+- **Remediation:** Configure at least two name servers.
+- **Sources:** –
+
 ### QA-011 – HTTPS vServer without HTTP→HTTPS redirect
 
 - **Severity:** info · **Confidence:** heuristic
@@ -302,11 +442,25 @@ Generated with `python -m nsviz rules --markdown`. Every rule has a severity, a 
 - **Remediation:** `-redirectFromPort 80 -httpsRedirectUrl https://<fqdn>` or a redirect vServer on port 80.
 - **Sources:** –
 
+### TLS-012 – TLS settings on the vServer instead of an SSL profile
+
+- **Severity:** info · **Confidence:** likely
+- **Rationale:** Protocol options set directly on the vServer are harder to keep consistent across many vServers than a shared SSL profile. Settings in a profile can be reviewed and changed in one place.
+- **Remediation:** Move the settings into an SSL profile and bind the profile.
+- **Sources:** Citrix/NetScaler Secure Deployment Guide
+
 ### WAF-003 – HTTP(S) vServer without WAF
 
 - **Severity:** info · **Confidence:** heuristic
 - **Rationale:** Overview of HTTP/SSL vServers without an AppFW policy. Whether a WAF is required depends on the protection needs of the application (BSI APP.3.1).
 - **Remediation:** Bind an AppFW policy where the protection needs require it.
+- **Sources:** BSI IT-Grundschutz APP.3.1 Webanwendungen und Webservices
+
+### WAF-004 – WAF profile without signature object
+
+- **Severity:** info · **Confidence:** heuristic
+- **Rationale:** The profile has no signature object, so signature-based protection against known attack patterns is not used. Heuristic: signatures can also be assigned in ways that are not visible in the file.
+- **Remediation:** Create or select a signature object and assign it to the profile.
 - **Sources:** BSI IT-Grundschutz APP.3.1 Webanwendungen und Webservices
 
 ## Compliance (BSI / vendor guidance)

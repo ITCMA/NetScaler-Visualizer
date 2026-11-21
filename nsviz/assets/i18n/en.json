@@ -275,7 +275,7 @@
  "dbg_drawn": "Drawn",
  "dbg_copy": "Copy debug info",
  "dbg_all": "Export whole graph (anonymised)",
- "dbg_hint": "Copy and paste it into the chat. Config lines appear only anonymised (same rules as 'Anonymize configs': pseudonyms, secrets removed, IPs/FQDNs replaced with private/public and internal/external kept, ports and protocols kept).",
+ "dbg_hint": "Copy it and attach it to the support request. Config lines appear only anonymised (same rules as 'Anonymize configs': pseudonyms, secrets removed, IPs/FQDNs replaced with private/public and internal/external kept, ports and protocols kept).",
  "dbg_copied": "Copied",
  "dbg_manual": "Copy did not work: select the text in the box and copy it manually",
  "dbg_saved": "Saved as nsviz-debug.json (anonymised)",
@@ -451,5 +451,8 @@
  "ex_basis": "Basis: {s} – {n} object(s)",
  "ex_basis_sel": "the selected object(s)",
  "ex_basis_view": "all objects of the current view, not only the selection",
- "ex_basis_all": "the whole model"
+ "ex_basis_all": "the whole model",
+ "f_supp": "Accepted exceptions ({n})",
+ "th_reason": "Reason",
+ "f_supp_until": "until {d}"
 }

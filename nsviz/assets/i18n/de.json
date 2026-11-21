@@ -302,7 +302,7 @@
  "dbg_drawn": "Gezeichnet",
  "dbg_copy": "Debug-Info kopieren",
  "dbg_all": "Ganzen Graph exportieren (anonymisiert)",
- "dbg_hint": "Kopieren und in den Chat einfügen. Config-Zeilen erscheinen nur anonymisiert (gleiche Regeln wie „Configs anonymisieren“: Pseudonyme, Geheimnisse entfernt, IPs/FQDNs ersetzt, privat/öffentlich und intern/extern bleiben erkennbar, Ports und Protokolle bleiben).",
+ "dbg_hint": "Kopieren und der Supportanfrage beifügen. Config-Zeilen erscheinen nur anonymisiert (gleiche Regeln wie „Configs anonymisieren“: Pseudonyme, Geheimnisse entfernt, IPs/FQDNs ersetzt, privat/öffentlich und intern/extern bleiben erkennbar, Ports und Protokolle bleiben).",
  "dbg_copied": "Kopiert",
  "dbg_manual": "Kopieren ging nicht: Text im Feld markieren und manuell kopieren",
  "dbg_saved": "Gespeichert als nsviz-debug.json (anonymisiert)",
@@ -478,5 +478,8 @@
  "ex_basis": "Grundlage: {s} – {n} Objekt(e)",
  "ex_basis_sel": "die ausgewählten Objekte",
  "ex_basis_view": "alle Objekte der aktuellen Ansicht, nicht nur die Auswahl",
- "ex_basis_all": "das gesamte Modell"
+ "ex_basis_all": "das gesamte Modell",
+ "f_supp": "Akzeptierte Ausnahmen ({n})",
+ "th_reason": "Begründung",
+ "f_supp_until": "bis {d}"
 }

@@ -1,56 +1,38 @@
-# Legal notes (hints, not legal advice)
+# Legal notes
 
 🇩🇪 [Deutsche Version](LEGAL.de.md)
 
-This is a technical checklist of points that should be looked at. It is **not legal advice** and makes no binding statements.
-For anything binding (publication, commercial use, customer contracts), get a review by a lawyer.
+These notes describe how the project handles trademarks, third-party components, standards references and customer data.
+They are information for users and are not legal advice.
 
-## 1. Trademarks and the project name  – *highest risk*
-- "NetScaler" and "Citrix" are trademarks of their respective owners (to be verified: currently attributed to Cloud Software Group, Inc.
-  and/or affiliates). The report, README and license state that the project is independent and not affiliated or endorsed.
-- A disclaimer does not by itself make the use of a mark permissible. Descriptive/referential use ("analyzer *for* NetScaler")
-  is usually tolerated more than using the mark as the **product name** ("NetScaler Visualizer"), as repository/domain/package name,
-  or with logos. Whether and how this is acceptable depends on jurisdiction and on the owner's brand guidelines – unverified.
-- Risk grows if the project is public, commercial, or uses the owner's logos/colours/product artwork (it does not).
-- **Proposal:** use a neutral product name and keep the mark only descriptively, e.g. *"<NeutralName> – configuration analyzer for
-  NetScaler ADC"*. Candidate pattern: ADC-related neutral names (e.g. "adc-config-map", "adcscope", "confgraph") – **availability is
-  not checked**; search trademark registers (DPMA, EUIPO, USPTO) and package/domain names before choosing. Python package `nsviz` and
-  CLI name are already neutral; repository name and report title currently contain "NetScaler".
-- Check the owner's current brand/trademark guidelines for third-party tools.
+## Trademarks
+NetScaler and Citrix are trademarks of their respective owners. This project is an independent tool. It is not affiliated
+with, endorsed or supported by the trademark owners; the names are used only to describe the products the tool works with.
+The notice appears in the README, on the start page of the local interface, in the report overview and in the help dialog.
+The project does not use logos, colors or artwork of the trademark owners.
 
-## 2. Third-party licenses
-- Embedded libraries (Cytoscape.js, dagre, cytoscape-dagre) are MIT-licensed: keep the copyright and license notices
-  (done in `nsviz/assets/vendor/` and `THIRD_PARTY_NOTICES.md`). The minified dagre build bundles graphlib and lodash; their exact versions and
-  notices are still to be recorded.
-- Test data comes from a third-party project under Apache-2.0 and is **not redistributed** (downloaded on the user's machine).
-  If it is ever redistributed: include the license text, upstream NOTICE (if any), and mark changes (hex blobs zeroed).
-  The origin of the content of those files is not verified.
-- Vendor documentation and support articles are copyrighted: no text is copied; rule texts are own wording with source references.
+## Third-party components
+- The report embeds Cytoscape.js, dagre and cytoscape-dagre (MIT license). Copyright and license notices are kept in
+  `nsviz/assets/vendor/` and in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+- Optional sample configurations come from a third-party project under the Apache License 2.0. They are not part of this
+  repository and are downloaded on the user's machine on request ([SOURCES.md](SOURCES.md)).
+- Vendor documentation is not copied. Rule texts are written independently and refer to their sources by name.
 
-## 3. Standards references (BSI)
-- References name BSI IT-Grundschutz modules and BSI TR-02102-2 at topic level, not requirement IDs, and are **unverified** against the
-  current editions. Before use in audits: verify against the current edition, cite edition and requirement IDs correctly, and do not
-  reproduce BSI text beyond short quotations with attribution.
-- The tool does not certify compliance. Avoid statements like "BSI-compliant"; the category is "compliance *hints*".
+## References to standards and vendor guidance
+Rules refer to BSI IT-Grundschutz modules, BSI TR-02102-2 and the vendor's secure deployment guidance at topic level,
+without requirement IDs. The assignment is a technical classification. Before using it in an audit, check it against the
+current edition of the document. The tool does not certify compliance; its category is called "compliance hints".
 
-## 4. Data protection (GDPR) and confidentiality
-- Configs may contain personal data (user/admin names, e-mail addresses, IPs, LDAP DNs) and are business-confidential for the customer.
-  Processing happens on behalf of the customer: check the engagement contract/NDA and, where applicable, a data processing agreement.
-- See [PRIVACY.md](PRIVACY.md): local processing, git-ignored private folder, anonymization before any development use, retention/deletion.
-- Masking of secrets is pattern based and no guarantee.
+## Customer data and data protection
+Configurations can contain personal data, such as user names, e-mail addresses, IP addresses and LDAP names, and are
+confidential to the customer. Processing on behalf of a customer should follow the engagement contract, any
+non-disclosure agreement and, where applicable, a data processing agreement. The tool processes everything locally; see
+[PRIVACY.md](PRIVACY.md) for the handling concept. Masking of secrets is pattern based and not a guarantee.
 
-## 5. Liability and warranty
-- The license text disclaims warranty and liability ("as is"). Under German law, liability for intent cannot be excluded in advance,
-  and limits for other cases depend on the contract type – the wording must be reviewed for the intended use. Results are automated hints;
-  recommendations to customers remain the consultant's professional responsibility.
+## Warranty and liability
+The software is provided "as is" (see [LICENSE](../LICENSE)). Results are automated hints. Recommendations to customers
+remain the professional responsibility of the person using the tool.
 
-## 6. Ownership and license model
-- Currently "all rights reserved", no open-source license. Clarify who holds the rights (author vs. employer/company; employment
-  contract, side-activity rules) and whether customers may be given usage rights (license for deliverables).
-- Before publishing code that others may reuse, decide on a license deliberately.
-
-## 7. Further points to include in a legal review
-- Export of encrypted/crypto-related content: not applicable to the tool itself; no crypto implemented.
-- Obligations towards customers/employers regarding tools used for deliverables (disclosure, security requirements) – check contracts.
-- Accessibility obligations may apply if the tool is offered commercially (e.g. EU accessibility rules); the UI follows common practice
-  (keyboard, contrast, ARIA) but has no formal conformance audit.
+## Rights
+Copyright (c) 2026 ITCMA GmbH. All rights reserved. No license is granted for use, copying, modification or distribution
+without the written permission of the rights holder.

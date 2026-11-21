@@ -2,37 +2,32 @@
 
 🇬🇧 [English version](SOURCES.md)
 
-## Test-/Trainingsdaten (nicht Teil des Repositorys)
-Öffentliche Beispiel-Configs liegen **nicht** im Repository. `python3 scripts/fetch_testdata.py` lädt sie in den per Git
-ignorierten Ordner `testdata/`; die Korpus-Tests werden übersprungen, wenn er fehlt.
+## Beispiel-Konfigurationen (nicht Teil dieses Repositorys)
+`python3 scripts/fetch_testdata.py` lädt öffentliche Beispiel-Konfigurationen in den Ordner `testdata/`, der von git
+ausgeschlossen ist. Tests, die sie nutzen, werden übersprungen, wenn der Ordner fehlt.
 
-Quelle: <https://github.com/f5devcentral/vscode-f5-flipper>, Verzeichnis `tests/artifacts/` (festgelegt auf Commit `e89eb68d6790`),
-**Apache License 2.0** (das Skript lädt auch den Lizenztext). 38 Dateien (`*.ns.conf`, `namaste.conf`, `ns1_v13.1*.conf`); Versionskopf
-(`#NS…`) steht in 28 davon: 13.0 (1), 13.1 (27), die übrigen haben keinen Kopf. Laut Upstream-README teils auf echter NetScaler-VPX
-deployt („verified“), teils synthetisch. Das Skript ersetzt lange Hex-Blobs (≥ 40 Hex-Zeichen: nsroot-Hash, `encryptionParams -keyValue`,
-`rpcNode -password`) durch Nullen gleicher Länge. Geprüft wurde auf E-Mail-Adressen (nur `example.com`), Hex-Secrets und öffentliche
-IPs/Domains (Beispielwerte, DNS-Root-Server, `example.com`, `f5flipper.com`); ein vollständiges Audit auf echte Kundendaten ist das **nicht**.
-Die Herkunft der Inhalte der einzelnen Upstream-Dateien ist nicht verifiziert.
+- **Quelle:** <https://github.com/f5devcentral/vscode-f5-flipper>, Verzeichnis `tests/artifacts/`, auf einen festen Commit festgelegt.
+- **Lizenz:** Apache License 2.0; das Skript lädt auch den Lizenztext.
+- **Inhalt:** 38 Dateien zu Load Balancing, Content Switching, GSLB, Application Firewall, Authentifizierung (LDAP, RADIUS, SAML,
+  OAuth, nFactor), Caching, Kompression, Rate Limiting, HA und Cluster, SSL-Profilen, Monitoren, Persistenz, Audit und
+  Netzwerkobjekten. Die meisten Dateien sind NetScaler-13.1-Konfigurationen.
+- **Behandlung:** Das Skript ersetzt lange Hex-Werte (Kennwort-Hashes, Schlüsselwerte) durch Nullen gleicher Länge.
+- **Von den Beispielen nicht abgedeckt:** Gateway (`vpn vserver`), NetScaler 14.1 und 15.1 sowie IP-Reputation. Die synthetischen
+  Konfigurationen in `examples/demo/` decken diese ab.
 
-Abdeckung: LB, CS, GSLB, AppFW, Authentifizierung (LDAP/RADIUS/SAML/OAuth/nFactor), Caching, Kompression, Rate Limiting, HA/Cluster,
-SSL-Profile, Monitore, Persistenz, Audit, Netzwerkobjekte.
-**Lücken:** kein Gateway (`vpn vserver`), keine Version 14.1/15.1, kein IP-Reputation-Beispiel. Dafür gibt es `examples/demo/` (eigene,
-vollständig synthetische Configs; 14.1-Header).
-
-Nicht übernommen: Beispiele aus Herstellerdokumentation und Support-Artikeln (Urheberrecht, keine Weiterverwendungslizenz) – sie dienten
-nur als Syntax-Referenz für eigene synthetische Configs. Weitere gefundene Projekte (z. B. Skript-Repositories des Herstellers,
-Ansible-/Puppet-Module) wurden nicht auf Beispiel-Configs und Lizenz geprüft.
+Beispiele aus Herstellerdokumentation und Support-Artikeln werden nicht verwendet, da sie urheberrechtlich geschützt sind. Sie
+dienten nur als Syntaxreferenz für die synthetischen Konfigurationen.
 
 ## Eingebettete Bibliotheken (`nsviz/assets/vendor/`)
 | Bibliothek | Lizenz |
 |---|---|
-| cytoscape 3.x | MIT |
-| dagre 0.8.x (enthält graphlib, lodash) | MIT |
+| Cytoscape.js 3.x | MIT |
+| dagre 0.8.x (enthält graphlib und lodash) | MIT |
 | cytoscape-dagre 2.x | MIT |
 
-Lizenztexte liegen daneben (`LICENSE-*.txt`); siehe auch [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+Die Lizenztexte liegen neben den Dateien (`LICENSE-*.txt`); siehe auch [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
-## Regel-Referenzen
-Siehe [RULES.de.md](RULES.de.md). Genannt werden BSI TR-02102-2, BSI-IT-Grundschutz-Bausteine (Themenebene) und der Citrix/NetScaler
-Secure Deployment Guide. Die Zuordnung ist eine fachliche Einordnung des Autors und **nicht gegen die aktuellen Dokumente verifiziert**
-(kein Zugriff während der Erstellung) – bitte vor Audit-Nutzung prüfen und die Ausgabe/Edition angeben.
+## Regelverweise
+Regeln verweisen auf die BSI TR-02102-2, Bausteine des BSI IT-Grundschutzes und die Secure-Deployment-Hinweise des Herstellers
+auf Themenebene; siehe [RULES.de.md](RULES.de.md). Die Zuordnung ist eine fachliche Einordnung und muss vor der Verwendung in
+einem Audit gegen die aktuelle Fassung des Dokuments geprüft werden.

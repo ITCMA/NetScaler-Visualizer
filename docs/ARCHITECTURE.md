@@ -1,45 +1,71 @@
-# Architecture, recommendation and phase plan
+# Architecture
 
 🇩🇪 [Deutsche Version](ARCHITECTURE.de.md)
 
-## Recommendation: an offline HTML report is enough (phase 1) – no app needed
-**Assumption:** customer configs are sensitive and are analysed on the consultant's laptop; the report may be sent to the customer by mail/share.
+nsviz reads NetScaler `ns.conf` files, builds a model of the objects and their relations, evaluates rules against it and
+writes the result as one self-contained HTML file. Everything runs locally and uses only the Python standard library.
 
-Reasons:
-- One file, offline, nothing to install for the recipient, no cloud/server → no data leaves the machine, easy hand-over to the customer.
-- Expand/collapse, zoom, show/hide, search, filters and path highlighting are fully doable in the browser with embedded JS (Cytoscape); tested up to ~750 nodes, the library scales considerably further.
-- The report is produced by a small local CLI (`python3 -m nsviz`) that needs only the standard library.
-
-An app or local server only pays off if you want (a) to load configs by drag & drop in the browser (the parser would have to be ported to JS or a small local server `nsviz serve` built), (b) history/comparison of several config states with data storage, (c) very large environments (> ~10,000 objects: lazy loading/clustering), (d) config changes/generation. This is planned as phase 3; the architecture (JSON model between analysis and view) allows it.
-
-## Structure
+## Data flow
 ```
 ns.conf ──► parser.py ──► Config (entities, bindings, features)
                               │
-                 model.py ◄───┘  Graph: nodes (objects) + edges (bindings/references)
+                 model.py ◄───┘  Graph: nodes (objects) + edges (bindings, references)
                               │
- rules/*.py  ◄── Ctx(cfg, graph) ── Findings (rule ID, severity, location, evidence; messages en+de)
+ rules/*.py  ◄── Ctx(cfg, graph) ── Findings (rule ID, severity, object, evidence; messages in en and de)
                               │
  project.py: several files → devices → HA groups (diff) → double-hop links → JSON
                               │
- report.py + assets/ ──► one HTML (data as JSON, Cytoscape/dagre/app JS inline)
+ report.py + assets/ ──► one HTML file (data as JSON, Cytoscape, dagre and the application inline)
 ```
-- **parser.py** – generic (verb, object type, positional arguments, `-options`), no schema per command → unknown/new commands (14.1/15.1) are not lost. `add/set/unset/rm/bind/unbind/link/enable/disable` are applied.
-- **model.py** – translates objects into node kinds (CS/LB/GW/AAA/GSLB vServers, service(group), server, monitor, certificate, SSL profile, policies, nFactor labels/schemas, WAF profiles …) and edges (CS→policy→LB, LB→service→server, vServer→certificate, gateway→authn profile→auth vServer→policy→nextFactor label→login schema, GSLB service→local vServer …). Dead references are marked "missing".
-- **rules/** – one file per topic; new rule = a function with `@rule(id, severity, category, refs, confidence)`; title, rationale, remediation and finding messages live in the catalogs `rules/i18n/{en,de}.json` and `messages_{en,de}.json` (English leads, German is added; a test checks completeness). Modules are loaded automatically. `python3 -m nsviz rules --markdown [--lang de]` generates the catalog.
-- **project.py** – HA detection via `add ha node` (partner NSIP) or `--ha`; similarity of identical vServer addresses is only printed as a *hint* (no automatic assignment). HA diff excludes node-specific objects (NSIP, hostname, interfaces, rpcNode …). **Double hop:** a backend target (service/service group member) of one device = vServer address of another device → `double-hop` edge; IP+port = certain, IP only = marked as an assumption. FQDN targets are not resolved.
-- **report.py / assets/** – embeds data, UI texts (`assets/i18n/*.json`, 8 languages) and libraries into one HTML file. Secrets in embedded config lines are masked by default.
 
-## Phase plan
-| Phase | Content | Status |
-|---|---|---|
-| 1 | Parser, model, topology view, ~60 rules, HA diff, double hop, CSV/JSON, i18n, themes, accessibility | done |
-| 2 | Deeper gateway (session policies/actions, STA, ICA proxy, StoreFront, EPA), nFactor flow view with rule expressions, AppFW checks/signatures, rewrite/responder actions as nodes, network view (VLAN/SNIP/routes/TD/cluster), version default tables 13.1/14.1/15.1, configurable rules (change severity, disable, exceptions), ~120 rules | open |
-| 3 | Compare two config states, optional `nsviz serve` (browser upload), draw.io/SVG export, performance > 10k objects | open |
+## Components
+| Module | Task |
+|---|---|
+| `parser.py` | Generic line parser: verb, object type, positional arguments and `-options`. There is no schema per command, so commands of new firmware versions are kept. `add`, `set`, `unset`, `rm`, `bind`, `unbind`, `link`, `enable` and `disable` are applied in order. HTML-encoded files are decoded. |
+| `model.py` | Translates entities into nodes (vServers of all types, services, servers, monitors, certificates, profiles, policies, actions, nFactor labels and schemas, network objects, and more) and edges (bindings, policy references, certificate links, backend targets, authentication chains). References to undefined objects are marked as missing. Also builds the Gateway and nFactor views. |
+| `rules/` | One module per topic. A rule is a function registered with `@rule(id, severity, category, refs, confidence)`. Titles, rationale and remediation are kept in language catalogs (`rules/i18n/`). Modules are loaded automatically. |
+| `ruleconfig.py` | Rule configuration: disable rules, change severities, record accepted risks with a reason and an optional expiry date. |
+| `project.py` | Combines several files: devices, HA groups with a configuration diff, double-hop chains, link maps, cleanup analysis. Produces the JSON for the report. |
+| `linking.py` | Cross-device links: FQDN targets, link maps, optional DNS resolution (started manually). |
+| `compare.py` | Comparison of two configuration states: added, removed and changed objects, new and resolved findings. |
+| `anonymize.py` | Consistent pseudonymization of configurations, with a structure check before and after. |
+| `report.py`, `assets/` | Embeds data, texts (`assets/i18n/`, 8 languages) and libraries into one HTML file. |
+| `gui.py` | Local web interface (127.0.0.1 only, access token, host check, upload limits). |
+| `cli.py` | Command line: `analyze`, `compare`, `anonymize`, `gui`, `resolve`, `rules`. |
 
-## Open questions
-1. Which BSI baseline should apply: IT-Grundschutz modules (NET.1.1/1.2, OPS.1.1.5, ORP.4, APP.3.1 …), only TR-02102-2 (TLS), or a customer security concept? Currently modules are mapped **at topic level**, no requirement IDs.
-2. Should output of `show ssl certKey` or similar be read as well to check expiry dates? (Not contained in the ns.conf.)
-3. File-name conventions in customer environments (e.g. `*_pri`/`*_sec`) for role detection?
-4. How should exceptions ("customer accepts risk") be documented (a file next to the config)?
-5. Project name: "NetScaler" in the name is a trademark risk, see [LEGAL.md](LEGAL.md).
+## Rules
+A rule only evaluates facts that are explicitly present in the configuration. Where a statement depends on defaults or on
+runtime state, the rule carries the confidence `likely` or `heuristic`; `certain` means the statement follows from the
+configuration alone. The rule catalog is generated (`python3 -m nsviz rules --markdown`, see [RULES.md](RULES.md)) and
+checked in CI.
+
+A new rule consists of a function in a module under `nsviz/rules/` and entries in `i18n/en.json`, `i18n/de.json`,
+`i18n/messages_en.json` and `i18n/messages_de.json`. A test verifies that every rule has texts in both languages.
+
+## Multiple devices
+- **HA pairs** are recognized by `add ha node` (partner NSIP) or stated with `--ha`. The configuration diff leaves out
+  node-specific objects (NSIP, host name, interfaces, `rpcNode`).
+- **Double hop:** a backend target (service or service group member) whose address matches a vServer of another device
+  creates a `double-hop` edge. A match on address and port is certain; a match on the address alone is marked as an
+  assumption.
+- **FQDN targets** are not resolved automatically. They are listed on the Links tab; a link map or an optional DNS lookup
+  turns them into links.
+
+## Views in the report
+Overview, Topology (layered map with levels, filters and search), Gateway, nFactor, Findings, Inventory, Project (devices,
+HA diff, chains), Links, Rules. Both Gateway and nFactor can be exported as PNG, SVG or PDF. The topology can additionally
+be exported as a draw.io file; selected objects can be exported as NetScaler configuration, together with their
+dependencies if required.
+
+## Security properties
+- The report is a static file without network access; its Content-Security-Policy forbids external resources.
+- Passwords and keys in embedded configuration lines are masked by default.
+- The local GUI binds to 127.0.0.1, requires a random token, checks the `Host` header, limits request sizes and keeps
+  uploads in a temporary folder.
+- The only optional network access is the DNS lookup of host names on the Links tab, started manually.
+
+## Scale
+The analysis and the report were measured with synthetic configurations: about 9,000 objects are analysed in
+approximately 4 seconds and open in the browser in about 4 seconds; about 24,000 objects take approximately 10 seconds
+and open in about 11 seconds (a layout run of the topology adds time). Use the level selection and filters for very large
+environments.

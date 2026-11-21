@@ -72,6 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--csv", metavar="FILE", help="write findings as CSV (Excel, semicolon-separated)")
     a.add_argument("--fail-on", choices=SEVERITIES, help="exit code 2 if findings of this severity or higher exist (CI)")
     a.add_argument("--title", default="NetScaler Visualizer")
+    a.add_argument("--rules", metavar="FILE", help="rule configuration (JSON): disable rules, change severities, record accepted risks")
     a.add_argument("--map", metavar="FILE", help="link map (JSON) with confirmed/rejected cross-device links; save it from the report")
     a.add_argument("--hosts", metavar="FILE", help="FQDN->IP list (hosts format or CSV) used to suggest cross-device links")
     z = sub.add_parser("anonymize", help="write anonymized copies of configs (names, IPs, hosts, secrets, text)")
@@ -81,6 +82,12 @@ def main(argv: list[str] | None = None) -> int:
     z.add_argument("--map-file", metavar="FILE", help="also write the reverse mapping (as sensitive as the input!)")
     z.add_argument("--keep", default="", metavar="CATS", help="comma-separated categories NOT to anonymize: names,users,hostnames,ips,fqdns,urls,text,literals,files (secrets are always removed)")
     z.add_argument("--remove", default="", metavar="CATS", help="comma-separated optional data to remove (off by default): comments,timezone,location")
+    c = sub.add_parser("compare", help="compare two configuration states (before/after) and list added, removed and changed objects")
+    c.add_argument("old", help="ns.conf file or folder: state before the change")
+    c.add_argument("new", help="ns.conf file or folder: state after the change")
+    c.add_argument("-o", "--output", default="netscaler-compare.html")
+    c.add_argument("--lang", choices=["en", "de"], default="en")
+    c.add_argument("--json", metavar="FILE", help="also write the result as JSON")
     g = sub.add_parser("gui", help="open the local web GUI (127.0.0.1 only) to pick configs and create the report")
     g.add_argument("--port", type=int, default=0, help="port (default: a free one)")
     g.add_argument("--no-browser", action="store_true", help="only print the URL")
@@ -122,6 +129,24 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  please check: {r['file']} line {r['line']}")
         print("Review the result manually before using it outside the private folder.")
         return 0 if st["statements_in"] == st["statements_out"] and st["structure_ok"] else 3
+
+    if args.cmd == "compare":
+        import json as _json
+        from . import compare as cmp
+        try:
+            old, new = Project.load([args.old]), Project.load([args.new])
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        res = cmp.compare(old, new)
+        out = cmp.write(res, args.output, Path(args.old).name, Path(args.new).name, args.lang)
+        if args.json:
+            Path(args.json).write_text(_json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+        s = cmp.summary(res)
+        print(f"Objects: {s.get('added', 0)} added, {s.get('removed', 0)} removed, {s.get('changed', 0)} changed; "
+              f"findings: {s.get('new_findings', 0)} new, {s.get('resolved_findings', 0)} resolved")
+        print(f"Report: {out}")
+        return 0
 
     if args.cmd == "resolve":
         from . import linking
@@ -167,7 +192,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.hosts:
             lm = lm or {"format": linking.MAP_FORMAT, "version": linking.MAP_VERSION, "links": []}
             lm.setdefault("hosts", {}).update(linking.load_hosts(args.hosts))
-        proj = Project.load(args.paths, pairs, roles, redact=not args.no_redact, link_map=lm)
+        rc = None
+        if args.rules:
+            from . import ruleconfig
+            rc = ruleconfig.load(args.rules)
+        proj = Project.load(args.paths, pairs, roles, redact=not args.no_redact, link_map=lm, rule_config=rc)
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1

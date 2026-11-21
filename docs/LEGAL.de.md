@@ -1,56 +1,39 @@
-# Rechtliche Hinweise (Hinweise, keine Rechtsberatung)
+# Rechtliche Hinweise
 
 🇬🇧 [English version](LEGAL.md)
 
-Dies ist eine fachliche Checkliste von Punkten, die geprüft werden sollten. Sie ist **keine Rechtsberatung** und trifft keine verbindlichen Aussagen.
-Für Verbindliches (Veröffentlichung, kommerzielle Nutzung, Kundenverträge) eine juristische Prüfung einholen.
+Diese Hinweise beschreiben, wie das Projekt mit Marken, Drittkomponenten, Normverweisen und Kundendaten umgeht. Sie dienen
+der Information der Anwender und sind keine Rechtsberatung.
 
-## 1. Marken und Projektname – *höchstes Risiko*
-- „NetScaler“ und „Citrix“ sind Marken der jeweiligen Rechteinhaber (zu verifizieren: derzeit Cloud Software Group, Inc. bzw. verbundenen
-  Unternehmen zugeordnet). Report, README und Lizenz weisen darauf hin, dass das Projekt unabhängig und weder verbunden noch empfohlen ist.
-- Ein Disclaimer macht die Nutzung einer Marke nicht allein zulässig. Beschreibende Verwendung („Analysewerkzeug *für* NetScaler“) wird
-  meist eher toleriert als die Marke als **Produktname** („NetScaler Visualizer“), als Repository-/Domain-/Paketname oder mit Logos. Ob und wie das
-  zulässig ist, hängt von der Rechtsordnung und den Markenrichtlinien des Inhabers ab – nicht verifiziert.
-- Das Risiko steigt, wenn das Projekt öffentlich oder kommerziell ist oder Logos/Farben/Produktgrafiken des Inhabers nutzt (tut es nicht).
-- **Vorschlag:** neutralen Produktnamen verwenden und die Marke nur beschreibend nennen, z. B. *„<NeutralerName> – Konfigurationsanalyse für NetScaler ADC“*.
-  Mögliche Muster: neutrale ADC-bezogene Namen (z. B. „adc-config-map“, „adcscope“, „confgraph“) – **Verfügbarkeit nicht geprüft**; vor der Wahl
-  Markenregister (DPMA, EUIPO, USPTO) sowie Paket- und Domainnamen prüfen. Python-Paket `nsviz` und CLI-Name sind bereits neutral; Repository-Name
-  und Report-Titel enthalten derzeit „NetScaler“.
-- Aktuelle Marken-/Brand-Richtlinien des Inhabers für Drittwerkzeuge prüfen.
+## Marken
+NetScaler und Citrix sind Marken der jeweiligen Rechteinhaber. Dieses Projekt ist ein unabhängiges Werkzeug. Es ist weder mit
+den Markeninhabern verbunden noch von ihnen unterstützt oder empfohlen; die Namen dienen nur dazu, die Produkte zu benennen,
+mit denen das Werkzeug arbeitet. Der Hinweis steht im README, auf der Startseite der lokalen Oberfläche, in der Übersicht des
+Reports und im Hilfedialog. Das Projekt verwendet keine Logos, Farben oder Grafiken der Markeninhaber.
 
-## 2. Drittanbieter-Lizenzen
-- Eingebettete Bibliotheken (Cytoscape.js, dagre, cytoscape-dagre) stehen unter MIT: Urheberrechts- und Lizenzhinweise beibehalten
-  (erledigt in `nsviz/assets/vendor/` und `THIRD_PARTY_NOTICES.md`). Der minifizierte dagre-Build enthält graphlib und lodash; deren genaue Versionen und
-  Hinweise sind noch zu erfassen.
-- Die Testdaten stammen aus einem Drittprojekt unter Apache-2.0 und werden **nicht weiterverteilt** (Download auf dem Rechner des Nutzers).
-  Bei einer Weitergabe: Lizenztext, ggf. Upstream-NOTICE beilegen und Änderungen kennzeichnen (Hex-Blobs genullt).
-  Die Herkunft der Inhalte dieser Dateien ist nicht verifiziert.
-- Herstellerdokumentation und Support-Artikel sind urheberrechtlich geschützt: es wird kein Text übernommen; Regeltexte sind eigene Formulierungen mit Quellenverweis.
+## Drittkomponenten
+- Der Report bettet Cytoscape.js, dagre und cytoscape-dagre (MIT-Lizenz) ein. Urheberrechts- und Lizenzhinweise liegen in
+  `nsviz/assets/vendor/` und in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+- Optionale Beispiel-Konfigurationen stammen aus einem Drittprojekt unter der Apache License 2.0. Sie sind nicht Teil dieses
+  Repositorys und werden auf Wunsch auf dem Rechner des Anwenders geladen ([SOURCES.de.md](SOURCES.de.md)).
+- Herstellerdokumentation wird nicht kopiert. Die Regeltexte sind eigenständig formuliert und nennen ihre Quellen.
 
-## 3. Normverweise (BSI)
-- Die Verweise nennen BSI-IT-Grundschutz-Bausteine und BSI TR-02102-2 auf Themenebene, keine Anforderungs-IDs, und sind **nicht** gegen die aktuellen
-  Ausgaben verifiziert. Vor Audit-Nutzung: gegen die aktuelle Edition prüfen, Edition und Anforderungs-IDs korrekt zitieren und BSI-Text nicht über
-  kurze Zitate mit Quellenangabe hinaus wiedergeben.
-- Das Werkzeug bescheinigt keine Konformität. Aussagen wie „BSI-konform“ vermeiden; die Kategorie heißt „Compliance-*Hinweise*“.
+## Verweise auf Normen und Herstellerhinweise
+Regeln verweisen auf Bausteine des BSI IT-Grundschutzes, die BSI TR-02102-2 und die Secure-Deployment-Hinweise des Herstellers
+auf Themenebene, ohne Anforderungs-IDs. Die Zuordnung ist eine fachliche Einordnung. Vor der Verwendung in einem Audit ist sie
+gegen die aktuelle Fassung des jeweiligen Dokuments zu prüfen. Das Werkzeug bescheinigt keine Konformität; die Kategorie heißt
+„Compliance-Hinweise“.
 
-## 4. Datenschutz (DSGVO) und Vertraulichkeit
-- Configs können personenbezogene Daten enthalten (Benutzer-/Adminnamen, E-Mail-Adressen, IPs, LDAP-DNs) und sind für den Kunden geschäftlich vertraulich.
-  Die Verarbeitung erfolgt im Auftrag des Kunden: Projektvertrag/NDA und ggf. Auftragsverarbeitungsvertrag prüfen.
-- Siehe [PRIVACY.de.md](PRIVACY.de.md): lokale Verarbeitung, git-ignorierter privater Ordner, Anonymisierung vor jeder Entwicklungsnutzung, Aufbewahrung/Löschung.
-- Die Maskierung von Geheimnissen ist musterbasiert und keine Garantie.
+## Kundendaten und Datenschutz
+Konfigurationen können personenbezogene Daten enthalten, etwa Benutzernamen, E-Mail-Adressen, IP-Adressen und LDAP-Namen, und
+sind für den Kunden vertraulich. Die Verarbeitung im Auftrag eines Kunden sollte dem Projektvertrag, einer etwaigen
+Geheimhaltungsvereinbarung und gegebenenfalls einem Auftragsverarbeitungsvertrag folgen. Das Werkzeug verarbeitet alles lokal;
+das Konzept zum Umgang steht in [PRIVACY.de.md](PRIVACY.de.md). Die Maskierung von Secrets ist musterbasiert und keine Garantie.
 
-## 5. Haftung und Gewährleistung
-- Der Lizenztext schließt Gewährleistung und Haftung aus („as is“). Nach deutschem Recht kann die Haftung für Vorsatz nicht im Voraus ausgeschlossen werden,
-  Begrenzungen für andere Fälle hängen vom Vertragstyp ab – der Wortlaut muss für den vorgesehenen Einsatz geprüft werden. Ergebnisse sind automatisierte Hinweise;
-  Empfehlungen gegenüber Kunden bleiben in der fachlichen Verantwortung des Consultants.
+## Gewährleistung und Haftung
+Die Software wird „wie besehen“ bereitgestellt (siehe [LICENSE](../LICENSE)). Ergebnisse sind automatisierte Hinweise.
+Empfehlungen an Kunden bleiben in der fachlichen Verantwortung des Anwenders.
 
-## 6. Inhaberschaft und Lizenzmodell
-- Derzeit „alle Rechte vorbehalten“, keine Open-Source-Lizenz. Klären, wer die Rechte hält (Autor vs. Arbeitgeber/Firma; Arbeitsvertrag,
-  Nebentätigkeitsregeln) und ob Kunden Nutzungsrechte erhalten dürfen (Lizenz für Arbeitsergebnisse).
-- Vor einer Veröffentlichung von Code, den andere weiterverwenden dürfen, bewusst über eine Lizenz entscheiden.
-
-## 7. Weitere Punkte für eine juristische Prüfung
-- Export verschlüsselungsbezogener Inhalte: für das Werkzeug selbst nicht einschlägig; es implementiert keine Kryptografie.
-- Pflichten gegenüber Kunden/Arbeitgebern zu Werkzeugen für Arbeitsergebnisse (Offenlegung, Sicherheitsanforderungen) – Verträge prüfen.
-- Barrierefreiheitspflichten können bei kommerziellem Angebot gelten (z. B. EU-Vorgaben); die Oberfläche folgt üblicher Praxis
-  (Tastatur, Kontrast, ARIA), hat aber kein formales Konformitätsaudit.
+## Rechte
+Copyright (c) 2026 ITCMA GmbH. Alle Rechte vorbehalten. Ohne schriftliche Erlaubnis des Rechteinhabers wird keine Lizenz zur
+Nutzung, Vervielfältigung, Änderung oder Verbreitung erteilt.

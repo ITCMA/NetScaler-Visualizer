@@ -39,20 +39,40 @@
   "rationale": "With `-samlRejectUnsignedAssertion OFF`, unsigned assertions are accepted (impersonation possible).",
   "remediation": "Set `ON` (or `STRICT`)."
  },
- "WAF-001": {
-  "title": "WAF profile without policy binding",
-  "rationale": "An AppFW profile without a policy protects nothing.",
-  "remediation": "Create `add appfw policy` and bind it to a vServer or globally."
+ "CHAIN-001": {
+  "title": "Double hop: match by IP only",
+  "rationale": "The backend target matches a frontend address of the downstream NetScaler only in the IP, not in the port (e.g. port mapping/NAT in between). The match is an assumption.",
+  "remediation": "Verify the mapping manually."
  },
- "WAF-002": {
-  "title": "WAF profile without blocking action",
-  "rationale": "Without `block` in any check action the profile effectively runs in observation mode only. Heuristic: all `...Action` options of the profile are checked; defaults from `-defaults basic/advanced` are not resolved.",
-  "remediation": "Validate the checks in learning mode, then set `block log stats`."
+ "CHAIN-002": {
+  "title": "Double hop: connection between the NetScalers unencrypted",
+  "rationale": "The frontend NetScaler talks to the backend NetScaler via HTTP/TCP although a network worth protecting may lie in between (e.g. DMZ → internal).",
+  "remediation": "Use service type SSL with server certificate validation (backend profile)."
  },
- "WAF-003": {
-  "title": "HTTP(S) vServer without WAF",
-  "rationale": "Overview of HTTP/SSL vServers without an AppFW policy. Whether a WAF is required depends on the protection needs of the application (BSI APP.3.1).",
-  "remediation": "Bind an AppFW policy where the protection needs require it."
+ "CLU-001": {
+  "title": "Cluster node without backplane",
+  "rationale": "Cluster nodes exchange traffic and state over the backplane. A node without `-backplane` cannot take part in the cluster. Likely: partial exports may omit the option.",
+  "remediation": "Set the backplane interface of the node."
+ },
+ "CLU-002": {
+  "title": "Cluster and HA configured together",
+  "rationale": "A cluster and a classic HA pair exclude each other on one appliance. The configuration contains both an `add cluster instance` and an `add ha node`.",
+  "remediation": "Decide on one model and remove the configuration of the other."
+ },
+ "CS-001": {
+  "title": "Content switching vServer without a policy",
+  "rationale": "The vServer has bindings but no content switching policy, so every request goes to the default target. A plain load balancing vServer would do the same with less configuration. Heuristic.",
+  "remediation": "Check whether the content switching vServer is still needed or bind the intended policies."
+ },
+ "DEP-001": {
+  "title": "vServer not reachable",
+  "rationale": "This vServer is not addressable (no IP/port) and no other vServer, policy or global binding leads to it, so no traffic can reach it. Often a leftover.",
+  "remediation": "Bind it as a target of a CS/LB vServer or policy, give it an address, or remove it."
+ },
+ "DEP-002": {
+  "title": "URL target not matched to a vServer",
+  "rationale": "A Gateway session action or STA server points to a host that does not match a vServer of this device by IP and port (FQDN, another device or an external service). The connection cannot be derived from the config alone (assumption: IP and port are compared).",
+  "remediation": "Check the target. For FQDNs use the link map or a hosts file (Links tab) to connect it to the right vServer."
  },
  "GSLB-001": {
   "title": "GSLB vServer without domain",
@@ -84,10 +104,25 @@
   "rationale": "A single appliance is a single point of failure (unless cluster/cloud HA is used). Assumption: the partner is not described in this file.",
   "remediation": "Set up an HA pair or cluster."
  },
- "REP-001": {
-  "title": "IP reputation rules but feature/settings missing",
-  "rationale": "Policies with `IPREP` expressions are only evaluated if the reputation feature is enabled (assumption: feature name `REP`, may be named differently in 13.1+) and the appliance can fetch reputation data (`set reputation settings`).",
-  "remediation": "Check `enable ns feature REP` and `set reputation settings -proxyServer …` (if a proxy is needed)."
+ "HA-003": {
+  "title": "Configuration drift between HA nodes",
+  "rationale": "After synchronization both nodes should be identical (except node-specific objects such as NSIP, hostname, interfaces). Drift leads to different behavior after failover.",
+  "remediation": "Check sync (`show ha node`, `force ha sync`), clarify causes (manual change with -haProp DISABLED, sync errors)."
+ },
+ "LB-001": {
+  "title": "Health monitoring disabled on service",
+  "rationale": "With `-healthMonitor NO` the appliance treats the service as available regardless of its state and keeps sending traffic to a failed server.",
+  "remediation": "Remove `-healthMonitor NO` and bind a monitor that matches the application."
+ },
+ "LB-002": {
+  "title": "HTTP(S) service monitored only by the default monitor",
+  "rationale": "Without a bound monitor only the default TCP check runs. It confirms that the port is open, not that the application answers correctly. Heuristic: custom monitors configured outside this file are not visible.",
+  "remediation": "Bind an HTTP, HTTP-ECV or application-specific monitor that checks a meaningful response."
+ },
+ "LB-003": {
+  "title": "Backup vServers form a loop",
+  "rationale": "The backup vServers reference each other in a cycle. When the primary fails, the traffic cannot reach a vServer that is able to serve it.",
+  "remediation": "Break the cycle so that the chain of backup vServers ends in a vServer without `-backupVServer`."
  },
  "MGMT-001": {
   "title": "Telnet enabled on a NetScaler IP",
@@ -159,6 +194,41 @@
   "rationale": "The Secure Deployment Guide recommends, among others, `set ns httpParam -dropInvalReqs ON` (drop invalid HTTP requests). Please verify the exact recommendation against the current version of the guide.",
   "remediation": "`set ns httpParam -dropInvalReqs ON -markHttp09Inval ON -markConnReqInval ON`."
  },
+ "MGMT-015": {
+  "title": "SNMP community without manager restriction",
+  "rationale": "SNMP communities exist but no SNMP manager is configured. Without a manager list the agent may answer queries from any host that knows the community string.",
+  "remediation": "Add the monitoring systems with `add snmp manager` so that only they are accepted."
+ },
+ "MGMT-016": {
+  "title": "Only one NTP server",
+  "rationale": "A single time source is a single point of failure for time synchronization, which affects logs, certificates and HA.",
+  "remediation": "Configure at least two NTP servers."
+ },
+ "MGMT-017": {
+  "title": "Only one DNS name server",
+  "rationale": "With a single name server, name resolution fails when it is unavailable.",
+  "remediation": "Configure at least two name servers."
+ },
+ "MODE-001": {
+  "title": "Layer 2 mode enabled",
+  "rationale": "With L2 mode the appliance forwards packets that are not addressed to it. In a network with several paths this can create bridging loops. Enable it only for deployments that require it.",
+  "remediation": "Disable the mode with `disable ns mode L2` if the deployment does not need it."
+ },
+ "NET-001": {
+  "title": "Route gateway not in a locally connected network",
+  "rationale": "The gateway of the route is not inside the subnet of the NSIP or of any configured SNIP, so the appliance has no direct path to it. Likely: routes through other traffic domains or dynamic routing are not evaluated.",
+  "remediation": "Correct the gateway address or add the SNIP of the missing subnet."
+ },
+ "NET-002": {
+  "title": "VLAN without interface binding",
+  "rationale": "A VLAN without a bound interface or channel does not carry traffic. Heuristic: VLANs that only bind IP addresses are reported as well.",
+  "remediation": "Bind the interface or channel, or remove the VLAN."
+ },
+ "NET-003": {
+  "title": "Traffic domain without VLAN",
+  "rationale": "A traffic domain needs at least one bound VLAN to separate traffic; without it the domain has no network connection.",
+  "remediation": "Bind a VLAN to the traffic domain or remove it."
+ },
  "QA-001": {
   "title": "LB vServer without bound service",
   "rationale": "An LB vServer without a service/service group has no backend and is DOWN.",
@@ -219,6 +289,31 @@
   "rationale": "Disabled vServers often remain in configs as legacy.",
   "remediation": "Remove if permanently unneeded."
  },
+ "QA-013": {
+  "title": "Several certificate objects use the same file",
+  "rationale": "Several objects reference the same certificate file. Duplicate objects complicate renewals, because every copy has to be updated.",
+  "remediation": "Use one certificate object and bind it wherever needed."
+ },
+ "QA-014": {
+  "title": "Disabled server is still referenced",
+  "rationale": "The server is set to DISABLED but is still referenced by services or service groups. It receives no traffic, which may be intended for maintenance but is often a leftover.",
+  "remediation": "Remove the references and the server, or enable it again."
+ },
+ "QA-015": {
+  "title": "Several server objects with the same address",
+  "rationale": "Several server objects point to the same address. Duplicates make it unclear which object a change belongs to.",
+  "remediation": "Keep one server object per address."
+ },
+ "REP-001": {
+  "title": "IP reputation rules but feature/settings missing",
+  "rationale": "Policies with `IPREP` expressions are only evaluated if the reputation feature is enabled (assumption: feature name `REP`, may be named differently in 13.1+) and the appliance can fetch reputation data (`set reputation settings`).",
+  "remediation": "Check `enable ns feature REP` and `set reputation settings -proxyServer …` (if a proxy is needed)."
+ },
+ "RW-001": {
+  "title": "Policy bound to the wrong direction",
+  "rationale": "The expression or action of the policy refers to the opposite side of the HTTP transaction (request vs. response), which is not available or not relevant at the bind point. The policy never matches or has no effect.",
+  "remediation": "Bind the policy to the matching bind point (REQUEST or RESPONSE) or correct the expression."
+ },
  "TLS-001": {
   "title": "SSLv3 enabled",
   "rationale": "SSLv3 is broken by POODLE and not permitted by TR-02102-2.",
@@ -274,29 +369,44 @@
   "rationale": "Without an HTTP Strict Transport Security header, browsers can fall back to HTTP.",
   "remediation": "Rewrite policy with `Strict-Transport-Security`, or `-HSTS ENABLED` in the SSL profile."
  },
- "HA-003": {
-  "title": "Configuration drift between HA nodes",
-  "rationale": "After synchronization both nodes should be identical (except node-specific objects such as NSIP, hostname, interfaces). Drift leads to different behavior after failover.",
-  "remediation": "Check sync (`show ha node`, `force ha sync`), clarify causes (manual change with -haProp DISABLED, sync errors)."
+ "TLS-012": {
+  "title": "TLS settings on the vServer instead of an SSL profile",
+  "rationale": "Protocol options set directly on the vServer are harder to keep consistent across many vServers than a shared SSL profile. Settings in a profile can be reviewed and changed in one place.",
+  "remediation": "Move the settings into an SSL profile and bind the profile."
  },
- "CHAIN-001": {
-  "title": "Double hop: match by IP only",
-  "rationale": "The backend target matches a frontend address of the downstream NetScaler only in the IP, not in the port (e.g. port mapping/NAT in between). The match is an assumption.",
-  "remediation": "Verify the mapping manually."
+ "VPN-001": {
+  "title": "Default authorization is ALLOW",
+  "rationale": "With `-defaultAuthorizationAction ALLOW` authenticated users may reach every resource that no authorization policy denies. The recommended default is DENY with explicit allow policies.",
+  "remediation": "Set the default to DENY and grant access through authorization policies."
  },
- "CHAIN-002": {
-  "title": "Double hop: connection between the NetScalers unencrypted",
-  "rationale": "The frontend NetScaler talks to the backend NetScaler via HTTP/TCP although a network worth protecting may lie in between (e.g. DMZ → internal).",
-  "remediation": "Use service type SSL with server certificate validation (backend profile)."
+ "VPN-002": {
+  "title": "ICA proxy without STA server",
+  "rationale": "A session action enables ICA proxy but no Secure Ticket Authority is bound to the gateway vServer, so ICA sessions cannot be established. Likely: an STA may be configured on a vServer that is not part of this file.",
+  "remediation": "Bind at least one STA server to the gateway vServer."
  },
- "DEP-001": {
-  "title": "vServer not reachable",
-  "rationale": "This vServer is not addressable (no IP/port) and no other vServer, policy or global binding leads to it, so no traffic can reach it. Often a leftover.",
-  "remediation": "Bind it as a target of a CS/LB vServer or policy, give it an address, or remove it."
+ "VPN-003": {
+  "title": "No limit for failed logins",
+  "rationale": "Without `-maxLoginAttempts` the number of failed logins is not limited, which allows password guessing against the gateway or authentication vServer. Likely: a limit may be set by other means.",
+  "remediation": "Set `-maxLoginAttempts` together with `-failedLoginTimeout`."
  },
- "DEP-002": {
-  "title": "URL target not matched to a vServer",
-  "rationale": "A Gateway session action or STA server points to a host that does not match a vServer of this device by IP and port (FQDN, another device or an external service). The connection cannot be derived from the config alone (assumption: IP and port are compared).",
-  "remediation": "Check the target. For FQDNs use the link map or a hosts file (Links tab) to connect it to the right vServer."
+ "WAF-001": {
+  "title": "WAF profile without policy binding",
+  "rationale": "An AppFW profile without a policy protects nothing.",
+  "remediation": "Create `add appfw policy` and bind it to a vServer or globally."
+ },
+ "WAF-002": {
+  "title": "WAF profile without blocking action",
+  "rationale": "Without `block` in any check action the profile effectively runs in observation mode only. Heuristic: all `...Action` options of the profile are checked; defaults from `-defaults basic/advanced` are not resolved.",
+  "remediation": "Validate the checks in learning mode, then set `block log stats`."
+ },
+ "WAF-003": {
+  "title": "HTTP(S) vServer without WAF",
+  "rationale": "Overview of HTTP/SSL vServers without an AppFW policy. Whether a WAF is required depends on the protection needs of the application (BSI APP.3.1).",
+  "remediation": "Bind an AppFW policy where the protection needs require it."
+ },
+ "WAF-004": {
+  "title": "WAF profile without signature object",
+  "rationale": "The profile has no signature object, so signature-based protection against known attack patterns is not used. Heuristic: signatures can also be assigned in ways that are not visible in the file.",
+  "remediation": "Create or select a signature object and assign it to the profile."
  }
 }

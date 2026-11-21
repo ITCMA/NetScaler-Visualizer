@@ -207,6 +207,7 @@ class Config:
         self.statements: list[Statement] = []
         self.entities: dict[str, dict[str, Entity]] = {}
         self.bindings: list[Binding] = []
+        self._bidx: dict[str, dict[str, list[Binding]]] | None = None  # index for binds(), rebuilt after changes
         self.links: list[tuple[str, str]] = []  # (certkey, ca-certkey)
         self.features: set[str] = set()
         self.modes: set[str] = set()
@@ -226,7 +227,13 @@ class Config:
 
     def binds(self, etype: str, owner: str | None = None) -> list[Binding]:
         et = etype.lower()
-        return [b for b in self.bindings if b.etype == et and (owner is None or b.owner == owner)]
+        if self._bidx is None:
+            self._bidx = {}
+            for b in self.bindings:
+                self._bidx.setdefault(b.etype, {}).setdefault(b.owner, []).append(b)
+        if owner is None:
+            return [b for b in self.bindings if b.etype == et]
+        return list(self._bidx.get(et, {}).get(owner, ()))
 
     def single(self, etype: str) -> Entity | None:
         return self.of(etype).get("")
@@ -298,6 +305,7 @@ class Config:
                 owner, args = (st.args[0] if st.args else ""), list(st.args[1:])
             b = Binding(et, owner, args, {k: list(x) for k, x in st.opts.items()}, st.line, st.file, st.raw)
             self.bindings.append(b)
+            self._bidx = None
             ent = self.of(et).get(owner)
             if ent:
                 ent.bindings.append(b)
@@ -309,6 +317,7 @@ class Config:
             for b in list(self.bindings):
                 if b.etype == et and b.owner == owner and self._unbind_match(b, args, st.opts):
                     self.bindings.remove(b)
+                    self._bidx = None
                     ent = self.of(et).get(owner)
                     if ent and b in ent.bindings:
                         ent.bindings.remove(b)

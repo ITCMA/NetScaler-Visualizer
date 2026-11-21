@@ -101,8 +101,10 @@ def _code_id() -> str:
 
 class Project:
     def __init__(self, devices: list[Device], ha_pairs: list[tuple[str, str]] | None = None, redact: bool = True,
-                 link_map: dict | None = None):
+                 link_map: dict | None = None, rule_config: dict | None = None):
         self.devices = devices
+        self.rule_config = rule_config
+        self.suppressed: list[tuple] = []
         self.link_map = link_map or {}
         self.redact = redact
         self.groups: list[Group] = []
@@ -133,12 +135,16 @@ class Project:
         self._cleanup()
         self._coverage_note()
         self.findings = finalize(self.findings)
+        if rule_config:
+            from . import ruleconfig
+            self.findings, self.suppressed, notes = ruleconfig.apply(self.findings, rule_config)
+            self.notes += notes
         self._attach()
 
     # ---- Laden ----------------------------------------------------------------------------
     @classmethod
     def load(cls, paths: list[str], ha_pairs: list[tuple[str, str]] | None = None, roles: dict[str, str] | None = None,
-             redact: bool = True, link_map: dict | None = None) -> "Project":
+             redact: bool = True, link_map: dict | None = None, rule_config: dict | None = None) -> "Project":
         files: list[Path] = []
         for p in map(Path, paths):
             if p.is_dir():
@@ -148,7 +154,7 @@ class Project:
             else:
                 raise FileNotFoundError(p)
         if not files:
-            raise FileNotFoundError("keine Konfigurationsdateien gefunden")
+            raise FileNotFoundError("no configuration files found")
         devs: list[Device] = []
         skipped: list[str] = []
         used: set[str] = set()
@@ -178,7 +184,7 @@ class Project:
             devs.append(d)
         if not devs:
             raise FileNotFoundError("no ns.conf-like files found")
-        proj = cls(devs, ha_pairs, redact, link_map)
+        proj = cls(devs, ha_pairs, redact, link_map, rule_config)
         if skipped:
             proj.notes.append({"en": "Skipped (no ns.conf statements recognized): " + ", ".join(skipped),
                                "de": "Übersprungen (keine ns.conf-Befehle erkannt): " + ", ".join(skipped)})
@@ -589,6 +595,8 @@ class Project:
                           "etype": f.etype, "name": f.name, "file": f.file, "line": f.line, "evidence": f.evidence, "node": f.node}
                          for f in self.findings],
             "rules": rules,
+            "suppressed": [{"id": f.id, "rule": f.rule_id, "severity": f.severity, "msgs": f.msgs, "devices": f.devices, "etype": f.etype,
+                            "name": f.name, "reason": reason, "expires": exp} for f, reason, exp in self.suppressed],
             "diffs": self.diffs,
             "links": self.links,
             "unlinked": self.unlinked(),

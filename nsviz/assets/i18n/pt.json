@@ -244,7 +244,7 @@
  "dbg_drawn": "Desenhada",
  "dbg_copy": "Copiar info de depuração",
  "dbg_all": "Exportar todo o grafo (anonimizado)",
- "dbg_hint": "Copie e cole no chat: sem nomes, IPs, nomes de ficheiro ou valores, só tipos, regras, números de linha e estrutura das linhas.",
+ "dbg_hint": "Copie e anexe ao pedido de suporte: sem nomes, IPs, nomes de ficheiro ou valores, só tipos, regras, números de linha e estrutura das linhas.",
  "dbg_copied": "Copiado",
  "dbg_manual": "A cópia falhou: selecione o texto e copie",
  "dbg_saved": "Guardado como nsviz-debug.json (anonimizado)",
@@ -420,5 +420,8 @@
  "ex_basis": "Base: {s} – {n} objeto(s)",
  "ex_basis_sel": "os objetos selecionados",
  "ex_basis_view": "todos os objetos da vista atual, não só a seleção",
- "ex_basis_all": "o modelo inteiro"
+ "ex_basis_all": "o modelo inteiro",
+ "f_supp": "Exceções aceitas ({n})",
+ "th_reason": "Justificativa",
+ "f_supp_until": "até {d}"
 }

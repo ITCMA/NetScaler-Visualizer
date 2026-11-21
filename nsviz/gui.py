@@ -112,7 +112,11 @@ class State:
         if "hosts" in self.extra:
             lm = lm or {"format": linking.MAP_FORMAT, "version": linking.MAP_VERSION, "links": []}
             lm.setdefault("hosts", {}).update(linking.load_hosts(str(self.extra["hosts"])))
-        proj = Project.load([str(f) for f in files], pairs, roles, redact=bool(opts.get("redact", True)), link_map=lm)
+        rc = None
+        if "rules" in self.extra:
+            from . import ruleconfig
+            rc = ruleconfig.load(str(self.extra["rules"]))
+        proj = Project.load([str(f) for f in files], pairs, roles, redact=bool(opts.get("redact", True)), link_map=lm, rule_config=rc)
         title = str(opts.get("title") or "NetScaler Visualizer")[:120]
         html = report.render(proj, title, debug=self.debug)
         rid = secrets.token_urlsafe(8)
@@ -222,7 +226,7 @@ def make_handler(st: State, port: int):
             try:
                 if u.path == "/api/upload":
                     kind = (q.get("kind") or ["conf"])[0]
-                    if kind not in ("conf", "hosts", "map"):
+                    if kind not in ("conf", "hosts", "map", "rules"):
                         raise ValueError("kind")
                     name = st.add_upload(kind, (q.get("name") or ["config"])[0], self._body(MAX_UPLOAD))
                     self._json({"name": name})

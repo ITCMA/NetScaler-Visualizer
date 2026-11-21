@@ -551,6 +551,12 @@ function renderFindings() {
   const list = filteredFindings(); $('#f-count').textContent = t('f_count', { a: list.length, b: D.findings.length });
   $('#t-findings tbody').innerHTML = list.map(f => `<tr class="clickable" tabindex="0" data-id="${f.id}"><td><span class="sev ${f.severity}">${esc(sevLabel(f.severity))}</span></td><td title="${esc(ruleText(D.rules[f.rule]).title)}">${esc(f.rule)}</td><td>${esc(msgOf(f))}</td><td>${esc(f.devices.join(', '))}</td><td>${esc(f.file)}${f.line ? ':' + f.line : ''}</td></tr>`).join('');
   $$('#t-findings tbody tr').forEach(tr => { const go = () => { const f = findingsById[tr.dataset.id]; if (nodeById[f.node]) goTo(f.node); }; tr.onclick = go; tr.onkeydown = e => { if (e.key === 'Enter') go(); }; });
+  const sp = D.suppressed || [], box = $('#f-supp'); box.hidden = !sp.length;
+  if (sp.length) {
+    box.querySelector('summary').textContent = t('f_supp', { n: sp.length });
+    $('#h-supp').innerHTML = ['th_sev', 'th_rule', 'th_msg', 'th_dev', 'th_reason'].map(k => `<th scope="col">${esc(t(k))}</th>`).join('');
+    $('#t-supp tbody').innerHTML = sp.map(f => `<tr><td><span class="sev ${f.severity}">${esc(sevLabel(f.severity))}</span></td><td>${esc(f.rule)}</td><td>${esc(msgOf(f))}</td><td>${esc(f.devices.join(', '))}</td><td>${esc(f.reason)}${f.expires ? ' (' + esc(t('f_supp_until', { d: f.expires })) + ')' : ''}</td></tr>`).join('');
+  }
 }
 $('#csv').onclick = () => {
   const rows = [[t('th_sev'), t('th_rule'), t('th_title'), t('th_cat'), t('th_msg'), t('th_dev'), t('th_file'), '#', t('th_object')]].concat(filteredFindings().map(f => [sevLabel(f.severity), f.rule, ruleText(D.rules[f.rule]).title, catLabel((D.rules[f.rule] || {}).category), msgOf(f), f.devices.join(' + '), f.file, f.line, f.etype + ' ' + f.name]));

@@ -108,6 +108,25 @@ function svgText(P) {
   return out.join('\n');
 }
 
+function drawioText(P) {  // draw.io / diagrams.net file (mxGraph XML) with the positions of the map
+  const ns = sc(); if (!ns.length) return null;
+  const bb = ns.boundingBox({ includeLabels: false }), ox = bb.x1 - 40, oy = bb.y1 - 40, ids = new Set(ns.map(n => n.id()));
+  const x = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const hex = hsl => { const m = /hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/.exec(hsl); if (!m) return '#ffffff'; const h = +m[1], s = +m[2] / 100, l = +m[3] / 100, a = s * Math.min(l, 1 - l);
+    const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, '0'); }; return '#' + f(0) + f(8) + f(4); };
+  const cid = {}, out = ['<mxfile host="nsviz"><diagram name="' + x(t('tab_topo')) + '" id="nsviz-1"><mxGraphModel grid="1" gridSize="10" page="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/>'];
+  ns.forEach((n, i) => {
+    const p = n.position(), k = n.data('kind'), sev = n.data('sev'); cid[n.id()] = 'n' + i;
+    let lab = P.s(n.data('label') || ''); if (lab.length > 40) lab = lab.slice(0, 39) + '…';
+    out.push(`<mxCell id="n${i}" value="${x(lab)}" style="rounded=1;whiteSpace=wrap;html=0;fillColor=${hex(kindFill(k, false))};strokeColor=${sev ? SEVCOL[sev] : hex(kindStroke(k, false))};strokeWidth=${sev ? 2 : 1};fontSize=11;" vertex="1" parent="1"><mxGeometry x="${Math.round(p.x - ox - 78)}" y="${Math.round(p.y - oy - 17)}" width="156" height="34" as="geometry"/></mxCell>`);
+  });
+  cy.edges().filter(e => ids.has(e.source().id()) && ids.has(e.target().id()) && e.data('type') !== 'contains').forEach((e, i) => {
+    out.push(`<mxCell id="e${i}" style="endArrow=classic;html=1;strokeColor=#94a3b8;fontSize=9;" edge="1" parent="1" source="${cid[e.source().id()]}" target="${cid[e.target().id()]}"><mxGeometry relative="1" as="geometry"/></mxCell>`);
+  });
+  out.push('</root></mxGraphModel></diagram></mxfile>');
+  return out.join('\n');
+}
+
 function pngUrl(P, full) {  // renders with pseudonymized labels when requested
   const nodes = cy.nodes(), old = nodes.map(n => n.data('disp'));
   const keepView = { z: cy.zoom(), p: { ...cy.pan() } };
@@ -212,6 +231,7 @@ function runExport() {
     if (/^p(img|svg|pdf)$/.test(exp.fmt)) { dlgx.close(); return pageExport(exp.fmt, P); }
     else if (exp.fmt === 'png') download(n + '-topology.png', pngUrl(P, exp.scope !== 'view'));
     else if (exp.fmt === 'svg') { const s = svgText(P); if (!s) return toast(t('ex_empty')); download(n + '-topology.svg', new Blob([s], { type: 'image/svg+xml' })); }
+    else if (exp.fmt === 'drawio') { const s = drawioText(P); if (!s) return toast(t('ex_empty')); download(n + '-topology.drawio', new Blob([s], { type: 'application/xml' })); }
     else if (exp.fmt === 'pdf') { dlgx.close(); return printDoc(P); }
     else if (exp.fmt === 'csvf') download(n + '-findings.csv', new Blob([csvText([findingHead()].concat(scopeFindings().map(f => findingRow(f, P))))], { type: 'text/csv' }));
     else if (exp.fmt === 'csvi') {
@@ -255,7 +275,7 @@ function openExport(fmt) {
   const card = (name, v, cur, title, fig) => `<label class="card-opt"><input type="radio" name="${name}" value="${v}" ${v === cur ? 'checked' : ''}><span><b>${esc(title)}</b><span class="fig" id="fig-${name}-${v}">${esc(fig || '')}</span></span></label>`;
   const cmp = `<p>${esc(t('ex_cmp_intro'))}</p><p><b>${esc(t('ex_dep_only_t'))}:</b> ${esc(t('ex_cmp_only'))}</p><p><b>${esc(t('ex_dep_all_t'))}:</b> ${esc(t('ex_cmp_all'))}</p><p>${esc(t('ex_ncfg_hint'))}</p>`;
   $('#ex-body').innerHTML = `${page ? `<p class="muted pg-note">${esc(t('pg_note', { p: pageTitle() }))}</p>` : ''}<fieldset class="rlist" id="ex-scope"${/^clean/.test(exp.fmt) || page ? ' hidden' : ''}><legend>${esc(t('ex_scope'))}</legend>${radio('scope', [['all', t('ex_all')], ['view', t('ex_view')], ['sel', selLabel + (selOk ? '' : ' (' + t('ex_sel_none') + ')'), !selOk]], exp.scope)}</fieldset>
-    <fieldset><legend>${esc(t('ex_format'))}${infoBtn('PDF: ' + esc(t('ex_pdf_hint')))}</legend><div class="chips">${radio('fmt', page ? [['pimg', 'PNG'], ['psvg', 'SVG'], ['ppdf', 'PDF']] : [['png', 'PNG'], ['svg', 'SVG'], ['pdf', 'PDF'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')], ['clean', t('ex_clean')], ['cleanrb', t('ex_cleanrb')]], exp.fmt, 'chip')}</div></fieldset>
+    <fieldset><legend>${esc(t('ex_format'))}${infoBtn('PDF: ' + esc(t('ex_pdf_hint')))}</legend><div class="chips">${radio('fmt', page ? [['pimg', 'PNG'], ['psvg', 'SVG'], ['ppdf', 'PDF']] : [['png', 'PNG'], ['svg', 'SVG'], ['drawio', 'draw.io'], ['pdf', 'PDF'], ['csvf', t('ex_csvf')], ['csvi', t('ex_csvi')], ['csvp', t('ex_csvp')], ['json', 'JSON'], ['md', 'Markdown'], ['ncfg', t('ex_ncfg')], ['clean', t('ex_clean')], ['cleanrb', t('ex_cleanrb')]], exp.fmt, 'chip')}</div></fieldset>
     <fieldset id="ex-deps"${exp.fmt === 'ncfg' ? '' : ' hidden'}><legend>${esc(t('ex_depth'))}${infoBtn(cmp)}</legend><p id="ex-basis" class="ex-basis"></p><div class="cards">${card('deps', '0', exp.deps ? '1' : '0', t('ex_dep_only_t'))}${card('deps', '1', exp.deps ? '1' : '0', t('ex_dep_all_t'))}</div></fieldset>
     <fieldset id="ex-cl"${/^clean/.test(exp.fmt) ? '' : ' hidden'}><legend>${esc(t('ex_cl_part'))}${infoBtn(esc(t('cl_info')))}</legend><div class="cards">${card('cld', '1', exp.cld === false ? '0' : '1', t('ex_cl_with'))}${card('cld', '0', exp.cld === false ? '0' : '1', t('ex_cl_without'))}</div></fieldset>
     <fieldset><legend>${esc(t('ex_data'))}${infoBtn(`<p>${esc(t('ex_anon_hint'))}</p><p>${esc(t('ex_warn'))}</p>`)}</legend><div class="cards">${card('anon', '0', '', t('ex_orig'))}${card('anon', '1', '', t('ex_anon'))}</div>

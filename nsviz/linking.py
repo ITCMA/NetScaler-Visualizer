@@ -49,12 +49,18 @@ def node_by_key(project, key: str) -> str:
 
 
 def _cert_strings(g, node_id: str) -> list[str]:
+    idx = getattr(g.graph, "_ssl_edges", None)
+    if idx is None or idx[0] != len(g.graph.edges):  # index of the ssl edges per source, rebuilt when edges were added
+        by_src: dict[str, list] = {}
+        for e in g.graph.edges:
+            if e.type == "ssl":
+                by_src.setdefault(e.source, []).append(e)
+        idx = g.graph._ssl_edges = (len(g.graph.edges), by_src)
     out: list[str] = []
-    for e in g.graph.edges:
-        if e.source == node_id and e.type == "ssl":
-            c = g.graph.nodes.get(e.target)
-            if c and c.kind == "cert":
-                out += [c.name, c.props.get("Certificate", "")]
+    for e in idx[1].get(node_id, ()):
+        c = g.graph.nodes.get(e.target)
+        if c and c.kind == "cert":
+            out += [c.name, c.props.get("Certificate", "")]
     return [x for x in out if x]
 
 

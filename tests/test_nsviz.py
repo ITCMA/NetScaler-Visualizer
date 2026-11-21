@@ -389,6 +389,84 @@ console.log(JSON.stringify([api.buildClean(false, false, true).text, api.buildCl
         self.assertNotIn("secret1", rb)
         self.assertIn("bind lb vserver lb_x -policyName rw_x -priority 100 -type REQUEST", rb)
 
+    def test_extended_rules(self):
+        """Rules for load balancing, network, cluster, content policies, gateway and system settings."""
+        src = ("set ns config -IPAddress 192.0.2.5 -netmask 255.255.255.0\n"
+               "add ns ip 192.0.2.6 255.255.255.0 -type SNIP\n"
+               "add route 10.9.0.0 255.255.0.0 203.0.113.1\n"
+               "add vlan 20\nadd ns trafficDomain 3\n"
+               "add cluster instance 1\nadd ha node 1 192.0.2.7\nadd cluster node 0 192.0.2.5\n"
+               "enable ns mode L2\n"
+               "add server s1 198.51.100.1\nadd server s2 198.51.100.1 -state DISABLED\n"
+               "add service svc1 s1 HTTP 80 -healthMonitor NO\n"
+               "add serviceGroup sg1 HTTP\nbind serviceGroup sg1 s2 80\n"
+               "add lb vserver a HTTP 192.0.2.10 80 -backupVServer b\nadd lb vserver b HTTP 192.0.2.11 80 -backupVServer a\n"
+               "add ssl certKey c1 -cert same.pem -key k1\nadd ssl certKey c2 -cert same.pem -key k2\n"
+               "add rewrite action ra replace HTTP.RES.BODY(100) \"x\"\nadd rewrite policy rp true ra\n"
+               "bind lb vserver a -policyName rp -priority 10 -type REQUEST\n"
+               "add vpn sessionAction sa -icaProxy ON -defaultAuthorizationAction ALLOW\n"
+               "add vpn sessionPolicy sp true sa\nadd vpn vserver gw SSL 192.0.2.50 443\nbind vpn vserver gw -policy sp -priority 10\n"
+               "add snmp community mon GET_ALL\nadd ntp server 192.0.2.99\nadd dns nameServer 192.0.2.53\n")
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "ns.conf"
+            f.write_text(src)
+            p = Project.load([str(f)])
+        got = {x.rule_id for x in p.findings}
+        for rid in ("LB-001", "LB-003", "NET-001", "NET-002", "NET-003", "CLU-001", "CLU-002", "MODE-001", "QA-013", "QA-014",
+                    "QA-015", "RW-001", "VPN-001", "VPN-002", "VPN-003", "MGMT-015", "MGMT-016", "MGMT-017"):
+            self.assertIn(rid, got, rid)
+
+    def test_rule_configuration(self):
+        """Disabled rules, severity changes and exceptions with reason and expiry."""
+        import tempfile
+        from nsviz import ruleconfig
+        src = "add server s1 198.51.100.1\nadd server s2 198.51.100.2\nadd lb vserver lb_old HTTP 192.0.2.10 80\nadd lb vserver lb_new HTTP 192.0.2.11 80\n"
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "ns.conf"
+            f.write_text(src)
+            base = Project.load([str(f)])
+            cfg = {"format": "nsviz-rules", "version": 1, "disable": ["QA-003"], "severity": {"QA-001": "info"},
+                   "exceptions": [{"rule": "QA-001", "object": "lb_old", "reason": "decommissioned in Q3"},
+                                  {"rule": "QA-001", "object": "lb_new", "reason": "old", "expires": "2000-01-01"}]}
+            p = Project.load([str(f)], rule_config=ruleconfig.validate(cfg))
+        self.assertTrue(any(x.rule_id == "QA-003" for x in base.findings))
+        self.assertFalse(any(x.rule_id == "QA-003" for x in p.findings))
+        qa1 = {x.name: x.severity for x in p.findings if x.rule_id == "QA-001"}
+        self.assertEqual(qa1, {"lb_new": "info"})                     # lb_old accepted, the expired exception no longer applies
+        self.assertEqual([(x.name, r) for x, r, _ in p.suppressed], [("lb_old", "decommissioned in Q3")])
+        self.assertEqual(p.to_dict()["suppressed"][0]["reason"], "decommissioned in Q3")
+        for bad in ({"format": "x"}, {"format": "nsviz-rules", "disable": ["NOPE-1"]},
+                    {"format": "nsviz-rules", "exceptions": [{"rule": "QA-001"}]}):
+            with self.assertRaises(ValueError):
+                ruleconfig.validate(bad)
+
+    def test_compare_states(self):
+        """Comparison of two states: added, removed and changed objects, new and resolved findings."""
+        import tempfile
+        from nsviz import compare
+        old = ("add server s1 198.51.100.1\nadd serviceGroup sg1 HTTP\nbind serviceGroup sg1 s1 80\n"
+               "add lb vserver lb1 HTTP 192.0.2.10 80\nbind lb vserver lb1 sg1\nadd lb vserver gone HTTP 192.0.2.11 80\n"
+               "add authentication ldapAction la -serverIP 192.0.2.30 -ldapBindDnPassword oldsecret\n")
+        new = ("add server s1 198.51.100.1\nadd serviceGroup sg1 HTTP\nbind serviceGroup sg1 s1 8080\n"
+               "add lb vserver lb1 HTTP 192.0.2.10 80 -persistenceType SOURCEIP\nbind lb vserver lb1 sg1\n"
+               "add lb vserver fresh HTTP 192.0.2.12 80\n"
+               "add authentication ldapAction la -serverIP 192.0.2.30 -ldapBindDnPassword newsecret\n")
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "a.conf").write_text(old)
+            (Path(td) / "b.conf").write_text(new)
+            res = compare.compare(Project.load([str(Path(td) / "a.conf")]), Project.load([str(Path(td) / "b.conf")]))
+            page = compare.render(res, "a", "b", "de")
+        dev = res["devices"][0]
+        self.assertEqual([o["name"] for o in dev["added"]], ["fresh"])
+        self.assertEqual([o["name"] for o in dev["removed"]], ["gone"])
+        changed = {o["name"] for o in dev["changed"]}
+        self.assertTrue({"lb1", "sg1"} <= changed)
+        self.assertNotIn("oldsecret", page)
+        self.assertNotIn("newsecret", page)
+        self.assertIn("Konfigurationsvergleich", page)
+        self.assertEqual(compare.summary(res)["added"], 1)
+
     def test_gateway_epa_clientcert_html(self):
         """HTML-encoded files are decoded; client certificate, EPA (pre-auth, nFactor, post-auth) and option names."""
         src = ('add ssl certKey ca_root -cert ca_root.cer\n'

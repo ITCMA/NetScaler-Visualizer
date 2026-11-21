@@ -244,7 +244,7 @@
  "dbg_drawn": "已绘制",
  "dbg_copy": "复制调试信息",
  "dbg_all": "导出整个图（已匿名）",
- "dbg_hint": "复制并粘贴到聊天：不含名称、IP、文件名或值，只有类型、规则、行号和配置行结构。",
+ "dbg_hint": "复制并附加到支持请求：不含名称、IP、文件名或值，只有类型、规则、行号和配置行结构。",
  "dbg_copied": "已复制",
  "dbg_manual": "复制失败：请选中文本手动复制",
  "dbg_saved": "已保存为 nsviz-debug.json（已匿名）",
@@ -420,5 +420,8 @@
  "ex_basis": "依据：{s} – {n} 个对象",
  "ex_basis_sel": "所选对象",
  "ex_basis_view": "当前视图中的所有对象，而不仅是所选对象",
- "ex_basis_all": "整个模型"
+ "ex_basis_all": "整个模型",
+ "f_supp": "已接受的例外 ({n})",
+ "th_reason": "原因",
+ "f_supp_until": "截至 {d}"
 }
