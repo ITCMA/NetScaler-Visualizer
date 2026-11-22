@@ -1,5 +1,6 @@
 name: Release builds
-# Builds the single-file app for Windows and macOS and, on macOS, additionally the app bundle (nsviz.app, zipped) with PyInstaller.
+# Builds the single-file app for Windows and the app bundle (nsviz.app, zipped) for macOS (Apple silicon and Intel) with
+# PyInstaller. On macOS the command line is part of the app bundle: nsviz.app/Contents/MacOS/nsviz.
 # Manual run: artifacts only. Tag v*: additionally a draft release with the files (published by hand).
 on:
   workflow_dispatch:
@@ -18,11 +19,9 @@ jobs:
             src: dist/nsviz.exe
           - os: macos-latest
             name: nsviz-macos-arm64
-            src: dist/nsviz
             bundle: nsviz-macos-arm64-app.zip
           - os: macos-15-intel
             name: nsviz-macos-x64
-            src: dist/nsviz
             bundle: nsviz-macos-x64-app.zip
     runs-on: ${{ matrix.os }}
     steps:
@@ -32,17 +31,21 @@ jobs:
           python-version: "3.12"
       - name: Tests
         run: python -m unittest discover -s tests
+      - name: Install PyInstaller
+        run: python -m pip install --disable-pip-version-check "pyinstaller==6.11.1"
       - name: Build
-        run: |
-          python -m pip install --disable-pip-version-check "pyinstaller==6.11.1"
-          python scripts/build_app.py
+        if: ${{ !matrix.bundle }}
+        run: python scripts/build_app.py
       - name: Smoke test
+        if: ${{ !matrix.bundle }}
         shell: bash
         run: ./${{ matrix.src }} --version
       - name: Rename
+        if: ${{ !matrix.bundle }}
         shell: bash
         run: mkdir out && cp "${{ matrix.src }}" "out/${{ matrix.name }}"
       - uses: actions/upload-artifact@v4
+        if: ${{ !matrix.bundle }}
         with:
           name: ${{ matrix.name }}
           path: out/${{ matrix.name }}

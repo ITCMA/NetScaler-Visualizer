@@ -38,14 +38,14 @@ ranges and invented names.
 ## Getting started
 
 ### Option A: ready-to-run app (no Python required)
-Download `nsviz-windows-x64.exe`, `nsviz-macos-arm64` (Apple silicon) or `nsviz-macos-x64` (Intel) from the
-[Releases](../../releases) page and start it. A local page opens in your browser.
+Download `nsviz-windows-x64.exe`, `nsviz-macos-arm64.dmg` (Apple silicon) or `nsviz-macos-x64.dmg` (Intel) from the
+[Releases](../../releases) page. On Windows, start the file. On macOS, open the DMG, drag `nsviz` to *Applications* and
+start it. A local page opens in your browser. On macOS the command line is part of the app:
+`/Applications/nsviz.app/Contents/MacOS/nsviz`.
 
-The Windows build is not code-signed, and the macOS builds are signed and notarized only where the release notes say so.
-Operating systems therefore show a warning on first start:
+The macOS app is signed and notarized and starts without a warning. The Windows build is not code-signed, so Windows
+shows a warning on first start:
 - **Windows:** SmartScreen displays "Windows protected your PC". Select *More info*, then *Run anyway*.
-- **macOS:** Gatekeeper blocks an app that is not notarized. Control-click the file, choose *Open* and confirm, or remove
-  the quarantine flag in Terminal: `xattr -d com.apple.quarantine nsviz-macos-arm64 && chmod +x nsviz-macos-arm64`.
 
 Compare the SHA-256 checksum from the release page with the downloaded file before you start it.
 

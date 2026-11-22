@@ -3,7 +3,7 @@
 Build tool only (not a runtime dependency): ``pip install pyinstaller``. Run it on the target system - the result is
 specific to the OS it was built on:
 
-    python3 scripts/build_app.py            # single file: dist/nsviz (Windows: nsviz.exe); also the CLI build
+    python3 scripts/build_app.py            # single file: dist/nsviz.exe (Windows)
     python3 scripts/build_app.py --bundle   # macOS only: app bundle dist-bundle/nsviz.app (double-click opens the GUI)
                                             # optional: --icon FILE.icns (made from assets/nsviz-icon.svg by scripts/make_icns.sh)
 
