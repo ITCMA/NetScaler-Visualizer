@@ -4,6 +4,21 @@ interface may change between minor versions).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-22
+### Added
+- macOS app bundle `nsviz.app` (PyInstaller, `scripts/build_app.py --bundle`) for Apple silicon and Intel: double-click
+  opens the GUI. The command line is part of the bundle (`nsviz.app/Contents/MacOS/nsviz`).
+- macOS releases as signed and notarized DMG (app, *Applications* link, app icon as volume icon); the app icon is created
+  from `assets/nsviz-icon.svg` in the release workflow.
+- `scripts/release_macos.sh` (one run per architecture: sign the bundle, build the DMG, notarize, staple) and
+  `scripts/sign_app_macos.sh`; `docs/SIGNING.md` describes the flow.
+### Changed
+- macOS is delivered only as an app in a DMG; there is no separate command-line download and no installer package.
+- The packaged app writes console output only when a console exists (start by double-click).
+- README: macOS download names and start instructions.
+### Removed
+- `scripts/sign_macos.sh` (replaced by `scripts/sign_app_macos.sh`).
+
 ## [0.4.0] - 2026-11-21
 ### Added
 - 22 further rules (82 in total): load balancing (health monitor, backup vServer loop), content switching, TLS options on
@@ -15,11 +30,7 @@ interface may change between minor versions).
   resolved findings) and writes an HTML report.
 - draw.io export of the topology.
 - `docs/SIGNING.md`: signing and notarization of the macOS releases, notes on the unsigned Windows build;
-  `scripts/release_macos.sh` (one run per architecture: sign the app bundle, build the DMG with the app icon, notarize,
-  staple), `scripts/sign_app_macos.sh` and an entitlements file.
-- macOS app bundle `nsviz.app` (PyInstaller, `scripts/build_app.py --bundle`): double-click opens the GUI; the command
-  line is part of the bundle (`nsviz.app/Contents/MacOS/nsviz`). The release workflow builds it for Apple silicon and
-  Intel; there is no separate command-line download for macOS.
+  `scripts/sign_macos.sh` and an entitlements file.
 ### Changed
 - Documentation, interface texts and release notes revised for end users, IT departments and service providers.
 - Architecture document rewritten as a description of the current design.
