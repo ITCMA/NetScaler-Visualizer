@@ -100,28 +100,44 @@ check_signature() {
   fi
 }
 
-# Submits $1 to the notary service and waits. Dies unless the status is Accepted.
+# Submits $1 to the notary service and waits. Dies unless the status is Accepted. Network errors (notarytool exits
+# without a result) are retried: an upload that did not complete is submitted again, a submission whose wait was cut
+# off is resumed by its ID. A real verdict (Invalid, Rejected) is never retried.
 notarize() {
-  local f=$1 log=$2 sub_id status
+  local f=$1 log=$2 sub_id="" status="" attempt=1 max=4 delay=20
   if [ "$dry" -eq 1 ]; then
     run xcrun notarytool submit "$f" --keychain-profile "$profile" --wait
-    echo "(on status other than Accepted the script prints: xcrun notarytool log <id> --keychain-profile $profile)"
+    echo "(on network errors the script retries up to $max times; on status other than Accepted it prints: xcrun notarytool log <id> --keychain-profile $profile)"
     return 0
   fi
-  # notarytool exits 0 even when the result is Invalid, so the status is read from its output.
-  echo "+ xcrun notarytool submit $f --keychain-profile $profile --wait"
-  xcrun notarytool submit "$f" --keychain-profile "$profile" --wait 2>&1 | tee "$log"
-  sub_id=$(sed -n 's/^ *id: *//p' "$log" | head -n 1)
-  status=$(sed -n 's/^ *status: *//p' "$log" | tail -n 1)
-  if [ "$status" != "Accepted" ]; then
-    echo >&2
-    echo "Notarization result: ${status:-unknown}. Notary log:" >&2
-    if [ -n "$sub_id" ]; then
-      xcrun notarytool log "$sub_id" --keychain-profile "$profile" >&2 || true
+  while [ "$attempt" -le "$max" ]; do
+    if [ -z "$sub_id" ]; then
+      echo "+ xcrun notarytool submit $f --keychain-profile $profile --wait (attempt $attempt/$max)"
+      xcrun notarytool submit "$f" --keychain-profile "$profile" --wait 2>&1 | tee "$log" || true
+      sub_id=$(sed -n 's/^ *id: *//p' "$log" | head -n 1)
+    else
+      echo "+ xcrun notarytool wait $sub_id --keychain-profile $profile (attempt $attempt/$max)"
+      xcrun notarytool wait "$sub_id" --keychain-profile "$profile" 2>&1 | tee -a "$log" || true
     fi
-    die "notarization was not accepted (status: ${status:-unknown}, submission: ${sub_id:-n/a})"
+    status=""
+    if [ -n "$sub_id" ]; then
+      # notarytool exits 0 even when the result is Invalid, so the status is asked for explicitly.
+      status=$(xcrun notarytool info "$sub_id" --keychain-profile "$profile" 2>/dev/null | sed -n 's/^ *status: *//p' | tail -n 1 || true)
+    fi
+    case "$status" in
+      Accepted) echo "OK: notarization accepted (submission $sub_id)"; return 0 ;;
+      Invalid|Rejected) break ;;
+    esac
+    echo "NOTE: no final notarization result yet (status: ${status:-unknown}, submission: ${sub_id:-none}); retrying in ${delay}s." >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+  done
+  echo >&2
+  echo "Notarization result: ${status:-unknown}. Notary log:" >&2
+  if [ -n "$sub_id" ]; then
+    xcrun notarytool log "$sub_id" --keychain-profile "$profile" >&2 || true
   fi
-  echo "OK: notarization accepted (submission $sub_id)"
+  die "notarization was not accepted (status: ${status:-unknown}, submission: ${sub_id:-n/a})"
 }
 
 # Detaches the volume mounted at $1; Finder or Spotlight may hold it for a moment, so retry before forcing.
