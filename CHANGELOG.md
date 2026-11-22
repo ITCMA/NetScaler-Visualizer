@@ -15,7 +15,11 @@ interface may change between minor versions).
   resolved findings) and writes an HTML report.
 - draw.io export of the topology.
 - `docs/SIGNING.md`: signing and notarization of the macOS releases, notes on the unsigned Windows build;
-  `scripts/sign_macos.sh` and an entitlements file.
+  `scripts/release_macos.sh` (one run per architecture: sign the app bundle, build the DMG with the app icon, notarize,
+  staple), `scripts/sign_app_macos.sh` and an entitlements file.
+- macOS app bundle `nsviz.app` (PyInstaller, `scripts/build_app.py --bundle`): double-click opens the GUI; the command
+  line is part of the bundle (`nsviz.app/Contents/MacOS/nsviz`). The release workflow builds it for Apple silicon and
+  Intel; there is no separate command-line download for macOS.
 ### Changed
 - Documentation, interface texts and release notes revised for end users, IT departments and service providers.
 - Architecture document rewritten as a description of the current design.

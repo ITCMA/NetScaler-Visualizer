@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+dist-bundle/
 .venv/
 
 # OS / editor
@@ -45,6 +46,7 @@ dist/
 !docs/images/*.png
 *.svg
 !nsviz/assets/**/*.svg
+!assets/nsviz-icon.svg
 *.pdf
 *-topology.*
 *-findings.*

@@ -38,16 +38,15 @@ Dokumentations-Adressbereiche und erfundene Namen.
 ## Erste Schritte
 
 ### Variante A: Fertige Anwendung (ohne Python)
-Laden Sie `nsviz-windows-x64.exe`, `nsviz-macos-arm64` (Apple Silicon) oder `nsviz-macos-x64` (Intel) von der
-[Releases](../../releases)-Seite und starten Sie die Datei. Im Browser öffnet sich eine lokale Seite.
+Laden Sie `nsviz-windows-x64.exe`, `nsviz-macos-arm64.dmg` (Apple Silicon) oder `nsviz-macos-x64.dmg` (Intel) von der
+[Releases](../../releases)-Seite. Unter Windows starten Sie die Datei. Unter macOS öffnen Sie das DMG, ziehen `nsviz` nach
+*Programme* und starten die App. Im Browser öffnet sich eine lokale Seite. Unter macOS gehört die Kommandozeile zur App:
+`/Applications/nsviz.app/Contents/MacOS/nsviz`.
 
-Der Windows-Build ist nicht codesigniert; die macOS-Builds sind nur dann signiert und notarisiert, wenn die Release-Hinweise
-dies angeben. Das Betriebssystem zeigt deshalb beim ersten Start eine Warnung:
+Die macOS-App ist signiert und notarisiert und startet ohne Warnung. Der Windows-Build ist nicht codesigniert, Windows zeigt
+deshalb beim ersten Start eine Warnung:
 - **Windows:** SmartScreen meldet „Der PC wurde durch Windows geschützt“. Wählen Sie *Weitere Informationen* und danach
   *Trotzdem ausführen*.
-- **macOS:** Gatekeeper blockiert eine nicht notarisierte App. Klicken Sie die Datei bei gedrückter Control-Taste an, wählen
-  Sie *Öffnen* und bestätigen Sie, oder entfernen Sie das Quarantäne-Attribut im Terminal:
-  `xattr -d com.apple.quarantine nsviz-macos-arm64 && chmod +x nsviz-macos-arm64`.
 
 Vergleichen Sie vor dem Start die SHA-256-Prüfsumme von der Release-Seite mit der heruntergeladenen Datei.
 Hintergründe zur Signierung: [docs/SIGNING.de.md](docs/SIGNING.de.md).

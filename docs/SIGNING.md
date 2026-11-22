@@ -10,7 +10,7 @@ as plain text.
 | Platform | Status | Effect for users |
 |---|---|---|
 | Windows | Not code-signed | SmartScreen shows a warning on first start (see below). |
-| macOS | Signed with Developer ID Application and notarized, when the release notes say so | No warning. Without notarization Gatekeeper blocks the first start. |
+| macOS | App (DMG, command line included), signed with Developer ID Application and notarized, when the release notes say so | No warning. Without notarization Gatekeeper blocks the first start. |
 
 Each release lists the SHA-256 checksums in `SHA256SUMS.txt`. Compare the checksum with the downloaded file before the
 first start.
@@ -27,16 +27,36 @@ In managed environments the file can be allowed by hash (SHA-256 from `SHA256SUM
 policy, for example AppLocker or Windows Defender Application Control. Alternatively, the organization can sign the file
 with its own internal code-signing certificate.
 
-## Quick reference (macOS, one pass per release)
+## Quick reference (macOS, one run per architecture)
+macOS users get one download per architecture: the **app** `nsviz-macos-<arch>.dmg`. Drag `nsviz` to *Applications*;
+double-click opens the local GUI. The command line is part of the app, with the path
+`/Applications/nsviz.app/Contents/MacOS/nsviz` (with arguments it behaves like `python -m nsviz`); there is no separate
+command-line download.
+
 ```bash
 export NSVIZ_SIGN_IDENTITY="Developer ID Application: <organization> (<team ID>)"
-scripts/sign_macos.sh nsviz-macos-arm64 nsviz-macos-x64          # sign
-ditto -c -k --keepParent nsviz-macos-arm64 nsviz-macos-arm64.zip
-xcrun notarytool submit nsviz-macos-arm64.zip --keychain-profile "nsviz-notary" --wait
-spctl --assess --type execute --verbose nsviz-macos-arm64        # verify
+scripts/release_macos.sh --arch arm64 --app ~/Downloads/nsviz-macos-arm64-app.zip
+scripts/release_macos.sh --arch x64   --app ~/Downloads/nsviz-macos-x64-app.zip
 ```
-The profile `nsviz-notary` is created once with `xcrun notarytool store-credentials` (step 3). Notarize the Intel build
-the same way. The individual steps follow below.
+Per architecture the script signs the app bundle (every nested file first, then the bundle; hardened runtime, secure
+timestamp), builds the DMG with the app and an *Applications* link, gives the DMG the app icon as volume icon, signs the
+DMG, notarizes it, staples the ticket and validates. It stops on the first error. `--dry-run` only prints the commands,
+but unpacks and checks the input in a temporary folder. `--app` takes the ZIP from the release workflow (also as downloaded
+from GitHub, a ZIP inside a ZIP) or an `nsviz.app` folder. Other options: `--out` (release folder, default
+`$NSVIZ_RELEASE_DIR` or `~/NetScaler-Visualizer-Release`; must be outside the repository) and `--profile` (default
+`nsviz-notary`, created once, step 3).
+
+Why an app bundle in a DMG: Gatekeeper could not assess the earlier DMG variant with a bare command-line binary inside
+(`spctl` answered "invalid API object reference"). An app bundle is the form Gatekeeper expects for programs started by
+double-click. Whether the bundle passes `spctl --assess --type execute` is confirmed by the release run.
+
+Where files end up:
+- Final products, directly in the release folder: `nsviz-macos-arm64.dmg`, `nsviz-macos-x64.dmg` and `SHA256SUMS.txt`.
+- Intermediate files in `<release folder>/work/<arch>/`; deleted after success, kept on failure.
+- Next: upload the DMGs to the release draft, replacing the unsigned macOS files, and merge the checksums (step 7).
+  Nothing from the release folder is ever committed.
+
+The individual steps follow below. They describe the equivalent manual way, for example for troubleshooting.
 
 ## macOS (Developer ID Application and notarization)
 
@@ -45,7 +65,6 @@ the same way. The individual steps follow below.
 - A certificate of type **Developer ID Application** in the login keychain of the signing Mac. The Account Holder
   creates it at developer.apple.com under *Certificates, Identifiers & Profiles* → *Certificates* → *+* →
   *Developer ID Application*, using a certificate signing request created with Keychain Access.
-  (A *Developer ID Installer* certificate is needed only for `.pkg` installers.)
 - Xcode command line tools (`xcode-select --install`) for `codesign` and `xcrun notarytool`.
 
 Check the certificate:
@@ -54,27 +73,34 @@ security find-identity -v -p codesigning
 ```
 The output lists an identity such as `Developer ID Application: <organization> (<team ID>)`.
 
-### 1. Build the binaries
-The release workflow produces `nsviz-macos-arm64` and `nsviz-macos-x64` (PyInstaller, single file). Download them from the
-workflow run or the draft release into an empty folder.
+### 1. Build the app
+The release workflow produces, per architecture (arm64, x64), the app bundle as `nsviz-macos-<arch>-app.zip` (PyInstaller,
+`scripts/build_app.py --bundle`; the ZIP contains the folder `nsviz.app`). Download it from the workflow run or the draft
+release into an empty folder.
 
 ### 2. Sign
-The repository contains `scripts/sign_macos.sh` and the entitlements file `scripts/entitlements.plist`. A single-file
-PyInstaller binary unpacks and loads code at runtime, so the hardened runtime needs two entitlements
+The repository contains `scripts/sign_app_macos.sh` and the entitlements file `scripts/entitlements.plist`. A PyInstaller
+program unpacks and loads code at runtime, so the hardened runtime needs two entitlements
 (`allow-unsigned-executable-memory`, `disable-library-validation`). Check on the first run whether both are required and
 remove any that are not.
 
 ```bash
 export NSVIZ_SIGN_IDENTITY="Developer ID Application: <organization> (<team ID>)"
-scripts/sign_macos.sh nsviz-macos-arm64
+ditto -x -k nsviz-macos-arm64-app.zip .          # unpacks nsviz.app
+scripts/sign_app_macos.sh nsviz.app
 ```
-The script runs, in essence:
+The script signs every nested Mach-O file (deepest first)
+```bash
+codesign --force --timestamp --options runtime --sign "$NSVIZ_SIGN_IDENTITY" <file>
+```
+and then the bundle with the entitlements:
 ```bash
 codesign --force --timestamp --options runtime \
          --entitlements scripts/entitlements.plist \
-         --sign "$NSVIZ_SIGN_IDENTITY" nsviz-macos-arm64
-codesign --verify --strict --verbose=2 nsviz-macos-arm64
+         --sign "$NSVIZ_SIGN_IDENTITY" nsviz.app
+codesign --verify --deep --strict --verbose=2 nsviz.app
 ```
+`codesign --deep` is not used for signing.
 
 ### 3. Store notarization credentials (once)
 Notarization needs an Apple ID with an **app-specific password** or an **App Store Connect API key**. The credentials are
@@ -95,40 +121,47 @@ xcrun notarytool store-credentials "nsviz-notary" \
 ```
 Store the key file outside the repository.
 
-### 4. Notarize
-`notarytool` accepts `.zip`, `.dmg` and `.pkg`, not a bare binary. Pack the signed file with `ditto`:
+### 4. Build and sign the DMG
 ```bash
-ditto -c -k --keepParent nsviz-macos-arm64 nsviz-macos-arm64.zip
-xcrun notarytool submit nsviz-macos-arm64.zip --keychain-profile "nsviz-notary" --wait
+mkdir dmg && ditto nsviz.app dmg/nsviz.app && ln -s /Applications dmg/Applications
+hdiutil create -volname nsviz -srcfolder dmg -ov -format UDZO nsviz-macos-arm64.dmg
+codesign --force --timestamp --sign "$NSVIZ_SIGN_IDENTITY" nsviz-macos-arm64.dmg
 ```
-On `Accepted` the process is complete. On `Invalid`, read the log:
+The script additionally copies the icon file of the bundle into the image as `.VolumeIcon.icns` and sets the
+custom-icon flag (`SetFile -a C`) on the mounted volume before the final image is created.
+
+### 5. Notarize and staple
+`notarytool` accepts disk images, ZIP archives and installer packages, not a bare binary:
+```bash
+xcrun notarytool submit nsviz-macos-arm64.dmg --keychain-profile "nsviz-notary" --wait
+```
+On `Accepted`, staple the ticket, so that the app also opens offline:
+```bash
+xcrun stapler staple nsviz-macos-arm64.dmg
+```
+On `Invalid`, read the log:
 ```bash
 xcrun notarytool log <submission ID> --keychain-profile "nsviz-notary"
 ```
-Typical causes are a missing secure timestamp, a missing hardened runtime or an unsigned embedded binary.
-
-### 5. Staple and distribute
-A ticket can be stapled to `.app`, `.dmg` and `.pkg`, but not to a bare binary. A notarized bare binary still starts
-without a warning, because Gatekeeper retrieves the notarization ticket online; offline machines show the warning.
-For offline use, deliver a `.dmg` and staple it:
-```bash
-hdiutil create -volname nsviz -srcfolder <folder with the signed binary> -ov -format UDZO nsviz.dmg
-codesign --force --timestamp --sign "$NSVIZ_SIGN_IDENTITY" nsviz.dmg
-xcrun notarytool submit nsviz.dmg --keychain-profile "nsviz-notary" --wait
-xcrun stapler staple nsviz.dmg
-```
+Typical causes are a missing secure timestamp, a missing hardened runtime or an unsigned embedded file.
 
 ### 6. Verify
 ```bash
-spctl --assess --type execute --verbose nsviz-macos-arm64     # "accepted, source=Notarized Developer ID"
-xcrun stapler validate nsviz.dmg
+xcrun stapler validate nsviz-macos-arm64.dmg
+spctl --assess --type open --context context:primary-signature --verbose nsviz-macos-arm64.dmg   # accepted, Notarized Developer ID
+spctl --assess --type execute --verbose nsviz.app                                                  # accepted, Notarized Developer ID
 ```
 Test on a second Mac that has not seen the file before, with the file downloaded through a browser, so that the quarantine
-attribute is set.
+attribute is set: open the DMG, drag `nsviz` to *Applications*, start it; the GUI opens in the browser without a warning.
+The command line: `/Applications/nsviz.app/Contents/MacOS/nsviz --version`.
 
 ### 7. Publish
-Replace the unsigned files in the draft release with the signed ones, regenerate `SHA256SUMS.txt`
-(`shasum -a 256 <files> > SHA256SUMS.txt`) and state in the release notes that the macOS files are signed and notarized.
+Replace the unsigned macOS files in the draft release with the signed DMGs and state in the release notes that the macOS
+files are signed and notarized.
+
+The draft's `SHA256SUMS.txt` is generated by the release workflow and also contains the Windows file. The script's
+`SHA256SUMS.txt` covers only the DMGs. Do not upload it as a replacement. Download the draft's file, keep the Windows line
+unchanged, replace the two macOS lines with the lines of the DMGs from the release folder and upload the merged file.
 
 ### Signing in CI (optional)
 Signing in GitHub Actions needs the certificate as a base64-encoded `.p12` secret, a temporary keychain on the runner and
