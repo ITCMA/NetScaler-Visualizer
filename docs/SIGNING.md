@@ -27,16 +27,24 @@ In managed environments the file can be allowed by hash (SHA-256 from `SHA256SUM
 policy, for example AppLocker or Windows Defender Application Control. Alternatively, the organization can sign the file
 with its own internal code-signing certificate.
 
-## Quick reference (macOS, one pass per release)
+## Quick reference (macOS, one run per architecture)
 ```bash
 export NSVIZ_SIGN_IDENTITY="Developer ID Application: <organization> (<team ID>)"
-scripts/sign_macos.sh nsviz-macos-arm64 nsviz-macos-x64          # sign
-ditto -c -k --keepParent nsviz-macos-arm64 nsviz-macos-arm64.zip
-xcrun notarytool submit nsviz-macos-arm64.zip --keychain-profile "nsviz-notary" --wait
-spctl --assess --type execute --verbose nsviz-macos-arm64        # verify
+scripts/release_macos.sh --arch arm64 --binary ~/Downloads/nsviz-macos-arm64
+scripts/release_macos.sh --arch x64   --binary ~/Downloads/nsviz-macos-x64
 ```
-The profile `nsviz-notary` is created once with `xcrun notarytool store-credentials` (step 3). Notarize the Intel build
-the same way. The individual steps follow below.
+The script checks the binary, signs it, builds `nsviz-macos-<arch>.dmg`, signs the DMG, notarizes, staples and
+validates, and stops on the first error. `--dry-run` only prints the commands. Options: `--out` (release folder, default
+`$NSVIZ_RELEASE_DIR` or `~/NetScaler-Visualizer-Release`; must be outside the repository) and `--profile` (default
+`nsviz-notary`, created once, step 3).
+
+Where files end up:
+- Final products, directly in the release folder: `nsviz-macos-arm64.dmg`, `nsviz-macos-x64.dmg` and `SHA256SUMS.txt`.
+- Intermediate files in `<release folder>/work/<arch>/`; deleted after success, kept on failure.
+- Next: upload the DMGs and `SHA256SUMS.txt` to the release draft, replacing the unsigned macOS files (step 7).
+  Nothing from the release folder is ever committed.
+
+The individual steps the script performs follow below.
 
 ## macOS (Developer ID Application and notarization)
 

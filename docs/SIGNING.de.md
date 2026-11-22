@@ -27,16 +27,24 @@ In verwalteten Umgebungen kann die Datei in der Richtlinie zur Anwendungssteueru
 Defender Application Control) per Hash (SHA-256 aus `SHA256SUMS.txt`) zugelassen werden. Alternativ kann die Organisation die
 Datei mit einem eigenen, internen Codesigning-Zertifikat signieren.
 
-## Kurzfassung (macOS, ein Durchlauf pro Release)
+## Kurzfassung (macOS, ein Lauf pro Architektur)
 ```bash
 export NSVIZ_SIGN_IDENTITY="Developer ID Application: <Organisation> (<Team-ID>)"
-scripts/sign_macos.sh nsviz-macos-arm64 nsviz-macos-x64          # signieren
-ditto -c -k --keepParent nsviz-macos-arm64 nsviz-macos-arm64.zip
-xcrun notarytool submit nsviz-macos-arm64.zip --keychain-profile "nsviz-notary" --wait
-spctl --assess --type execute --verbose nsviz-macos-arm64        # prüfen
+scripts/release_macos.sh --arch arm64 --binary ~/Downloads/nsviz-macos-arm64
+scripts/release_macos.sh --arch x64   --binary ~/Downloads/nsviz-macos-x64
 ```
-Das Profil `nsviz-notary` wird einmalig mit `xcrun notarytool store-credentials` angelegt (Schritt 3). Der Intel-Build
-wird gleich notarisiert. Die Einzelschritte folgen unten.
+Das Skript prüft die Binärdatei, signiert sie, baut `nsviz-macos-<arch>.dmg`, signiert das DMG, notarisiert, heftet das
+Ticket und validiert; beim ersten Fehler bricht es ab. `--dry-run` gibt nur die Befehle aus. Optionen: `--out`
+(Release-Ordner, Standard `$NSVIZ_RELEASE_DIR` oder `~/NetScaler-Visualizer-Release`; muss außerhalb des Repositorys
+liegen) und `--profile` (Standard `nsviz-notary`, einmalig angelegt, Schritt 3).
+
+Wo die Dateien landen:
+- Endprodukte direkt im Release-Ordner: `nsviz-macos-arm64.dmg`, `nsviz-macos-x64.dmg` und `SHA256SUMS.txt`.
+- Zwischenstände in `<Release-Ordner>/work/<arch>/`; nach Erfolg gelöscht, bei Fehlern zur Analyse behalten.
+- Danach: DMGs und `SHA256SUMS.txt` in den Release-Entwurf hochladen und die unsignierten macOS-Dateien ersetzen
+  (Schritt 7). Nichts aus dem Release-Ordner wird je committet.
+
+Die Einzelschritte des Skripts folgen unten.
 
 ## macOS (Developer ID Application und Notarisierung)
 
