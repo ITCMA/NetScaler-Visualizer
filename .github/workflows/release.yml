@@ -1,5 +1,5 @@
 name: Release builds
-# Builds the single-file app for Windows and macOS with PyInstaller.
+# Builds the single-file app for Windows and macOS and, on macOS, additionally the app bundle (nsviz.app, zipped) with PyInstaller.
 # Manual run: artifacts only. Tag v*: additionally a draft release with the files (published by hand).
 on:
   workflow_dispatch:
@@ -19,9 +19,11 @@ jobs:
           - os: macos-latest
             name: nsviz-macos-arm64
             src: dist/nsviz
+            bundle: nsviz-macos-arm64-app.zip
           - os: macos-15-intel
             name: nsviz-macos-x64
             src: dist/nsviz
+            bundle: nsviz-macos-x64-app.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +47,28 @@ jobs:
           name: ${{ matrix.name }}
           path: out/${{ matrix.name }}
           if-no-files-found: error
+      - name: Create app icon from SVG
+        if: matrix.bundle
+        # the .icns is a build product, generated from assets/nsviz-icon.svg and never committed
+        run: |
+          brew install librsvg
+          scripts/make_icns.sh assets/nsviz-icon.svg "$RUNNER_TEMP/nsviz.icns"
+      - name: Build macOS app bundle
+        if: matrix.bundle
+        run: python scripts/build_app.py --bundle --icon "$RUNNER_TEMP/nsviz.icns"
+      - name: Smoke test app bundle
+        if: matrix.bundle
+        run: ./dist-bundle/nsviz.app/Contents/MacOS/nsviz --version
+      - name: Pack app bundle
+        if: matrix.bundle
+        # ditto keeps symlinks and permissions, which an artifact upload of the folder would lose
+        run: mkdir out-app && ditto -c -k --keepParent dist-bundle/nsviz.app "out-app/${{ matrix.bundle }}"
+      - uses: actions/upload-artifact@v4
+        if: matrix.bundle
+        with:
+          name: ${{ matrix.bundle }}
+          path: out-app/${{ matrix.bundle }}
+          if-no-files-found: error
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
@@ -64,4 +88,4 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" out/* --repo "${GITHUB_REPOSITORY}" --draft \
             --title "nsviz ${GITHUB_REF_NAME#v}" \
-            --notes "See CHANGELOG.md. The builds are not code-signed, see README (Getting started)."
+            --notes "See CHANGELOG.md. The Windows build is not code-signed, see README (Getting started)."

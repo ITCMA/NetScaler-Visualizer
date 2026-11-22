@@ -11,6 +11,7 @@ import json
 import re
 import secrets
 import shutil
+import sys
 import tempfile
 import threading
 import webbrowser
@@ -267,6 +268,15 @@ def make_handler(st: State, port: int):
     return H
 
 
+def _say(text: str) -> None:
+    """Console output; skipped when there is no console (packaged app started by double-click)."""
+    try:
+        if sys.stdout is not None:
+            print(text, flush=True)
+    except (OSError, ValueError):
+        pass
+
+
 def serve(port: int = 0, open_browser: bool = True, debug: bool = False) -> int:
     st = State(debug=debug)
     # the handler needs the real port for the Host check; bind first
@@ -275,8 +285,8 @@ def serve(port: int = 0, open_browser: bool = True, debug: bool = False) -> int:
     srv.RequestHandlerClass = make_handler(st, real)
     st.server = srv
     url = f"http://127.0.0.1:{real}/?t={st.token}"
-    print(f"nsviz GUI: {url}", flush=True)
-    print("Listening on this computer only (127.0.0.1). Close with Ctrl+C or the button in the page.", flush=True)
+    _say(f"nsviz GUI: {url}")
+    _say("Listening on this computer only (127.0.0.1). Close with Ctrl+C or the button in the page.")
     if open_browser:
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()
     try:
