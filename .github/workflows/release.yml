@@ -44,7 +44,7 @@ jobs:
         if: ${{ !matrix.bundle }}
         shell: bash
         run: mkdir out && cp "${{ matrix.src }}" "out/${{ matrix.name }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !matrix.bundle }}
         with:
           name: ${{ matrix.name }}
@@ -66,7 +66,7 @@ jobs:
         if: matrix.bundle
         # ditto keeps symlinks and permissions, which an artifact upload of the folder would lose
         run: mkdir out-app && ditto -c -k --keepParent dist-bundle/nsviz.app "out-app/${{ matrix.bundle }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.bundle
         with:
           name: ${{ matrix.bundle }}
