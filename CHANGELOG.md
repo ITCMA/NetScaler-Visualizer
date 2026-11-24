@@ -3,6 +3,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 interface may change between minor versions).
 
 ## [Unreleased]
+### Changed
+- License: Apache License 2.0 (before: all rights reserved); `NOTICE` added.
+
 ### Added
 - `scripts/release.sh`: guided release from tag to published release (checks, tag, wait for the build, signing, publish, verify); tag and publish ask for a typed confirmation; `--dry-run`.
 - `scripts/publish_release.sh`: one command for the macOS release step (download from the draft, sign, notarize, staple, upload, merge checksums; never publishes), with log file and retries; `release_macos.sh` retries notarization on network errors.

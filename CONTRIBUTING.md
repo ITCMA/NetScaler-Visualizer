@@ -1,7 +1,7 @@
 # Contributing / Mitarbeit
 
-This is a proprietary project. Contributions are accepted by agreement with the rights holder.
-Dies ist ein proprietäres Projekt. Beiträge werden nach Absprache mit dem Rechteinhaber angenommen.
+Contributions are welcome. Unless you state otherwise, a contribution you submit is licensed under the Apache License 2.0 (section 5 of the [LICENSE](LICENSE)). Please open an issue first for larger changes.
+Beiträge sind willkommen. Sofern nicht anders angegeben, wird ein eingereichter Beitrag unter der Apache License 2.0 lizenziert (Abschnitt 5 der [LICENSE](LICENSE)). Bei größeren Änderungen bitte zuerst ein Issue anlegen.
 
 ## Guidelines / Richtlinien
 1. **No customer data** in the repository, issues, commits, tests or examples: no real names, host names, IP addresses,
