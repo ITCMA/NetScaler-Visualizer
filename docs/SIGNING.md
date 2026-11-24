@@ -56,6 +56,30 @@ Where files end up:
 - Next: upload the DMGs to the release draft, replacing the unsigned macOS files, and merge the checksums (step 7).
   Nothing from the release folder is ever committed.
 
+## Automatic release (macOS, one command)
+After the release workflow has created the draft for a pushed tag `vX.Y.Z`, one command on the signing Mac does everything
+below without parameters:
+
+```bash
+scripts/publish_release.sh --dry-run    # optional: read-only checks and plan, changes nothing
+scripts/publish_release.sh              # the one existing draft; or: scripts/publish_release.sh v0.4.1
+```
+It downloads the unsigned app ZIPs from the draft, runs `release_macos.sh` for both architectures, re-verifies the DMGs,
+merges `SHA256SUMS.txt` (the Windows line stays, the macOS lines are replaced), uploads the DMGs and the checksums to the
+draft, verifies the uploads and removes the unsigned app ZIPs from the draft. **It never publishes the release.**
+Afterwards: add the note that the macOS files are signed and notarized, review the release notes, publish by hand.
+
+Found automatically: the signing identity (the only *Developer ID Application* identity in the keychain; with several,
+set `NSVIZ_SIGN_IDENTITY`), the notary profile `nsviz-notary` (step 3, checked first), and the GitHub login of `gh`
+(`gh auth login` once). Network errors are retried (downloads, uploads, notarization); a notarization verdict of
+*Invalid* is not. Leftover mounted volumes are detached on exit. Every run starts clean and replaces earlier uploads, so
+after an error it is safe to run the same command again.
+
+Folders: `<release folder>/<tag>/` holds the downloaded input, the signed DMGs and the merged `SHA256SUMS.txt`;
+`<release folder>/logs/publish-<time>.log` is the timestamped log of every step (no credentials are ever written).
+Options: `--no-upload` (build and verify only), `--out`, `--repo`, `--profile`. The manual steps below remain the reference
+for troubleshooting.
+
 The individual steps follow below. They describe the equivalent manual way, for example for troubleshooting.
 
 ## macOS (Developer ID Application and notarization)

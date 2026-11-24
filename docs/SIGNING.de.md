@@ -57,6 +57,32 @@ Wo die Dateien landen:
 - Danach: DMGs in den Release-Entwurf hochladen, die unsignierten macOS-Dateien ersetzen und die Prüfsummen
   zusammenführen (Schritt 7). Nichts aus dem Release-Ordner wird je committet.
 
+## Automatische Freigabe (macOS, ein Befehl)
+Wenn der Release-Workflow für einen gepushten Tag `vX.Y.Z` den Entwurf erstellt hat, erledigt ein Befehl auf dem
+Signier-Mac alles Folgende ohne Parameter:
+
+```bash
+scripts/publish_release.sh --dry-run    # optional: nur prüfen und Plan anzeigen, ändert nichts
+scripts/publish_release.sh              # der eine vorhandene Entwurf; oder: scripts/publish_release.sh v0.4.1
+```
+Er lädt die unsignierten App-ZIPs aus dem Entwurf, führt `release_macos.sh` für beide Architekturen aus, prüft die DMGs
+erneut, führt `SHA256SUMS.txt` zusammen (die Windows-Zeile bleibt, die macOS-Zeilen werden ersetzt), lädt DMGs und
+Prüfsummen in den Entwurf hoch, prüft den Upload und entfernt die unsignierten App-ZIPs aus dem Entwurf. **Er
+veröffentlicht den Release nie.** Danach: Hinweis ergänzen, dass die macOS-Dateien signiert und notarisiert sind,
+Release-Notes prüfen, von Hand veröffentlichen.
+
+Automatisch gefunden werden: die Signaturidentität (die einzige *Developer ID Application*-Identität im Schlüsselbund;
+bei mehreren `NSVIZ_SIGN_IDENTITY` setzen), das Notarisierungsprofil `nsviz-notary` (Schritt 3, wird zuerst geprüft)
+und die GitHub-Anmeldung von `gh` (einmalig `gh auth login`). Netzwerkfehler werden wiederholt (Download, Upload,
+Notarisierung); ein Notarisierungsergebnis *Invalid* nicht. Übrig gebliebene eingehängte Volumes werden beim Beenden
+ausgehängt. Jeder Lauf beginnt sauber und ersetzt frühere Uploads; nach einem Fehler kann derselbe Befehl gefahrlos
+erneut laufen.
+
+Ordner: `<Release-Ordner>/<Tag>/` enthält die geladenen Eingaben, die signierten DMGs und die zusammengeführte
+`SHA256SUMS.txt`; `<Release-Ordner>/logs/publish-<Zeit>.log` ist das Protokoll mit Zeitstempel zu jedem Schritt (es
+werden nie Zugangsdaten geschrieben). Optionen: `--no-upload` (nur bauen und prüfen), `--out`, `--repo`, `--profile`.
+Die manuellen Schritte unten bleiben die Referenz zur Fehlersuche.
+
 Die Einzelschritte folgen unten. Sie beschreiben den gleichwertigen manuellen Weg, zum Beispiel zur Fehlersuche.
 
 ## macOS (Developer ID Application und Notarisierung)
