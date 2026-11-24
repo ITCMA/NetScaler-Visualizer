@@ -3,6 +3,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 interface may change between minor versions).
 
 ## [Unreleased]
+
+## [0.4.2] - 2026-11-24
 ### Changed
 - License: Apache License 2.0 (before: all rights reserved); `NOTICE` added.
 
