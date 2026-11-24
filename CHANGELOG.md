@@ -88,7 +88,7 @@ interface may change between minor versions).
 - Topology redesigned: cards with icons, tier columns per device or HA pair, several layouts, path highlighting, minimap,
   collapsible legend, high-contrast and dark variants.
 - More complete dependency detection (policy invocation, Unified Gateway behind content switching, certificate chains, global
-  STA servers, session action types, bookmarks), checked against a corpus of real configurations (counts only).
+  STA servers, session action types, bookmarks), checked against a broad set of NetScaler configurations.
 
 ## [0.1.x] - 2026-11-21
 ### Added
