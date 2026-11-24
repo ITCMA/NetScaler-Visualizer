@@ -27,6 +27,17 @@ In managed environments the file can be allowed by hash (SHA-256 from `SHA256SUM
 policy, for example AppLocker or Windows Defender Application Control. Alternatively, the organization can sign the file
 with its own internal code-signing certificate.
 
+## Whole release in one guided command (macOS)
+`scripts/release.sh` does everything from the tag to the published release, on the signing Mac, on `main`:
+checks (clean tree, in sync with origin, CHANGELOG section, CI green, tag free) → tag and push → wait for the build →
+`publish_release.sh` (sign, notarize, upload) → publish → verify the four files. `scripts/release.sh --dry-run` runs only the
+checks and prints the release text, which is assembled from the CHANGELOG section.
+
+Two steps ask for a confirmation at the terminal and need the tag name typed: creating the tag and publishing the release.
+Nothing is tagged or published without that. Re-running after an error continues where it stopped (an existing tag or
+draft is reused). The version comes from `nsviz/__init__.py`; bump it and fill the CHANGELOG section before you start.
+Set `NSVIZ_RELEASE_DIR` once to choose where the signed files and logs go (default `~/NetScaler-Visualizer-Release`).
+
 ## Quick reference (macOS, one run per architecture)
 macOS users get one download per architecture: the **app** `nsviz-macos-<arch>.dmg`. Drag `nsviz` to *Applications*;
 double-click opens the local GUI. The command line is part of the app, with the path
