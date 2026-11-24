@@ -174,4 +174,4 @@ von ihnen empfohlen oder unterstützt. Ergebnisse sind automatisierte Hinweise o
 [docs/LEGAL.de.md](docs/LEGAL.de.md).
 
 ## Lizenz
-Proprietär, alle Rechte vorbehalten. Siehe [LICENSE](LICENSE).
+Apache License 2.0. Siehe [LICENSE](LICENSE) und [NOTICE](NOTICE).

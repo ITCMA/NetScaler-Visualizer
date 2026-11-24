@@ -166,4 +166,4 @@ NetScaler and Citrix are trademarks of their respective owners. This project is 
 endorsed or supported by them. Results are automated hints without warranty; see [docs/LEGAL.md](docs/LEGAL.md).
 
 ## License
-Proprietary, all rights reserved. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

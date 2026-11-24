@@ -9,9 +9,9 @@ description = "Visualize NetScaler (ADC) environments - HA pairs, double-hop cha
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []  # standard library only
-license = { text = "Proprietary - all rights reserved" }
+license = { text = "Apache-2.0" }
 classifiers = [
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Topic :: System :: Networking",
     "Topic :: Security",

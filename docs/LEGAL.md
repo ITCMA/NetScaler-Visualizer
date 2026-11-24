@@ -34,5 +34,5 @@ The software is provided "as is" (see [LICENSE](../LICENSE)). Results are automa
 remain the professional responsibility of the person using the tool.
 
 ## Rights
-Copyright (c) 2026 ITCMA GmbH. All rights reserved. No license is granted for use, copying, modification or distribution
-without the written permission of the rights holder.
+Copyright 2026 ITCMA GmbH. Licensed under the Apache License, Version 2.0 (see [LICENSE](../LICENSE) and [NOTICE](../NOTICE)).
+The license grants no rights to the names and trademarks of the rights holder or of third parties (section 6).

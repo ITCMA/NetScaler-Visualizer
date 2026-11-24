@@ -35,5 +35,5 @@ Die Software wird „wie besehen“ bereitgestellt (siehe [LICENSE](../LICENSE))
 Empfehlungen an Kunden bleiben in der fachlichen Verantwortung des Anwenders.
 
 ## Rechte
-Copyright (c) 2026 ITCMA GmbH. Alle Rechte vorbehalten. Ohne schriftliche Erlaubnis des Rechteinhabers wird keine Lizenz zur
-Nutzung, Vervielfältigung, Änderung oder Verbreitung erteilt.
+Copyright 2026 ITCMA GmbH. Lizenziert unter der Apache License, Version 2.0 (siehe [LICENSE](../LICENSE) und [NOTICE](../NOTICE)).
+Die Lizenz gewährt keine Rechte an Namen und Marken des Rechteinhabers oder Dritter (Abschnitt 6).
