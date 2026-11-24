@@ -27,6 +27,19 @@ In verwalteten Umgebungen kann die Datei in der Richtlinie zur Anwendungssteueru
 Defender Application Control) per Hash (SHA-256 aus `SHA256SUMS.txt`) zugelassen werden. Alternativ kann die Organisation die
 Datei mit einem eigenen, internen Codesigning-Zertifikat signieren.
 
+## Ganzes Release in einem geführten Befehl (macOS)
+`scripts/release.sh` erledigt alles vom Tag bis zum veröffentlichten Release, auf dem Signier-Mac, auf `main`:
+Prüfungen (sauberer Arbeitsstand, synchron mit origin, CHANGELOG-Abschnitt, CI grün, Tag frei) → Tag setzen und pushen →
+Build abwarten → `publish_release.sh` (signieren, notarisieren, hochladen) → veröffentlichen → die vier Dateien prüfen.
+`scripts/release.sh --dry-run` führt nur die Prüfungen aus und zeigt den Release-Text, der aus dem CHANGELOG-Abschnitt
+entsteht.
+
+Zwei Schritte fragen im Terminal nach und verlangen die Eingabe des Tag-Namens: das Setzen des Tags und das Veröffentlichen.
+Ohne diese Eingabe wird nichts getaggt oder veröffentlicht. Nach einem Fehler setzt ein neuer Aufruf dort fort, wo der Lauf
+stand (vorhandener Tag und Entwurf werden weiterverwendet). Die Version kommt aus `nsviz/__init__.py`; vor dem Start Version
+erhöhen und CHANGELOG-Abschnitt füllen. Mit `NSVIZ_RELEASE_DIR` legst du einmal fest, wohin signierte Dateien und Logs
+kommen (Standard `~/NetScaler-Visualizer-Release`).
+
 ## Kurzfassung (macOS, ein Lauf pro Architektur)
 macOS-Nutzer erhalten pro Architektur einen Download: die **App** `nsviz-macos-<arch>.dmg`. `nsviz` nach *Programme*
 ziehen; Doppelklick öffnet die lokale Oberfläche. Die Kommandozeile gehört zur App, mit dem Pfad
