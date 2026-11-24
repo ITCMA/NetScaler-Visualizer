@@ -136,7 +136,7 @@ class HygieneTests(unittest.TestCase):
                 yield f
 
     def test_no_ai_tool_references(self):
-        terms = ["clau" + "de", "anthr" + "opic", "chat" + "gpt", "co-authored"]
+        terms = ["clau" + "de", "anthr" + "opic", "chat" + "gpt", "co-" + "authored"]
         for f in self._files():
             t = f.read_text(encoding="utf-8", errors="replace").lower()
             for term in terms:
@@ -149,7 +149,7 @@ class HygieneTests(unittest.TestCase):
             t = f.read_text(encoding="utf-8", errors="replace")
             self.assertIsNone(hexsecret.search(t), f"Hex-Secret in {f}")
             self.assertIsNone(mail.search(t), f"E-Mail in {f}")
-            for bad in ("/Users/", "/home/", "Co-Authored-By"):
+            for bad in ("/Users/", "/home/", "Co-" + "Authored-By"):
                 self.assertNotIn(bad, t, f"{bad} in {f}")
 
 
