@@ -141,7 +141,7 @@ deadline=$(( $(date +%s) + 2400 ))
 while :; do
   d=$(gh api "repos/$slug/releases?per_page=100" --jq '.[]|select(.tag_name=="'"$tag"'" and .draft)|.id' | head -n 1)
   [ -z "$d" ] || break
-  run=$(gh api "repos/$slug/actions/runs?per_page=20&event=push" --jq '[.workflow_runs[]|select(.head_branch=="'"$tag"'")][0]|[.status,.conclusion]|@tsv' 2>/dev/null || true)
+  run=$(gh api "repos/$slug/actions/runs?per_page=20&event=push" --jq '[.workflow_runs[]|select(.head_branch=="'"$tag"'" and .head_sha=="'"$sha"'")][0]|[.status,.conclusion]|@tsv' 2>/dev/null || true)
   case "$run" in *failure*|*cancelled*) die "the release workflow for $tag failed or was cancelled: gh run list --workflow release.yml" ;; esac
   [ "$(date +%s)" -lt "$deadline" ] || die "no release draft after 40 minutes; look at gh run list --workflow release.yml"
   printf '  waiting ... (%s)\n' "${run:-no run yet}"; sleep 30
