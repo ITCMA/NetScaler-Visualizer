@@ -824,22 +824,33 @@ class DependencyTests(unittest.TestCase):
 
 class GuiTests(unittest.TestCase):
     def test_gui_addpath_restricted_to_allowed_roots(self):
-        import tempfile
+        import os, tempfile
         from nsviz import gui
         with tempfile.TemporaryDirectory() as allowed, tempfile.TemporaryDirectory() as other:
             f = Path(allowed) / "a.ns.conf"
             f.write_text("add lb vserver x HTTP 10.0.0.1 80\n")
-            (Path(other) / "b.ns.conf").write_text("x\n")
+            out = Path(other) / "b.ns.conf"
+            out.write_text("x\n")
             st = gui.State(allow_roots=(allowed,))
-            self.assertEqual(st.local_path(str(f)), f.resolve())
-            self.assertEqual(st.local_path(allowed), Path(allowed).resolve())
-            with self.assertRaises(ValueError):
-                st.local_path(str(Path(other) / "b.ns.conf"))
-            with self.assertRaises(ValueError):
-                st.local_path(allowed + "/../" + Path(other).name + "/b.ns.conf")
-            with self.assertRaises(ValueError):
-                st.local_path(str(Path(allowed) / "missing.conf"))
-            shutil.rmtree(st.dir, ignore_errors=True)
+            try:
+                self.assertEqual(st.local_path(str(f)), [f.resolve()])
+                self.assertEqual(st.local_path(allowed), [f.resolve()])
+                with self.assertRaises(ValueError):
+                    st.local_path(str(out))
+                with self.assertRaises(ValueError):
+                    st.local_path(allowed + "/../" + Path(other).name + "/b.ns.conf")
+                with self.assertRaises(ValueError):
+                    st.local_path(str(Path(allowed) / "missing.conf"))
+                # a symlink inside the allowed folder that points outside is neither listed nor accepted directly
+                try:
+                    os.symlink(out, Path(allowed) / "link.ns.conf")
+                except (OSError, NotImplementedError):
+                    return
+                self.assertEqual(st.local_path(allowed), [f.resolve()])
+                with self.assertRaises(ValueError):
+                    st.local_path(str(Path(allowed) / "link.ns.conf"))
+            finally:
+                shutil.rmtree(st.dir, ignore_errors=True)
 
     def test_gui_roundtrip_and_security(self):
         import threading, urllib.request, urllib.error

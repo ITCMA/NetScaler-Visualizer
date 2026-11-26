@@ -66,15 +66,21 @@ class State:
             (self.paths if kind == "conf" else self.extra)[target.name if kind == "conf" else kind] = target
         return target.name
 
-    def local_path(self, raw: str) -> Path:
-        """Resolve a user-typed path and accept it only below one of the allowed folders (files elsewhere: upload them)."""
+    def _inside(self, real: str) -> bool:
+        return any(real == r or real.startswith(r.rstrip(os.sep) + os.sep) for r in self.roots)
+
+    def local_path(self, raw: str) -> list[Path]:
+        """Resolve a user-typed path, accept it only below an allowed folder (files elsewhere: upload them) and return the
+        config files it stands for: the file itself, or the ns.conf-like files found in the folder. Entries whose real
+        location (symlink target) lies outside the allowed folders are skipped."""
         real = os.path.realpath(os.path.expanduser(raw.strip().strip('"')))
-        for root in self.roots:
-            if real == root or real.startswith(root.rstrip(os.sep) + os.sep):
-                if os.path.isfile(real) or os.path.isdir(real):
-                    return Path(real)
-                raise ValueError("path not found")
-        raise ValueError("path outside the allowed folders (home, start folder, --allow-root)")
+        if not self._inside(real):
+            raise ValueError("path outside the allowed folders (home, start folder, --allow-root)")
+        if os.path.isfile(real):
+            return [Path(real)]
+        if not os.path.isdir(real):
+            raise ValueError("path not found")
+        return sorted(f for f in Path(real).rglob("*") if _looks_like_conf(f) and self._inside(os.path.realpath(f)))
 
     def reset(self) -> None:
         """Forget files, extras and reports (the page starts from scratch); uploads are removed from the temp folder."""
@@ -245,8 +251,7 @@ def make_handler(st: State, port: int):
                     name = st.add_upload(kind, (q.get("name") or ["config"])[0], self._body(MAX_UPLOAD))
                     self._json({"name": name})
                 elif u.path == "/api/addpath":
-                    p = st.local_path(json.loads(self._body(MAX_JSON)).get("path") or "")
-                    found = sorted(f for f in p.rglob("*") if _looks_like_conf(f)) if p.is_dir() else [p]
+                    found = st.local_path(json.loads(self._body(MAX_JSON)).get("path") or "")
                     names = []
                     for f in found:
                         n, i = f.name, 2
