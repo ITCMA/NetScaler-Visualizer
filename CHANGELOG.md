@@ -3,6 +3,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [S
 interface may change between minor versions).
 
 ## [Unreleased]
+### Security
+- Report/GUI front end: all values interpolated into HTML templates are now escaped; Markdown export escapes backslashes as well as pipes; hostname check for DNS root hints matches whole labels; the GUI resolves user-supplied local paths and accepts only files or folders (code-scanning findings).
 
 ## [0.4.2] - 2026-11-24
 ### Changed

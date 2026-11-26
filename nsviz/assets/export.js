@@ -79,7 +79,7 @@ function buildMarkdown(P) {
   SEV.forEach(s => {
     const l = fs.filter(f => f.severity === s); if (!l.length) return;
     L.push(`### ${sevLabel(s)} (${l.length})`, '');
-    l.forEach(f => { const r = D.rules[f.rule] || {}, rt = ruleText(r); L.push(`- **${f.rule}** ${rt.title} - ${P.s(msgOf(f)).replace(/\|/g, '\\|')}` + (rt.remediation ? `  \n  _${t('d_fix')}_ ${rt.remediation}` : '')); });
+    l.forEach(f => { const r = D.rules[f.rule] || {}, rt = ruleText(r); L.push(`- **${f.rule}** ${rt.title} - ${P.s(msgOf(f)).replace(/[\\|]/g, '\\$&')}` + (rt.remediation ? `  \n  _${t('d_fix')}_ ${rt.remediation}` : '')); });
     L.push('');
   });
   L.push('---', '', t('disclaimer'));

@@ -335,7 +335,7 @@ class Graph:
             if st.verb == "add" and st.etype.startswith("dns ") and st.etype.endswith("rec") and st.args:
                 if st.etype == "dns nsrec" and st.args[0] == ".":
                     continue
-                if st.etype == "dns addrec" and st.args[0].lower().endswith("root-servers.net"):
+                if st.etype == "dns addrec" and ("." + st.args[0].lower().rstrip(".")).endswith(".root-servers.net"):
                     continue
                 k = {"ADD": "A", "AAAA": "AAAA"}.get(st.etype[4:-3].upper(), st.etype[4:-3].upper())
                 recs[k] = recs.get(k, 0) + 1
