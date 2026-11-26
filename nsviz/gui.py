@@ -232,8 +232,10 @@ def make_handler(st: State, port: int):
                     name = st.add_upload(kind, (q.get("name") or ["config"])[0], self._body(MAX_UPLOAD))
                     self._json({"name": name})
                 elif u.path == "/api/addpath":
-                    p = Path((json.loads(self._body(MAX_JSON)).get("path") or "").strip().strip('"')).expanduser()
-                    if not p.exists():
+                    # local-only tool: the user deliberately points at their own files; resolve (no "..", no symlink tricks)
+                    # and accept only regular files or directories
+                    p = Path((json.loads(self._body(MAX_JSON)).get("path") or "").strip().strip('"')).expanduser().resolve()
+                    if not (p.is_file() or p.is_dir()):
                         raise ValueError("path not found")
                     found = sorted(f for f in p.rglob("*") if _looks_like_conf(f)) if p.is_dir() else [p]
                     names = []
