@@ -461,7 +461,7 @@ function renderKinds() {
   const dark = resolved() === 'dark';
   Object.keys(kindsPresent).sort((a, b) => tierOf(a) - tierOf(b) || kindLabel(a).localeCompare(kindLabel(b), lang)).forEach(k => {
     const on = state.kinds.has(k), c = kindStroke(k, dark), l = document.createElement('label'); l.className = 'chk kind' + (on ? '' : ' off');
-    l.innerHTML = `<span class="ico" style="border-color:${c};background:${kindFill(k, dark)}">${iconSvg(k, 16, c)}</span><span class="nm">${esc(kindLabel(k))}</span><span class="muted cnt">${kindsPresent[k]}</span><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}>`;
+    l.innerHTML = `<span class="ico" style="border-color:${c};background:${kindFill(k, dark)}">${iconSvg(k, 16, c)}</span><span class="nm">${esc(kindLabel(k))}</span><span class="muted cnt">${kindsPresent[k]}</span><input type="checkbox" data-k="${esc(k)}" ${on ? 'checked' : ''}>`;
     l.querySelector('input').onchange = e => { e.target.checked ? state.kinds.add(k) : state.kinds.delete(k); refresh(true); };
     box.appendChild(l);
   });
@@ -494,7 +494,7 @@ function renderLegend() {
 // ---- Details ----------------------------------------------------------------------------------
 function findingHtml(f) {
   const rm = D.rules[f.rule] || {}, r = { ...rm, ...ruleText(rm) };
-  return `<div class="finding ${f.severity}"><span class="sev ${esc(f.severity)}">${esc(sevLabel(f.severity))}</span> <b>${esc(f.rule)}</b> ${esc(r.title || '')}<br>${esc(msgOf(f))}
+  return `<div class="finding ${esc(f.severity)}"><span class="sev ${esc(f.severity)}">${esc(sevLabel(f.severity))}</span> <b>${esc(f.rule)}</b> ${esc(r.title || '')}<br>${esc(msgOf(f))}
   ${f.evidence && f.evidence.length ? '<pre>' + esc(f.evidence.join('\n')) + '</pre>' : ''}
   <details><summary>${esc(t('d_why'))}</summary><p>${esc(r.rationale)}</p><p><b>${esc(t('d_fix'))}</b> ${esc(r.remediation)}</p>
   <p><b>${esc(t('d_src'))}</b> ${(r.refs || []).map(esc).join('; ') || '–'}<br><b>${esc(t('d_conf'))}</b> ${esc(r.confidence)} · ${esc(catLabel(r.category))}</p></details></div>`;
@@ -571,7 +571,7 @@ D.nodes.forEach(n => { const o = outE[n.id] || []; const tk = id => (nodeById[id
 let invSort = [7, -1];
 const invCols = () => [['th_type', n => kindLabel(n.kind)], ['th_name', n => n.label], ['th_ipport', n => n.props['IP:Port'] || ''], ['th_proto', n => n.props['Protocol'] || ''], ['th_status', n => n.props['Status'] || ''], ['th_back', n => n.__back], ['th_certs', n => n.__certs], ['th_findings', n => n.findings.length]];
 function renderInvUi() {
-  const k = $('#i-kind'), kv = k.value; k.innerHTML = `<option value="">${esc(t('i_all'))}</option>` + VS.filter(x => kindsPresent[x]).map(x => `<option value="${x}">${esc(kindLabel(x))}</option>`).join(''); k.value = kv;
+  const k = $('#i-kind'), kv = k.value; k.innerHTML = `<option value="">${esc(t('i_all'))}</option>` + VS.filter(x => kindsPresent[x]).map(x => `<option value="${esc(x)}">${esc(kindLabel(x))}</option>`).join(''); k.value = kv;
   $('#t-inv thead tr').innerHTML = invCols().map((c, i) => `<th scope="col" data-c="${i}" tabindex="0" aria-sort="${invSort[0] === i ? (invSort[1] > 0 ? 'ascending' : 'descending') : 'none'}">${esc(c[0] === 'th_findings' ? t('tab_findings') : t(c[0]))}</th>`).join('');
   $$('#t-inv th').forEach(th => { const f = () => { const c = +th.dataset.c; invSort = [c, invSort[0] === c ? -invSort[1] : 1]; renderInvUi(); renderInv(); }; th.onclick = f; th.onkeydown = e => { if (e.key === 'Enter') f(); }; });
 }
@@ -621,10 +621,10 @@ function renderOverview() {
   const risk = D.nodes.map(n => [n, n.findings.reduce((a, i) => a + SEVW[findingsById[i].severity] + .1, 0)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const nDev = D.groups.reduce((a, g) => a + g.devices.length, 0);
   $('#overview').innerHTML = `<div class="grid">
-   <div class="card kpi"><svg class="ring" viewBox="0 0 132 132" role="img" aria-label="${esc(t('o_score'))}: ${score}"><circle class="bg" cx="66" cy="66" r="54"/><circle class="fg" cx="66" cy="66" r="54" stroke="${col}" stroke-dasharray="${C}" stroke-dashoffset="${C}" transform="rotate(-90 66 66)" data-to="${C * (1 - score / 100)}"/><text x="66" y="66" text-anchor="middle" dominant-baseline="central" id="sc">0</text></svg>
+   <div class="card kpi"><svg class="ring" viewBox="0 0 132 132" role="img" aria-label="${esc(t('o_score'))}: ${esc(score)}"><circle class="bg" cx="66" cy="66" r="54"/><circle class="fg" cx="66" cy="66" r="54" stroke="${esc(col)}" stroke-dasharray="${esc(C)}" stroke-dashoffset="${esc(C)}" transform="rotate(-90 66 66)" data-to="${esc(C * (1 - score / 100))}"/><text x="66" y="66" text-anchor="middle" dominant-baseline="central" id="sc">0</text></svg>
      <div><h3 style="margin:0">${esc(t('o_score'))}</h3><p class="muted small">${esc(t('o_score_hint'))}</p></div></div>
-   <div class="card"><h3>${esc(t('o_bysev'))}</h3><div class="bars">${SEV.map(s => `<button data-sev="${esc(s)}" aria-label="${esc(sevLabel(s))}: ${cnt[s]}"><span class="sev ${esc(s)}">${esc(sevLabel(s))}</span><span class="bar"><i style="background:var(--${s === 'medium' ? 'med' : s === 'critical' ? 'crit' : s})" data-w="${cnt[s] / max * 100}"></i></span><span class="n">${cnt[s]}</span></button>`).join('')}</div></div>
-   <div class="card"><h3>${esc(t('o_devs'))} · ${esc(t('o_obj'))} · ${esc(t('o_rel'))}</h3><div class="kpi" style="justify-content:space-around;text-align:center"><div><div class="num" data-n="${nDev}">0</div><div class="muted">${esc(t('o_devs'))}</div></div><div><div class="num" data-n="${D.nodes.length}">0</div><div class="muted">${esc(t('o_obj'))}</div></div><div><div class="num" data-n="${D.edges.length}">0</div><div class="muted">${esc(t('o_rel'))}</div></div></div>
+   <div class="card"><h3>${esc(t('o_bysev'))}</h3><div class="bars">${SEV.map(s => `<button data-sev="${esc(s)}" aria-label="${esc(sevLabel(s))}: ${esc(cnt[s])}"><span class="sev ${esc(s)}">${esc(sevLabel(s))}</span><span class="bar"><i style="background:var(--${s === 'medium' ? 'med' : s === 'critical' ? 'crit' : s})" data-w="${esc(cnt[s] / max * 100)}"></i></span><span class="n">${esc(cnt[s])}</span></button>`).join('')}</div></div>
+   <div class="card"><h3>${esc(t('o_devs'))} · ${esc(t('o_obj'))} · ${esc(t('o_rel'))}</h3><div class="kpi" style="justify-content:space-around;text-align:center"><div><div class="num" data-n="${esc(nDev)}">0</div><div class="muted">${esc(t('o_devs'))}</div></div><div><div class="num" data-n="${esc(D.nodes.length)}">0</div><div class="muted">${esc(t('o_obj'))}</div></div><div><div class="num" data-n="${esc(D.edges.length)}">0</div><div class="muted">${esc(t('o_rel'))}</div></div></div>
      ${D.chains.length ? `<h3 style="margin-top:14px">${esc(t('o_chain'))}</h3><p>${D.chains.map(c => c.map(esc).join(' → ')).join('<br>')}</p>` : ''}</div></div>
    <div class="card"><h3>${esc(t('o_top'))}</h3>${risk.length ? `<ul class="toplist">${risk.map(([n]) => { const w = worst(n.findings); return `<li tabindex="0" data-id="${esc(n.id)}"><span class="sev ${esc(w)}">${esc(sevLabel(w))}</span><span class="nm">${esc(n.label)} <span class="muted">${esc(kindLabel(n.kind))}</span></span><b>${n.findings.length}</b></li>`; }).join('')}</ul>` : `<div class="clean"><span class="party" aria-hidden="true">🎉</span>${esc(t('o_clean'))}</div>`}</div>
    ${!['de', 'en'].includes(lang) ? `<p class="banner">${esc(t('note_i18n'))}</p>` : ''}<p class="legal">${esc(t('disclaimer'))}</p>`;
@@ -672,7 +672,7 @@ function renderAll() {
     applyStatic(); renderTabs(); renderGroups(); renderKinds(); renderUnlinked(); renderLegend(); renderFindingsUi(); renderFindings(); renderInvUi(); renderInv(); renderProject(); renderLinks(); renderNfactor(); renderGateway(); renderCleanupSb(); renderRulesUi(); renderRules(); renderOverview();
   renderDetail(state.selected ? nodeById[state.selected] : null); showTab(curTab);
 }
-const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${c}">${esc(I18N[c]._name)}</option>`).join('');
+const ls = $('#lang'); ls.innerHTML = LANGS.map(c => `<option value="${esc(c)}">${esc(I18N[c]._name)}</option>`).join('');
 ls.onchange = () => { lang = ls.value; store.set('lang', lang); renderAll(); };
 
 // ---- Info button: longer explanations in a popover instead of text under the controls --------------------
