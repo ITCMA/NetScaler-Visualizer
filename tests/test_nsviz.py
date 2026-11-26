@@ -832,6 +832,7 @@ class GuiTests(unittest.TestCase):
             out = Path(other) / "b.ns.conf"
             out.write_text("x\n")
             st = gui.State(allow_roots=(allowed,))
+            st.roots = [os.path.realpath(allowed)]  # only this folder: on Windows the temp folders lie below the home folder, which is allowed by default
             try:
                 self.assertEqual(st.local_path(str(f)), [f.resolve()])
                 self.assertEqual(st.local_path(allowed), [f.resolve()])
