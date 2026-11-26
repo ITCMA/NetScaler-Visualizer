@@ -8,6 +8,7 @@ removed on exit. No telemetry, no external requests.
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 import shutil
@@ -39,8 +40,10 @@ def _looks_like_conf(p: Path) -> bool:
 
 
 class State:
-    def __init__(self, debug: bool = False) -> None:
+    def __init__(self, debug: bool = False, allow_roots: tuple[str, ...] = ()) -> None:
         self.debug = debug
+        # folders from which "add by path" may read: home, the start folder and anything given with --allow-root
+        self.roots = sorted({os.path.realpath(os.path.expanduser(r)) for r in ("~", os.getcwd(), *allow_roots)})
         self.token = secrets.token_urlsafe(24)
         self.dir = Path(tempfile.mkdtemp(prefix="nsviz-gui-"))
         self.paths: dict[str, Path] = {}      # display name -> file (uploads and referenced local paths)
@@ -62,6 +65,22 @@ class State:
         with self.lock:
             (self.paths if kind == "conf" else self.extra)[target.name if kind == "conf" else kind] = target
         return target.name
+
+    def _inside(self, real: str) -> bool:
+        return any(real == r or real.startswith(r.rstrip(os.sep) + os.sep) for r in self.roots)
+
+    def local_path(self, raw: str) -> list[Path]:
+        """Resolve a user-typed path, accept it only below an allowed folder (files elsewhere: upload them) and return the
+        config files it stands for: the file itself, or the ns.conf-like files found in the folder. Entries whose real
+        location (symlink target) lies outside the allowed folders are skipped."""
+        real = os.path.realpath(os.path.expanduser(raw.strip().strip('"')))
+        if not self._inside(real):
+            raise ValueError("path outside the allowed folders (home, start folder, --allow-root)")
+        if os.path.isfile(real):
+            return [Path(real)]
+        if not os.path.isdir(real):
+            raise ValueError("path not found")
+        return sorted(f for f in Path(real).rglob("*") if _looks_like_conf(f) and self._inside(os.path.realpath(f)))
 
     def reset(self) -> None:
         """Forget files, extras and reports (the page starts from scratch); uploads are removed from the temp folder."""
@@ -232,12 +251,7 @@ def make_handler(st: State, port: int):
                     name = st.add_upload(kind, (q.get("name") or ["config"])[0], self._body(MAX_UPLOAD))
                     self._json({"name": name})
                 elif u.path == "/api/addpath":
-                    # local-only tool: the user deliberately points at their own files; resolve (no "..", no symlink tricks)
-                    # and accept only regular files or directories
-                    p = Path((json.loads(self._body(MAX_JSON)).get("path") or "").strip().strip('"')).expanduser().resolve()
-                    if not (p.is_file() or p.is_dir()):
-                        raise ValueError("path not found")
-                    found = sorted(f for f in p.rglob("*") if _looks_like_conf(f)) if p.is_dir() else [p]
+                    found = st.local_path(json.loads(self._body(MAX_JSON)).get("path") or "")
                     names = []
                     for f in found:
                         n, i = f.name, 2
@@ -279,8 +293,8 @@ def _say(text: str) -> None:
         pass
 
 
-def serve(port: int = 0, open_browser: bool = True, debug: bool = False) -> int:
-    st = State(debug=debug)
+def serve(port: int = 0, open_browser: bool = True, debug: bool = False, allow_roots: tuple[str, ...] = ()) -> int:
+    st = State(debug=debug, allow_roots=allow_roots)
     # the handler needs the real port for the Host check; bind first
     srv = ThreadingHTTPServer(("127.0.0.1", port), BaseHTTPRequestHandler)
     real = srv.server_address[1]

@@ -4,6 +4,7 @@ interface may change between minor versions).
 
 ## [Unreleased]
 ### Security
+- GUI: "add by path" now reads only below the home folder, the start folder or folders given with `nsviz gui --allow-root DIR`; paths are resolved (no `..`, no symlink escape) before the check. Files elsewhere can still be added by upload.
 - Report/GUI front end: all values interpolated into HTML templates are now escaped; Markdown export escapes backslashes as well as pipes; hostname check for DNS root hints matches whole labels; the GUI resolves user-supplied local paths and accepts only files or folders (code-scanning findings).
 
 ## [0.4.2] - 2026-11-24
