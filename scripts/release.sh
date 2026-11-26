@@ -8,8 +8,10 @@
 #   scripts/release.sh --dry-run     # all checks and the release text, changes nothing
 #
 # Steps:
-#   1 Checks   on main, clean tree, in sync with origin, CHANGELOG section for the version, CI green on this commit,
-#              tag does not exist yet. Stops with a clear message otherwise.
+#   1 Checks   on main, clean tree (else abort). A checkout that is only behind origin/main is fast-forwarded
+#              (git pull --ff-only, also in a dry run; local only). Unpushed commits or a diverged main abort.
+#              Then: CHANGELOG section for the version, CI on this commit (red or still running aborts), tag does not
+#              exist yet. Shows the version and the last tag. Stops with a clear message otherwise.
 #   2 Tag      after you type the tag name: annotated tag, pushed to origin (starts the release workflow).
 #   3 Build    waits for the "Release builds" run of the tag and for the release draft.
 #   4 Sign     runs scripts/publish_release.sh (signs, notarizes, uploads to the draft).
@@ -51,19 +53,38 @@ tag="v$version"
 echo "Repository $slug, version $version, tag $tag"
 
 [ "$(git branch --show-current)" = "main" ] || die "not on branch main (use: git switch main)"
-[ -z "$(git status --porcelain)" ] || die "the working tree has uncommitted changes; commit or stash them first"
+[ -z "$(git status --porcelain)" ] || die "the working tree has uncommitted changes; commit or stash them first. Nothing was changed."
 git fetch -q origin main --tags
-[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main differs from origin/main (git pull --ff-only, or push first)"
-ok "on main, clean, in sync with origin ($(git rev-parse --short HEAD))"
+local_sha=$(git rev-parse HEAD); remote_sha=$(git rev-parse origin/main)
+if [ "$local_sha" != "$remote_sha" ]; then
+  if git merge-base --is-ancestor "$local_sha" "$remote_sha"; then
+    n=$(git rev-list --count "$local_sha..$remote_sha")
+    echo "Local main is $n commit(s) behind origin/main: git pull --ff-only"
+    git pull -q --ff-only origin main || die "git pull --ff-only failed; nothing was changed by this script beyond the fetch"
+  elif git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    die "local main is ahead of origin/main by $(git rev-list --count "$remote_sha..$local_sha") commit(s) that are not pushed; push or reset them first (a release is built from origin/main)"
+  else
+    die "local main and origin/main have diverged ($(git rev-list --count "$remote_sha..$local_sha") local, $(git rev-list --count "$local_sha..$remote_sha") remote commits); sort that out first (nothing was changed)"
+  fi
+fi
+[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main differs from origin/main after the update"
+version=$(sed -n 's/^__version__ *= *"\([^"]*\)".*/\1/p' nsviz/__init__.py)  # read again: the update may have changed it
+tag="v$version"
+last=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n 1)
+ok "on main, clean, in sync with origin ($(git rev-parse --short HEAD)); version $version, last tag ${last:-none}"
 
 sec=$(awk -v v="$version" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md)
 [ -n "$(printf '%s' "$sec" | tr -d '[:space:]')" ] || die "CHANGELOG.md has no filled section '## [$version]'"
 ok "CHANGELOG section for $version found ($(printf '%s\n' "$sec" | grep -c .) lines)"
 
 sha=$(git rev-parse HEAD)
-ci=$(gh api "repos/$slug/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[]|select(.name|startswith("test"))]|[length, (map(select(.conclusion=="success"))|length)]|@tsv')
-total=${ci%%$'\t'*}; good=${ci##*$'\t'}
-{ [ "$total" -gt 0 ] && [ "$total" = "$good" ]; } || die "CI is not green on $sha ($good of $total test jobs succeeded). Wait for CI or fix it."
+cr=$(gh api "repos/$slug/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[]|select(.name|startswith("test"))]|[length, (map(select(.conclusion=="success"))|length), (map(select(.status!="completed"))|length), (map(select(.status=="completed" and .conclusion!="success" and .conclusion!="skipped" and .conclusion!="neutral"))|length)]|@tsv')
+IFS=$'\t' read -r total good running bad <<EOT
+$cr
+EOT
+[ "$bad" = "0" ] || die "CI is RED on $sha ($bad failed test job(s)); fix main first"
+[ "$running" = "0" ] || die "CI is still running on $sha ($running test job(s)); wait and run again"
+{ [ "$total" -gt 0 ] && [ "$total" = "$good" ]; } || die "CI is not green on $sha ($good of $total test jobs succeeded)"
 ok "CI green on this commit ($good of $total test jobs)"
 
 tag_local=0; git rev-parse -q --verify "refs/tags/$tag" >/dev/null && tag_local=1
