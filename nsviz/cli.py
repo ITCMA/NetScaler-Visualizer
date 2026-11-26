@@ -92,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--port", type=int, default=0, help="port (default: a free one)")
     g.add_argument("--no-browser", action="store_true", help="only print the URL")
     g.add_argument("--debug", action="store_true", help="show the debug tools in generated reports; off by default")
+    g.add_argument("--allow-root", action="append", default=[], metavar="DIR", help="additional folder the GUI may read by typed path (repeatable; default: home and start folder; other files can be uploaded)")
     d = sub.add_parser("resolve", help="OPTIONAL: resolve the FQDNs found in the configs by DNS and write a hosts file (queries a DNS server!)")
     d.add_argument("paths", nargs="+", help="ns.conf files or folders")
     d.add_argument("-o", "--output", help="write the hosts file here (default: print)")
@@ -108,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "gui":
         from .gui import serve
-        return serve(args.port, not args.no_browser, debug=args.debug)
+        return serve(args.port, not args.no_browser, debug=args.debug, allow_roots=tuple(args.allow_root))
 
     if args.cmd == "anonymize":
         from .anonymize import anonymize_paths
